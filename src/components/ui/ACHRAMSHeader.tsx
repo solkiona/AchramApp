@@ -32,7 +32,7 @@ const ACHRAMSHeader: React.FC<ACHRAMSHeaderProps> = ({
     {/* Logo Box */}
     <div className="w-12 h-12 bg-achrams-gradient-primary rounded-xl flex items-center justify-center shadow-lg">
       <Image
-        src="/images/achrams-logo.png"
+        src="/images/logo.png"
         alt="ACHRAMS Logo"
         width={25}
         height={25}

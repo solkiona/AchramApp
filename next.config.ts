@@ -12,11 +12,6 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
 
-  // ✅ Ignore ESLint errors during build (test deployments only!)
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-
   experimental: {
     // reactCompiler: false,
   },

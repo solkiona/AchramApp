@@ -410,7 +410,7 @@ export default function ACHRAMApp() {
             <div className="absolute inset-0 bg-white/20 animate-sweep pointer-events-none"></div>
 
             <Image
-              src="/images/achrams-logo.png"
+              src="/images/logo.png"
               alt="ACHRAMS Logo"
               width={30}
               height={30}
