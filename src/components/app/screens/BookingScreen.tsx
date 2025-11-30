@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MapPin, Navigation, Plane, ChevronDown, X } from 'lucide-react';
+import { MapPin, Navigation, Plane, ChevronDown, X, Loader } from 'lucide-react'; // NEW: Add Gps and Loader
 import { useGeolocation } from '@/hooks/useGeolocation';
 import ACHRAMSHeader from '@/components/ui/ACHRAMSHeader';
 
@@ -78,6 +78,9 @@ export default function BookingScreen({
   const [destOpen, setDestOpen] = useState(false);
   const { coords, error, requestPermission } = useGeolocation(); // Destructure coords
 
+  // NEW: State to track if location is being fetched
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+
   // NEW: State to hold full pickup location data including coordinates
   const [pickupLocationData, setPickupLocationData] = useState<LocationData>({
     name: pickup,
@@ -125,18 +128,33 @@ export default function BookingScreen({
   }, [destinationLocationData, pickupLocationData, setFareEstimate]); // Depend on location data
 
 
+  // NEW: Updated handleUseCurrentLocation function
   const handleUseCurrentLocation = async () => {
-    const granted = await requestPermission();
-    if (granted && coords) {
-      // In a real app, you'd reverse geocode coords.latitude, coords.longitude
-      setPickupLocationData({
-        name: 'Your current location', // Placeholder
-        coords: [coords.longitude, coords.latitude] // [lng, lat]
-      });
-      setPickupOpen(false);
-    } else if (error) {
-      console.error("Location error:", error);
+    // NEW: Set fetching state and close dropdown immediately
+    setIsFetchingLocation(true);
+    setPickupOpen(false); // Close dropdown when fetching starts
+
+    try {
+      const granted = await requestPermission();
+      if (granted && coords) {
+        // In a real app, you'd reverse geocode coords.latitude, coords.longitude
+        setPickupLocationData({
+          name: 'Your current location', // Placeholder
+          coords: [coords.longitude, coords.latitude] // [lng, lat]
+        });
+        // Dropdown is already closed
+      } else if (error) {
+        console.error("Location error:", error);
+        // Optionally show a user-friendly message within the UI
+        // e.g., setErrorState("Failed to get location: " + error);
+      }
+    } catch (err) {
+      console.error("Unexpected error during location fetch:", err);
       // Optionally show a user-friendly message
+      // setErrorState("An unexpected error occurred while getting your location.");
+    } finally {
+      // NEW: Always stop fetching state when done (success or failure)
+      setIsFetchingLocation(false);
     }
   };
 
@@ -193,50 +211,95 @@ export default function BookingScreen({
         <div className="space-y-4">
           {/* Pickup */}
           <div className="relative">
+            {/* Main Input Field */}
             <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border">
               <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
               <input
                 type="text"
                 placeholder="Airport pickup location"
-                value={pickupLocationData.name} // Use name from local state
-                onChange={(e) => setPickupLocationData(prev => ({ ...prev, name: e.target.value }))} // Update local state
-                onFocus={() => setPickupOpen(true)}
-                className="flex-1 bg-transparent outline-none text-base text-achrams-text-primary"
+                // NEW: Show fetching message or actual name, make read-only if fetching
+                value={isFetchingLocation ? 'Getting your location...' : pickupLocationData.name}
+                // NEW: Disable input while fetching
+                onChange={(e) => {
+                    if (!isFetchingLocation) {
+                        setPickupLocationData(prev => ({ ...prev, name: e.target.value }));
+                    }
+                }}
+                onFocus={() => {
+                    if (!isFetchingLocation) {
+                        setPickupOpen(true);
+                    }
+                }}
+                // NEW: Show read-only state while fetching
+                readOnly={isFetchingLocation}
+                className={`flex-1 bg-transparent outline-none text-base ${
+                  // NEW: Apply different text color when fetching to indicate disabled state
+                  isFetchingLocation ? 'text-achrams-text-secondary italic' : 'text-achrams-text-primary'
+                }`}
               />
-              <button
-                onClick={() => setPickupOpen(!pickupOpen)}
-                className="p-2 text-achrams-text-secondary hover:text-achrams-text-primary transition-colors"
-              >
-                {pickupOpen ? (
-                  <ChevronDown className="w-5 h-5" />
-                ) : (
-                  <Navigation className="w-5 h-5" />
+              {/* Dropdown/Open Button */}
+              <div className="flex items-center">
+                {/* NEW: Show loader next to dropdown button while fetching, disable button */}
+                {isFetchingLocation && (
+                  <Loader className="w-5 h-5 animate-spin text-achrams-primary-solid mr-1" />
                 )}
-              </button>
-            </div>
-            {pickupOpen && (
-              // Dropdown now uses solid background color and border
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 max-h-64 overflow-y-auto">
                 <button
-                  onClick={handleUseCurrentLocation}
-                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-achrams-bg-secondary border-b border-achrams-border text-left"
+                  onClick={() => {
+                      if (!isFetchingLocation) {
+                          setPickupOpen(!pickupOpen);
+                      }
+                  }}
+                  disabled={isFetchingLocation} // NEW: Disable button while fetching
+                  className={`p-2 ${
+                    // NEW: Apply different text color and cursor when disabled
+                    isFetchingLocation ? 'text-achrams-text-secondary opacity-50 cursor-not-allowed' : 'text-achrams-text-secondary hover:text-achrams-text-primary'
+                  } transition-colors`}
                 >
-                  <MapPin className="w-5 h-5 text-achrams-primary-solid flex-shrink-0" />
-                  <span className="text-achrams-text-primary">Use my current location</span>
+                  {/* NEW: Show spinner inside button instead of Navigation icon while fetching */}
+                  {isFetchingLocation ? (
+                    <Loader className="w-5 h-5 animate-spin text-achrams-primary-solid" />
+                  ) : (
+                    pickupOpen ? <ChevronDown className="w-5 h-5" /> : <Navigation className="w-5 h-5" />
+                  )}
                 </button>
-                {airports.slice(1).map((a) => (
-                  <button
-                    key={a.id}
-                    onClick={() => handleAirportSelect(a.id)} // Use new handler
-                    className="w-full px-4 py-3 flex items-start gap-3 hover:bg-achrams-bg-secondary border-b border-achrams-border text-left"
-                  >
-                    <Plane className="w-5 h-5 text-achrams-primary-solid flex-shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-medium text-achrams-text-primary text-sm">{a.name}</div>
-                      <div className="text-xs text-achrams-text-secondary">{a.city}</div>
-                    </div>
-                  </button>
-                ))}
+              </div>
+            </div>
+
+            {/* Dropdown Content */}
+            {pickupOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 max-h-64 overflow-y-auto">
+                {/* NEW: Show fetching indicator if loading, otherwise show options */}
+                {isFetchingLocation ? (
+                  <div className="w-full px-4 py-3 flex items-center gap-3 justify-center text-achrams-text-secondary">
+                    <Loader className="w-5 h-5 animate-spin mr-2" />
+                    <span>Locating you...</span> {/* NEW: Professional message */}
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleUseCurrentLocation}
+                      disabled={isFetchingLocation} // NEW: Disable button while fetching (shouldn't be reachable here, but good practice)
+                      className="w-full px-4 py-3 flex items-center gap-3 hover:bg-achrams-bg-secondary border-b border-achrams-border text-left disabled:opacity-50 disabled:cursor-not-allowed" // NEW: Add disabled styles
+                    >
+                      <MapPin className="w-5 h-5 text-achrams-primary-solid flex-shrink-0" />
+                      <span>Use my current location</span>
+                    </button>
+                    {/* ... Other Airport Buttons ... */}
+                    {airports.slice(1).map((a) => (
+                      <button
+                        key={a.id}
+                        onClick={() => handleAirportSelect(a.id)} // Use new handler
+                        className="w-full px-4 py-3 flex items-start gap-3 hover:bg-achrams-bg-secondary border-b border-achrams-border text-left"
+                      >
+                        <Plane className="w-5 h-5 text-achrams-primary-solid flex-shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-medium text-achrams-text-primary text-sm">{a.name}</div>
+                          <div className="text-xs text-achrams-text-secondary">{a.city}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </>
+                )}
               </div>
             )}
           </div>
