@@ -1,0 +1,3627 @@
+----- FILE: src/contexts/AuthContext.tsx -----
+// src/contexts/AuthContext.tsx
+'use client';
+
+import { createContext, useContext, useState, useEffect } from 'react';
+
+type AuthContextType = {
+  token: string | null;
+  isAuthenticated: boolean;
+};
+
+const AuthContext = createContext<AuthContextType>({ token: null, isAuthenticated: false });
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [token, setToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    setToken(stored);
+  }, []);
+
+  return (
+    <AuthContext.Provider value={{ token, isAuthenticated: !!token }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export const useAuth = () => useContext(AuthContext);
+
+----- FILE: src/components/ClientProviders.tsx -----
+// src/components/ClientProviders.tsx
+'use client';
+
+import { AuthProvider } from '@/contexts/AuthContext';
+import QueryProvider from './QueryProvider'; // Assume this exists
+
+interface ClientProvidersProps {
+  children: React.ReactNode;
+}
+
+export default function ClientProviders({ children }: ClientProvidersProps) {
+  return (
+    <AuthProvider>
+      <QueryProvider>
+        {children}
+      </QueryProvider>
+    </AuthProvider>
+  );
+}
+
+----- FILE: src/components/navigation/BottomNavBar.tsx -----
+import React from 'react';
+import Link from 'next/link';
+import { Home, History, CreditCard, User, Car } from 'lucide-react'; // Added Car for Booking
+import { usePathname } from 'next/navigation';
+
+const BottomNavBar: React.FC = () => {
+  const pathname = usePathname();
+
+  const navItems = [
+    { href: '/', label: 'Home', icon: Home },
+    { href: '/booking', label: 'Book', icon: Car }, // Using Car for booking
+    { href: '/history', label: 'History', icon: History },
+    { href: '/wallet', label: 'Wallet', icon: CreditCard },
+    { href: '/profile', label: 'Profile', icon: User },
+  ];
+
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 bg-achrams-background-primary border-t border-achrams-border p-3 flex justify-around z-10">
+      {navItems.map((item) => {
+        const IconComponent = item.icon;
+        const isActive = pathname === item.href;
+
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`flex flex-col items-center gap-1 p-2 rounded-lg min-w-[60px] ${
+              isActive
+                ? 'text-achrams-primary-solid'
+                : 'text-achrams-text-secondary'
+            }`}
+            aria-current={isActive ? 'page' : undefined}
+          >
+            <IconComponent className="w-6 h-6" />
+            <span className="text-xs">{item.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+};
+
+export default BottomNavBar;
+
+----- FILE: src/components/layout/BottomNavBar.tsx -----
+// src/components/layout/BottomNavBar.tsx
+import React from 'react';
+import { useRouter } from 'next/navigation';
+import { Home, MapPin, User, WalletCards } from 'lucide-react';
+import { twMerge } from 'tailwind-merge';
+
+interface BottomNavBarProps {
+  activeTab: 'home' | 'book' | 'profile' | 'wallet'; // Define active tab prop
+}
+
+const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab }) => {
+  const router = useRouter();
+
+  const navItems = [
+    { id: 'home', icon: Home, label: 'Home', path: '/' },
+    { id: 'book', icon: MapPin, label: 'Book', path: '/booking/details' },
+    { id: 'wallet', icon: WalletCards, label: 'Wallet', path: '/wallet' },
+    { id: 'profile', icon: User, label: 'Profile', path: '/profile' },
+  ];
+
+  return (
+    <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md bg-achrams-background-primary border-t border-achrams-border py-2 px-4 flex justify-around items-center z-20">
+      {navItems.map((item) => (
+        <button
+          key={item.id}
+          onClick={() => router.push(item.path)}
+          className={twMerge(
+            'flex flex-col items-center gap-1 p-2 rounded-lg transition-colors w-full',
+            activeTab === item.id
+              ? 'text-achrams-primary-solid' // Active tab color
+              : 'text-achrams-text-secondary hover:text-achrams-text-primary' // Inactive tab color
+          )}
+          aria-label={item.label}
+        >
+          <item.icon className="w-6 h-6" />
+          <span className="text-xs font-medium">{item.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+};
+
+export default BottomNavBar;
+
+----- FILE: src/components/ui/Input.tsx -----
+// src/components/ui/Input.tsx
+import { InputHTMLAttributes } from 'react';
+import { twMerge } from 'tailwind-merge';
+
+interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  error?: string;
+  icon?: React.ReactNode;
+}
+
+const Input: React.FC<InputProps> = ({
+  label,
+  error,
+  icon,
+  className,
+  ...props
+}) => {
+  const containerClasses = twMerge(
+    'w-full',
+    className
+  );
+
+  const inputClasses = twMerge(
+    'w-full pl-10 pr-4 py-3 bg-achrams-background-card rounded-xl border border-achrams-border focus:outline-none focus:ring-2 focus:ring-achrams-primary-solid',
+    error ? 'border-red-500 focus:ring-red-500' : '',
+    icon ? 'pl-10' : 'pl-4'
+  );
+
+  return (
+    <div className={containerClasses}>
+      {label && <label className="block text-sm font-medium text-achrams-text-primary mb-1">{label}</label>}
+      <div className="relative">
+        {icon && <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-achrams-text-secondary">{icon}</div>}
+        <input
+          className={inputClasses}
+          {...props}
+        />
+      </div>
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+    </div>
+  );
+};
+
+export default Input;
+
+----- FILE: src/components/ui/OTPInput.tsx -----
+// src/components/ui/OTPInput.tsx
+import React, { useState, useRef, useEffect } from 'react';
+import { twMerge } from 'tailwind-merge';
+
+interface OTPInputProps {
+  length?: number;
+  onChange: (otp: string) => void;
+  onComplete?: (otp: string) => void;
+  autoFocus?: boolean;
+  containerClassName?: string;
+  inputClassName?: string;
+  error?: string; // Add error prop
+}
+
+const OTPInput: React.FC<OTPInputProps> = ({
+  length = 5,
+  onChange,
+  onComplete,
+  autoFocus = true,
+  containerClassName,
+  inputClassName,
+  error,
+}) => {
+  const [otp, setOtp] = useState<string[]>(Array(length).fill(''));
+  const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+
+  useEffect(() => {
+    if (autoFocus && inputRefs.current[0]) {
+      inputRefs.current[0]?.focus();
+    }
+  }, [autoFocus]);
+
+  const handleChange = (index: number, value: string) => {
+    if (/^\d*$/.test(value) && value.length <= 1) {
+      const newOtp = [...otp];
+      newOtp[index] = value;
+      setOtp(newOtp);
+
+      onChange(newOtp.join(''));
+
+      // Auto-focus next input
+      if (value && index < length - 1) {
+        inputRefs.current[index + 1]?.focus();
+      }
+
+      // Auto-submit if all filled
+      const allFilled = newOtp.every(digit => digit !== '');
+      if (allFilled && newOtp.join('').length === length) {
+        onComplete?.(newOtp.join(''));
+      }
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Allow backspace to clear current and move to previous
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const containerClasses = twMerge(
+    'flex gap-3 justify-center bg-achrams-secondary-solid/50 ',
+    containerClassName
+  );
+
+  const inputClasses = twMerge(
+    'w-14 h-14 text-center text-2xl font-bold border-2 border-achrams-border rounded-xl focus:outline-none focus:ring-2 focus:ring-achrams-primary-solid bg-achrams-background-card',
+    error ? 'border-red-500 focus:ring-red-500' : 'focus:border-achrams-primary-solid',
+    inputClassName
+  );
+
+  return (
+    <div className={containerClasses}>
+      {otp.map((digit, index) => (
+        <input
+          key={index}
+          ref={(el) => (inputRefs.current[index] = el)}
+          type="text"
+          inputMode="numeric"
+          maxLength={1}
+          value={digit}
+          onChange={(e) => handleChange(index, e.target.value)}
+          onKeyDown={(e) => handleKeyDown(index, e)}
+          className={inputClasses}
+        />
+      ))}
+      {error && <p className="mt-2 text-sm text-red-600 w-full text-center">{error}</p>}
+    </div>
+  );
+};
+
+export default OTPInput;
+
+----- FILE: src/components/ui/ACHRAMSHeader.tsx -----
+import React from 'react';
+import { X } from 'lucide-react';
+import { twMerge } from 'tailwind-merge';
+import Image from "next/image"
+
+interface ACHRAMSHeaderProps {
+  title: string;
+  showBackButton?: boolean;
+  onBackClick?: () => void;
+  showLogo?: boolean; // New prop to control logo visibility
+  className?: string;
+}
+
+const ACHRAMSHeader: React.FC<ACHRAMSHeaderProps> = ({
+  title,
+  showBackButton = false,
+  onBackClick,
+  showLogo = true, // Default to true to maintain existing behavior on other screens
+  className = "",
+}) => {
+  return (
+    <div
+      className={twMerge(
+        " text-achrams-text-light  flex items-center gap-4 ",
+        className
+      )}
+    >
+      {/* Conditionally render the Logo Container */}
+      {showLogo && (<>
+        <div className="max-w-7xl mx-auto">
+  <div className="flex items-center h-20 space-x-3">
+    {/* Logo Box */}
+    <div className="w-12 h-12 bg-achrams-gradient-primary rounded-xl flex items-center justify-center shadow-lg">
+      <Image
+        src="/images/achrams-logo.png"
+        alt="ACHRAMS Logo"
+        width={25}
+        height={25}
+        className="object-contain"
+      />
+    </div>
+
+    {/* Title + Subtitle */}
+    <div className="text-left flex flex-col items-start">
+      <h1 className="text-2xl font-bold text-white ">
+        ACHRAMS
+      </h1>
+      {/* text-achrams-primary-solid */}
+      <p className="text-xs text-gray-300">
+        Official Airport Car Hire
+      </p>
+    </div>
+  </div>
+</div>
+
+
+      
+      </>
+      )}
+
+      {showBackButton && (
+        <button
+          onClick={onBackClick}
+          aria-label="Go back"
+          className="p-1" // Add padding for touch target size
+        >
+          <X className="w-6 h-6" />
+        </button>
+      )}
+      <h2 className="text-lg font-bold flex-1 text-center">
+        {title}
+      </h2>
+    </div>
+  );
+};
+
+export default ACHRAMSHeader;
+
+----- FILE: src/components/ui/Button.tsx -----
+// src/components/ui/Button.tsx
+import { ButtonHTMLAttributes } from 'react';
+import { twMerge } from 'tailwind-merge';
+
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
+  size?: 'sm' | 'md' | 'lg';
+  isLoading?: boolean;
+}
+
+const Button: React.FC<ButtonProps> = ({
+  children,
+  className,
+  variant = 'primary',
+  size = 'md',
+  isLoading = false,
+  disabled,
+  ...props
+}) => {
+  const baseClasses = 'font-semibold rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const sizeClasses = {
+    sm: 'text-xs py-2 px-4',
+    md: 'text-sm py-3 px-6',
+    lg: 'text-base py-4 px-8',
+  };
+  const variantClasses = {
+    primary: 'bg-achrams-gradient-primary text-achrams-text-light hover:opacity-90 focus:ring-achrams-primary-solid',
+    secondary: 'bg-achrams-secondary-solid text-achrams-text-light hover:bg-opacity-90 focus:ring-achrams-secondary-solid',
+    outline: 'border border-achrams-border text-achrams-text-primary bg-transparent hover:bg-achrams-background-secondary focus:ring-achrams-border',
+    ghost: 'text-achrams-text-primary hover:bg-achrams-background-secondary focus:ring-achrams-border',
+  };
+
+  const disabledClasses = disabled || isLoading ? 'opacity-60 cursor-not-allowed' : '';
+
+  const classes = twMerge(
+    baseClasses,
+    sizeClasses[size],
+    variantClasses[variant],
+    disabledClasses,
+    className
+  );
+
+  return (
+    <button
+      className={classes}
+      disabled={disabled || isLoading}
+      {...props}
+    >
+      {isLoading ? (
+        <span className="flex items-center justify-center">
+          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Loading...
+        </span>
+      ) : (
+        children
+      )}
+    </button>
+  );
+};
+
+export default Button;
+
+----- FILE: src/components/QueryProvider.tsx -----
+// src/components/QueryProvider.tsx
+"use client"; // This marks the entire file as a Client Component
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactNode, useState } from "react";
+
+const QueryProvider = ({ children }: { children: ReactNode }) => {
+  // Use useState to create the QueryClient instance only on the client side
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 5 * 60 * 1000, // 5 minutes
+          },
+        },
+      })
+  );
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+    </QueryClientProvider>
+  );
+};
+
+export default QueryProvider;
+
+----- FILE: src/components/icons/GoogleColor.tsx -----
+export default function GoogleIconColor({ size = 24 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 533.5 544.3"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path fill="#4285F4" d="M533.5 278.4c0-18.6-1.5-37.3-4.8-55.6H272v105.2h147.7c-6.4 35.6-26.1 65.7-55.3 85.9l89.3 69.2c52-48 82-118.6 82-204.7z"/>
+      <path fill="#34A853" d="M272 544.3c74.7 0 137.4-24.7 183.1-67.2l-89.3-69.2c-24.8 16.8-56.6 26.6-93.8 26.6-72.2 0-133.4-48.8-155.3-114.2H25.8v71.9c45.8 90.8 139.3 152.1 246.2 152.1z"/>
+      <path fill="#FBBC05" d="M116.7 320.3c-5.8-17.3-9-35.7-9-54.3s3.2-37 9-54.3V139.8H25.8C9.3 174.6 0 214.4 0 266c0 51.6 9.3 91.4 25.8 126.2l90.9-71.9z"/>
+      <path fill="#EA4335" d="M272 107.1c40.7 0 77.3 14 106 41.4l79.3-79.3C409.3 24.7 346.6 0 272 0 165.1 0 71.6 61.3 25.8 152.1l90.9 71.9C138.6 155.9 199.8 107.1 272 107.1z"/>
+    </svg>
+  );
+}
+
+
+----- FILE: src/components/app/modals/ProfileModal.tsx -----
+// src/components/app/modals/ProfileModal.tsx
+import { X, Phone, Mail, Star, Shield, ChevronRight } from 'lucide-react';
+import { PassengerAccount } from '@/types/passenger'; // You can define this type
+
+interface ProfileModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  passenger: PassengerAccount | null;
+  onLogout: () => void;
+}
+
+export default function ProfileModal({
+  isOpen,
+  onClose,
+  passenger,
+  onLogout,
+}: ProfileModalProps) {
+  if (!isOpen || !passenger) return null;
+
+  const initials = `${passenger.first_name.charAt(0)}${passenger.last_name.charAt(0)}`.toUpperCase();
+
+  return (
+    <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50 animate-fadeIn">
+      <div className="bg-white w-full rounded-t-3xl animate-slideUp max-h-[90vh] overflow-y-auto">
+        <div className="bg-achrams-primary-solid text-white px-6 py-8">
+          <button onClick={onClose} className="mb-6">
+            <X className="w-6 h-6" />
+          </button>
+          <div className="flex items-center gap-4">
+            <div className="w-20 h-20 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-2xl font-bold shadow-lg">
+              {initials}
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold mb-1">
+                {passenger.first_name} {passenger.last_name}
+              </h3>
+              {passenger.is_2fa_enabled && (
+                <div className="flex items-center gap-1 text-xs text-green-200">
+                  <Shield className="w-4 h-4" />
+                  <span>2FA enabled</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-6 space-y-6">
+          {/* Contact Info */}
+          <div>
+            <h4 className="font-bold mb-4 text-gray-800">Contact information</h4>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
+                <Phone className="w-5 h-5 text-gray-600" />
+                <div>
+                  <div className="text-xs text-gray-500 mb-1">Phone</div>
+                  <div className="font-medium">{passenger.phone_number}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
+                <Mail className="w-5 h-5 text-gray-600" />
+                <div>
+                  <div className="text-xs text-gray-500 mb-1">Email</div>
+                  <div className="font-medium">{passenger.email}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Account Stats */}
+          {passenger.profile?.wallet && (
+            <div>
+              <h4 className="font-bold mb-4 text-gray-800">Wallet</h4>
+              <div className="p-4 bg-gray-50 rounded-xl">
+                <div className="text-lg font-bold">
+                  {passenger.profile.wallet.balance.formatted}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Settings & Support */}
+          <div>
+            <h4 className="font-bold mb-4 text-gray-800">Account</h4>
+            <div className="space-y-2">
+              <button className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100">
+                <span>Security & 2FA</span>
+                <ChevronRight className="w-5 h-5 text-gray-500" />
+              </button>
+              <button className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100">
+                <span>Payment methods</span>
+                <ChevronRight className="w-5 h-5 text-gray-500" />
+              </button>
+              <button className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100">
+                <span>Trip history</span>
+                <ChevronRight className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+          </div>
+
+          <button
+            onClick={onLogout}
+            className="w-full py-4 text-center text-red-600 font-medium hover:bg-red-50 rounded-xl"
+          >
+            Log out
+          </button>
+          <div className="h-4"></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src/components/app/modals/PassengerDetailsModal.tsx -----
+// src/components/app/modals/PassengerDetailsModal.tsx
+import { X, Package, Users, Accessibility } from 'lucide-react'; // Added Wheelchair icon
+import { useState } from 'react';
+
+interface PassengerDetailsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  passengerData: { name: string; phone: string; email: string };
+  setPassengerData: (data: any) => void;
+  requirements: { luggage: boolean; wheelchair: boolean; elderly: boolean };
+  setRequirements: (req: any) => void;
+  onRequestRide: () => void;
+}
+
+export default function PassengerDetailsModal({
+  isOpen,
+  onClose,
+  passengerData,
+  setPassengerData,
+  requirements,
+  setRequirements,
+  onRequestRide,
+}: PassengerDetailsModalProps) {
+  const [showRequirements, setShowRequirements] = useState(false);
+
+  if (!isOpen) return null;
+
+  return (
+    // Fixed background: use bg-achrams-bg-primary with opacity
+    // Ensure it covers the whole screen behind the modal
+    <div className=" fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50"> 
+      {/* The modal content */}
+      <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold text-achrams-text-primary">Passenger details</h3>
+          <button 
+            onClick={onClose}
+            className="text-achrams-text-secondary hover:text-achrams-text-primary transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="space-y-4 mb-6">
+          <input
+            type="text"
+            placeholder="Full name"
+            value={passengerData.name}
+            onChange={(e) => setPassengerData({ ...passengerData, name: e.target.value })}
+            // Apply ACHRAMS styling to input
+            className="w-full px-4 py-4 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border"
+          />
+          <input
+            type="tel"
+            placeholder="Phone number"
+            value={passengerData.phone}
+            onChange={(e) => setPassengerData({ ...passengerData, phone: e.target.value })}
+            // Apply ACHRAMS styling to input
+            className="w-full px-4 py-4 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border"
+          />
+          <input
+            type="email"
+            placeholder="Email address"
+            value={passengerData.email}
+            onChange={(e) => setPassengerData({ ...passengerData, email: e.target.value })}
+            // Apply ACHRAMS styling to input
+            className="w-full px-4 py-4 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border"
+          />
+        </div>
+        <button
+          onClick={() => setShowRequirements(!showRequirements)}
+          // Apply ACHRAMS styling to button
+          className="w-full flex items-center justify-between py-4 border-t border-b border-achrams-border text-achrams-text-primary hover:bg-achrams-bg-secondary transition-colors"
+        >
+          <span className="font-medium">Special requirements</span>
+          {/* Use ChevronDown/Up instead of X for consistency */}
+          {showRequirements ? <X className="w-5 h-5" /> : <span className="text-achrams-text-secondary">+ Add</span>}
+        </button>
+        {showRequirements && (
+          <div className="space-y-3 py-4">
+            <label className="flex items-center gap-3 p-3 bg-achrams-bg-secondary rounded-xl cursor-pointer border border-achrams-border">
+              <input
+                type="checkbox"
+                checked={requirements.luggage}
+                onChange={(e) => setRequirements({ ...requirements, luggage: e.target.checked })}
+                className="w-5 h-5 text-achrams-primary-solid rounded focus:ring-achrams-primary-solid focus:ring-offset-0"
+              />
+              <Package className="w-5 h-5 text-achrams-text-secondary flex-shrink-0" />
+              <span className="text-achrams-text-primary">Extra luggage</span>
+            </label>
+            <label className="flex items-center gap-3 p-3 bg-achrams-bg-secondary rounded-xl cursor-pointer border border-achrams-border">
+              <input
+                type="checkbox"
+                checked={requirements.wheelchair}
+                onChange={(e) => setRequirements({ ...requirements, wheelchair: e.target.checked })}
+                className="w-5 h-5 text-achrams-primary-solid rounded focus:ring-achrams-primary-solid focus:ring-offset-0"
+              />
+              {/* Replaced emoji with Wheelchair icon */}
+              <Accessibility className="w-5 h-5 text-achrams-text-secondary flex-shrink-0" />
+              <span className="text-achrams-text-primary">Wheelchair accessible</span>
+            </label>
+            <label className="flex items-center gap-3 p-3 bg-achrams-bg-secondary rounded-xl cursor-pointer border border-achrams-border">
+              <input
+                type="checkbox"
+                checked={requirements.elderly}
+                onChange={(e) => setRequirements({ ...requirements, elderly: e.target.checked })}
+                className="w-5 h-5 text-achrams-primary-solid rounded focus:ring-achrams-primary-solid focus:ring-offset-0"
+              />
+              <Users className="w-5 h-5 text-achrams-text-secondary flex-shrink-0" />
+              <span className="text-achrams-text-primary">Elderly passenger</span>
+            </label>
+          </div>
+        )}
+        <button
+          onClick={onRequestRide}
+          disabled={!passengerData.name || !passengerData.phone || !passengerData.email}
+          // Apply ACHRAMS gradient button styling
+          className={`w-full py-4 rounded-xl font-semibold mt-6 transition-all ${
+            passengerData.name && passengerData.phone && passengerData.email
+              ? 'bg-achrams-gradient-primary text-achrams-text-light hover:opacity-90 active:scale-[0.98]' // Enabled state
+              : 'bg-achrams-secondary-solid text-achrams-text-light opacity-75 cursor-not-allowed' // Disabled state
+          }`}
+        >
+          Request a ride
+        </button>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src/components/app/modals/PanicModal.tsx -----
+// src/components/app/modals/PanicModal.tsx
+import { AlertCircle, X, Check } from 'lucide-react';
+import { useState } from 'react';
+
+const panicOptions = [
+  'Driver is behaving suspiciously',
+  'Taking wrong route',
+  'Uncomfortable with driver behavior',
+  'Vehicle condition is unsafe',
+  'Other emergency',
+];
+
+export default function PanicModal({
+  isOpen,
+  onClose,
+  onComplete,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onComplete: () => void;
+}) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = () => {
+    if (selected) {
+      setSent(true);
+      setTimeout(() => {
+        setSent(false);
+        onComplete();
+        onClose();
+      }, 2000);
+    }
+  };
+
+  if (sent) {
+    return (
+      <div className="fixed inset-0 bg-achrams-secondary-solid/50flex items-end z-50 animate-fadeIn">
+        <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Check className="w-8 h-8 text-green-600" />
+          </div>
+          <h3 className="text-xl font-bold mb-2">Alert Sent</h3>
+          <p className="text-gray-600">Your message has been received and someone is looking into it.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end z-50 animate-fadeIn">
+      <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+              <AlertCircle className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-xl font-bold">Safety Alert</h3>
+          </div>
+          <button onClick={onClose}>
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        <p className="text-gray-600 mb-6">Select an issue to quickly send an alert</p>
+        <div className="space-y-3">
+          {panicOptions.map((option, idx) => (
+            <button
+              key={idx}
+              onClick={() => setSelected(option)}
+              className={`w-full text-left px-4 py-4 rounded-xl transition-all ${
+                selected === option ? 'bg-red-50 border border-red-200' : 'bg-gray-50 hover:bg-gray-100'
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={handleSubmit}
+          disabled={!selected}
+          className="w-full mt-6 py-4 bg-red-600 text-white rounded-xl font-semibold disabled:bg-gray-300"
+        >
+          Send Alert
+        </button>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src/components/app/modals/RateModal.tsx -----
+// src/components/app/modals/RateModal.tsx
+import { X, Star } from 'lucide-react';
+import { useState } from 'react';
+
+interface RateModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onRate: (score: number, comment: string) => void;
+  driverName?: string;
+}
+
+export default function RateModal({
+  isOpen,
+  onClose,
+  onRate,
+  driverName = 'your driver',
+}: RateModalProps) {
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+
+  const handleSubmit = () => {
+    if (rating > 0) {
+      onRate(rating, comment);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed bg-achrams-secondary-solid/50 inset-0 bg-opacity-50 flex items-end z-50 animate-fadeIn ">
+      <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp ">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-2xl font-bold">Rate {driverName}</h3>
+          <button onClick={onClose}>
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="flex justify-center gap-2 mb-6">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              key={star}
+              onClick={() => setRating(star)}
+              className="transform hover:scale-110 transition"
+            >
+              <Star
+                className={`w-12 h-12 ${
+                  star <= rating
+                    ? 'fill-yellow-400 text-yellow-400'
+                    : 'text-gray-300'
+                }`}
+              />
+            </button>
+          ))}
+        </div>
+
+        <textarea
+          placeholder="Share your experience (optional)"
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          className="w-full px-4 py-3 bg-gray-50 rounded-xl outline-none resize-none mb-6"
+          rows={3}
+        />
+
+        <button
+          onClick={handleSubmit}
+          disabled={rating === 0}
+          className="w-full bg-achrams-primary-solid text-white py-4 rounded-xl font-semibold disabled:bg-gray-300"
+        >
+          Submit
+        </button>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src/components/app/modals/SignupPromptModal.tsx -----
+// src/components/app/modals/SignupPromptModal.tsx
+import { X, Loader } from 'lucide-react';
+import { useState } from 'react';
+// NEW: Import apiClient for registration call
+import { apiClient } from '@/services/apiClient'; // Assuming you create this service
+
+interface SignupPromptModalProps {
+  isOpen: boolean;
+  passengerData: { name: string; email: string; phone: string };
+  onClose: () => void;
+  // NEW: Prop to handle successful registration and navigation (e.g., to OTP modal)
+  onRegistrationSuccess: (email: string) => void;
+  // NEW: Prop to trigger opening the LoginModal from page.tsx
+  onOpenLoginModal: () => void;
+}
+
+export default function SignupPromptModal({
+  isOpen,
+  passengerData,
+  onClose,
+  onRegistrationSuccess,
+  onOpenLoginModal, // NEW: Destructure the new prop
+}: SignupPromptModalProps) {
+  if (!isOpen) return null;
+
+  // NEW: Local state for password fields and loading/error
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleRegister = async () => {
+    setError(''); // Clear previous errors
+    if (!password || !confirmPassword) {
+      setError('Please fill in all password fields.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    if (password.length < 8) { // Example validation
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // NEW: Call the registration API using apiClient
+      // Split name into first and last name for API
+      const nameParts = passengerData.name.split(' ');
+      const firstName = nameParts[0] || 'Guest';
+      const lastName = nameParts.slice(1).join(' ') || 'User';
+
+      const response = await apiClient.post('/auth/passenger/register', {
+        email: passengerData.email,
+        phone_number: passengerData.phone, // API expects phone_number
+        first_name: firstName,
+        last_name: lastName,
+        password: password,
+      });
+
+      console.log("Registration Response:", response); // Debug log
+      // NEW: Check response status/message if needed
+      if (response.status === 201) { // Assuming 201 for success
+        // NEW: On success, close modal and trigger success handler (e.g., open OTP modal)
+        onRegistrationSuccess(passengerData.email);
+      } else {
+          setError('Registration failed. Please try again.');
+      }
+    } catch (err: any) {
+        console.error("Registration Error:", err);
+        // NEW: Handle different error types if possible
+        let errorMessage = 'An unexpected error occurred.';
+        if (err.response && err.response.data && err.response.data.message) {
+            errorMessage = err.response.data.message;
+        } else if (err.message) {
+            errorMessage = err.message;
+        }
+        setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50">
+      <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border">
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="text-xl font-bold text-achrams-text-primary">Create your account</h3>
+          <button
+            onClick={onClose}
+            disabled={loading} // NEW: Disable close button while loading
+            className="text-achrams-text-secondary hover:text-achrams-text-primary transition-colors disabled:opacity-50"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        <p className="text-achrams-text-secondary mb-6">Sign up to save your trips and preferences</p>
+
+        {/* Display passenger data */}
+        <div className="space-y-4 mb-4"> {/* Added mb-4 for spacing before password fields */}
+          <div className="w-full px-4 py-3 bg-achrams-bg-secondary rounded-xl border border-achrams-border">
+            <div className="text-xs text-achrams-text-secondary mb-1">Full name</div>
+            <div className="text-achrams-text-primary">{passengerData.name}</div>
+          </div>
+          <div className="w-full px-4 py-3 bg-achrams-bg-secondary rounded-xl border border-achrams-border">
+            <div className="text-xs text-achrams-text-secondary mb-1">Email</div>
+            <div className="text-achrams-text-primary">{passengerData.email}</div>
+          </div>
+          <div className="w-full px-4 py-3 bg-achrams-bg-secondary rounded-xl border border-achrams-border">
+            <div className="text-xs text-achrams-text-secondary mb-1">Phone</div>
+            <div className="text-achrams-text-primary">{passengerData.phone}</div>
+          </div>
+        </div>
+
+        {/* NEW: Password Fields */}
+        <div className="space-y-4">
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={loading} // NEW: Disable input while loading
+            className="w-full px-4 py-3 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border"
+          />
+          <input
+            type="password"
+            placeholder="Confirm Password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            disabled={loading} // NEW: Disable input while loading
+            className="w-full px-4 py-3 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border"
+          />
+        </div>
+
+        {/* NEW: Error Message Display */}
+        {error && (
+          <p className="text-red-500 text-sm mt-2">{error}</p>
+        )}
+
+        <button
+          onClick={handleRegister}
+          disabled={loading || !password || !confirmPassword} // NEW: Disable based on loading and password fields
+          className={`w-full py-4 rounded-xl font-semibold mt-6 transition-all ${
+            loading || !password || !confirmPassword
+              ? 'bg-achrams-secondary-solid text-achrams-text-light opacity-75 cursor-not-allowed'
+              : 'bg-achrams-gradient-primary text-achrams-text-light hover:opacity-90 active:scale-[0.98]'
+          }`}
+        >
+          {loading ? ( // NEW: Show spinner while loading
+            <div className="flex items-center justify-center">
+              <Loader className="w-5 h-5 animate-spin mr-2" />
+              Creating...
+            </div>
+          ) : (
+            'Create account'
+          )}
+        </button>
+
+        {/* NEW: Sign In Link */}
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => {
+              onClose(); // Close this modal
+              onOpenLoginModal(); // NEW: Call the handler passed from page.tsx to open the login modal
+            }}
+            className="text-sm text-achrams-primary-solid hover:underline"
+          >
+            Already have an account? Sign In
+          </button>
+        </div>
+
+        <button
+          onClick={onClose}
+          disabled={loading} // NEW: Disable "Not now" while loading
+          className="w-full mt-4 text-achrams-text-secondary font-medium hover:text-achrams-text-primary transition-colors disabled:opacity-50"
+        >
+          Not now
+        </button>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src/components/app/modals/OTPModal.tsx -----
+// src/components/app/modals/OTPModal.tsx
+import { useState, useEffect, useRef } from 'react';
+import { X, Check, MailCheck } from 'lucide-react'; // Added MailCheck icon
+
+export default function OTPModal({
+  isOpen,
+  email,
+  onComplete,
+  onClose,
+}: {
+  isOpen: boolean;
+  email: string;
+  onComplete: () => void;
+  onClose: () => void;
+}) {
+  const [otp, setOtp] = useState(['', '', '', '', '']);
+  const [verified, setVerified] = useState(false);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setOtp(['', '', '', '', '']);
+      setVerified(false); // Reset verified state when opening
+    }
+  }, [isOpen]);
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value) || value.length > 1) return;
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    if (value && index < 4) {
+      inputRefs.current[index + 1]?.focus();
+    }
+
+    if (newOtp.every((d) => d !== '') && newOtp.join('').length === 5) {
+      setTimeout(() => {
+        setVerified(true);
+        setTimeout(() => {
+          onComplete();
+        }, 1000);
+      }, 800);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  if (verified) {
+    return (
+      // Verified state modal
+      <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50">
+        <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp text-center border-t border-achrams-border">
+          <div className="w-16 h-16 bg-achrams-bg-secondary rounded-full flex items-center justify-center mx-auto mb-4 border border-achrams-border">
+            <Check className="w-8 h-8 text-achrams-primary-solid" />
+          </div>
+          <h3 className="text-xl font-bold mb-2 text-achrams-text-primary">Email verified!</h3>
+          <p className="text-achrams-text-secondary">Setting up your account...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    // Input state modal
+    <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50">
+      <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp border-t border-achrams-border">
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="text-xl font-bold text-achrams-text-primary text-center  mx-auto" >Verify your email</h3>
+          <button
+            onClick={onClose}
+            className="text-achrams-text-secondary hover:text-achrams-text-primary transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        <p className="text-achrams-text-secondary mb-8 mx-auto w-fit">Enter the 5-digit code sent to <span className="font-medium text-achrams-text-primary">{email}</span></p>
+        <div className="flex gap-3 justify-center mb-8">
+          {otp.map((_, idx) => (
+            <input
+              key={idx}
+              ref={(el) => (inputRefs.current[idx] = el)}
+              type="text"
+              inputMode="numeric" // Better for mobile numeric keyboards
+              maxLength={1}
+              value={otp[idx]}
+              onChange={(e) => handleOtpChange(idx, e.target.value)}
+              // Apply ACHRAMS styling to input
+              className="w-14 h-14 text-center text-2xl font-bold bg-achrams-bg-secondary border-2 border-achrams-border rounded-xl outline-none text-achrams-text-primary focus:border-achrams-primary-solid focus:ring-1 focus:ring-achrams-primary-solid"
+            />
+          ))}
+        </div>
+        <button className="w-full text-center text-achrams-text-secondary font-medium hover:text-achrams-text-primary transition-colors">
+          Resend code
+        </button>
+        <button
+          onClick={onClose}
+          className="w-full mt-3 text-sm text-achrams-text-secondary font-medium hover:text-achrams-text-primary transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src/components/app/modals/MessageWindowModal.tsx -----
+// src/components/app/modals/MessageWindowModal.tsx
+import { X, Send } from 'lucide-react';
+import { useState } from 'react';
+
+interface MessageWindowModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  recipientName: string;
+}
+
+export default function MessageWindowModal({
+  isOpen,
+  onClose,
+  recipientName,
+}: MessageWindowModalProps) {
+  const [message, setMessage] = useState('');
+
+  const sendMessage = () => {
+    if (message.trim()) {
+      // In real app: call /messages or WebSocket
+      console.log('Message sent to', recipientName, ':', message);
+      setMessage('');
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-achrams-secondary-solid/50 z-50 animate-fadeIn">
+      <div className="h-full flex flex-col">
+        <div className="bg-achrams-primary-solid text-white px-6 py-4 flex items-center justify-between">
+          <h2 className="text-xl font-bold">Message {recipientName}</h2>
+          <button onClick={onClose}>
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="flex-1 p-4 bg-gray-100 overflow-y-auto">
+          {/* Example message history */}
+          <div className="bg-white rounded-2xl p-4 mb-4 max-w-xs ml-auto">
+            <p className="text-sm">Hi, I’m outside!</p>
+          </div>
+          <div className="bg-gray-200 rounded-2xl p-4 mb-4 max-w-xs">
+            <p className="text-sm">OK, coming down now.</p>
+          </div>
+        </div>
+
+        <div className="p-4 border-t bg-white">
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Type a message..."
+              className="flex-1 px-4 py-3 bg-gray-100 rounded-full outline-none"
+              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+            />
+            <button
+              onClick={sendMessage}
+              disabled={!message.trim()}
+              className="p-3 bg-achrams-primary-solid text-white rounded-full disabled:opacity-50"
+            >
+              <Send className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src/components/app/modals/LoginModal.tsx -----
+// src/components/app/modals/LoginModal.tsx
+import { X, Loader, Mail, Chrome } from 'lucide-react'; // Chrome icon for Google
+import { useState } from 'react';
+// NEW: Import apiClient for login call, useAuth hook to update context
+import { apiClient } from '@/services/apiClient';
+import { useAuth } from '@/contexts/AuthContext'; // Assuming this context manages the token
+import GoogleColor from '@/components/icons/GoogleColor'
+interface LoginModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  // NEW: Prop to handle successful login (e.g., update auth context, navigate to dashboard)
+  onLoginSuccess: () => void;
+}
+
+export default function LoginModal({
+  isOpen,
+  onClose,
+  onLoginSuccess,
+}: LoginModalProps) {
+  if (!isOpen) return null;
+
+  const { login: updateAuthContext } = useAuth(); // NEW: Get login function from context
+
+  // NEW: Local state for credentials, loading, error
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [loadingGoogle, setLoadingGoogle] = useState(false); // NEW: Separate loading state for Google
+
+  const handleLogin = async () => {
+    setError(''); // Clear previous errors
+    if (!email || !password) {
+      setError('Please fill in all fields.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // NEW: Call the login API using apiClient
+      const response = await apiClient.post('/auth/passenger/login', {
+        email: email,
+        password: password,
+      });
+
+      console.log("Login Response:", response); // Debug log
+      // NEW: Check response status/message if needed
+      if (response.status === 200 && response.data && response.data.data && response.data.data.token) {
+        const token = response.data.data.token;
+        // NEW: Update the AuthContext with the received token
+        updateAuthContext(token); // This should trigger a re-render and potentially navigate to dashboard in page.tsx
+        // NEW: Close the modal and trigger success handler in parent (page.tsx)
+        onClose();
+        onLoginSuccess(); // Parent (page.tsx) can handle navigation to dashboard
+      } else {
+          setError('Login failed. Please check your credentials.');
+      }
+    } catch (err: any) {
+        console.error("Login Error:", err);
+        // NEW: Handle different error types if possible
+        let errorMessage = 'An unexpected error occurred.';
+        if (err.response && err.response.data && err.response.data.message) {
+            errorMessage = err.response.data.message;
+        } else if (err.message) {
+            errorMessage = err.message;
+        }
+        setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // NEW: Placeholder for Google login function
+  const handleGoogleLogin = () => {
+      setLoadingGoogle(true);
+      // Simulate Google login process (replace with actual Google SDK call)
+      setTimeout(() => {
+          setLoadingGoogle(false);
+          // On successful Google login, you would receive a token or user info
+          // You might need to link this Google account to your backend or create a new user
+          // For now, let's assume a token is obtained and context is updated
+          // updateAuthContext('MOCK_GOOGLE_TOKEN'); // Replace with real token
+          // onClose();
+          // onLoginSuccess();
+          alert('Google login functionality would be implemented here using Google SDK.');
+      }, 2000); // Simulate 2s delay
+  };
+
+  return (
+    <div className="fixed inset-0 bg-achrams-bg-primary bg-opacity-70 flex items-end z-50">
+      <div className="bg-achrams-bg-primary w-full rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border">
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="text-xl font-bold text-achrams-text-primary">Sign In to your account</h3>
+          <button
+            onClick={onClose}
+            disabled={loading || loadingGoogle} // NEW: Disable close button while loading
+            className="text-achrams-text-secondary hover:text-achrams-text-primary transition-colors disabled:opacity-50"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* NEW: Email/Password Login Form */}
+        <div className="space-y-4 mb-6">
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-achrams-text-secondary" />
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading || loadingGoogle} // NEW: Disable input while loading
+              className="w-full pl-10 pr-4 py-3 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border"
+            />
+          </div>
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={loading || loadingGoogle} // NEW: Disable input while loading
+            className="w-full px-4 py-3 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border"
+          />
+        </div>
+
+        {/* NEW: Error Message Display */}
+        {error && (
+          <p className="text-red-500 text-sm mb-4">{error}</p>
+        )}
+
+        <button
+          onClick={handleLogin}
+          disabled={loading || loadingGoogle || !email || !password} // NEW: Disable based on loading and fields
+          className={`w-full py-4 rounded-xl font-semibold mb-4 transition-all ${
+            loading || loadingGoogle || !email || !password
+              ? 'bg-achrams-secondary-solid text-achrams-text-light opacity-75 cursor-not-allowed'
+              : 'bg-achrams-gradient-primary text-achrams-text-light hover:opacity-90 active:scale-[0.98]'
+          }`}
+        >
+          {loading ? ( // NEW: Show spinner while loading
+            <div className="flex items-center justify-center">
+              <Loader className="w-5 h-5 animate-spin mr-2" />
+              Signing In...
+            </div>
+          ) : (
+            'Sign In'
+          )}
+        </button>
+
+        {/* NEW: Google Login Button */}
+        <button
+          onClick={handleGoogleLogin}
+          disabled={loading || loadingGoogle} // NEW: Disable Google button while any loading happens
+          className={`w-full py-3 rounded-xl font-medium mb-4 transition-colors flex items-center justify-center gap-2 ${
+            loadingGoogle
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-100'
+          }`}
+        >
+          {loadingGoogle ? ( // NEW: Show spinner for Google
+            <div className="flex items-center justify-center">
+              <Loader className="w-5 h-5 animate-spin mr-2" />
+              Signing In...
+            </div>
+          ) : (
+            <>
+              <GoogleColor className="w-5 h-5" />
+              Sign In with Google
+            </>
+          )}
+        </button>
+
+        {/* NEW: Sign Up Link */}
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => {
+              onClose(); // Close this modal
+              // Assuming page.tsx will handle opening the signup prompt modal again or a dedicated signup modal
+              // e.g., if page.tsx passes onOpenSignupModal prop:
+              // onOpenSignupModal();
+            }}
+            className="text-sm text-achrams-primary-solid hover:underline"
+          >
+            Don't have an account? Sign Up
+          </button>
+        </div>
+
+        <button
+          onClick={onClose}
+          disabled={loading || loadingGoogle} // NEW: Disable "Cancel" while loading
+          className="w-full mt-4 text-achrams-text-secondary font-medium hover:text-achrams-text-primary transition-colors disabled:opacity-50"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src/components/app/modals/TripRequestStatusModal.tsx -----
+// src/components/app/modals/TripRequestStatusModal.tsx
+import { X, AlertCircle, CheckCircle, Loader } from 'lucide-react';
+
+interface TripRequestStatusModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  status: 'loading' | 'accepted' | 'no-driver' | 'error' | null;
+  message?: string; // Optional custom message
+}
+
+export default function TripRequestStatusModal({
+  isOpen,
+  onClose,
+  status,
+  message,
+}: TripRequestStatusModalProps) {
+  if (!isOpen || !status) return null;
+
+  let icon = null;
+  let title = '';
+  let description = '';
+  let buttonText = 'OK';
+
+  switch (status) {
+    case 'loading':
+      icon = <Loader className="w-8 h-8 animate-spin text-achrams-primary-solid" />;
+      title = 'Finding a Driver...';
+      description = 'Please wait while we connect you with a driver.';
+      buttonText = 'Cancel'; // Or handle cancellation differently if needed
+      break;
+    case 'accepted':
+      icon = <CheckCircle className="w-8 h-8 text-green-500" />;
+      title = 'Driver Found!';
+      description = message || 'Your ride has been confirmed.';
+      buttonText = 'View Details';
+      break;
+    case 'no-driver':
+      icon = <AlertCircle className="w-8 h-8 text-yellow-500" />;
+      title = 'No Drivers Available';
+      description = message || 'We couldn\'t find a driver at the moment. Please try again later.';
+      buttonText = 'Try Again';
+      break;
+    case 'error':
+      icon = <AlertCircle className="w-8 h-8 text-red-500" />;
+      title = 'Something Went Wrong';
+      description = message || 'An error occurred while processing your request. Please check your connection and try again.';
+      buttonText = 'Retry';
+      break;
+  }
+
+  return (
+    <div className="fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50">
+      <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold text-achrams-text-primary">{title}</h3>
+          <button
+            onClick={onClose}
+            className="text-achrams-text-secondary hover:text-achrams-text-primary transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="flex flex-col items-center gap-4 mb-6">
+          {icon}
+          <p className="text-center text-achrams-text-secondary">{description}</p>
+        </div>
+        <button
+          onClick={() => {
+            if (status === 'accepted') {
+              // The parent (page.tsx) handles the transition after 'accepted' status is set
+              onClose(); // Close the modal
+            } else if (status === 'no-driver' || status === 'error') {
+              // Retry logic or close - in this mock, just close
+              onClose();
+            }
+          }}
+          className={`w-full py-4 rounded-xl font-semibold transition-all ${
+            status === 'accepted'
+              ? 'bg-achrams-gradient-primary text-achrams-text-light hover:opacity-90 active:scale-[0.98]'
+              : 'bg-achrams-secondary-solid text-achrams-text-light hover:bg-achrams-secondary-solid/90'
+          }`}
+        >
+          {buttonText}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src/components/app/modals/DirectionsModal.tsx -----
+// src/components/app/modals/DirectionsModal.tsx
+import { X } from 'lucide-react';
+import { GoogleMap, Marker, DirectionsRenderer, useJsApiLoader } from '@react-google-maps/api'; // NEW: Import DirectionsRenderer
+import {useState, useEffect} from 'react';
+interface DirectionsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  pickup: string;
+  pickupCoords?: [number, number] | null;
+  destination: string; // NEW
+  destinationCoords?: [number, number] | null; // NEW
+}
+
+// NEW: Define map container style
+const mapContainerStyle = {
+  width: '100%',
+  height: '100%',
+};
+
+// NEW: Optional: Set a default center if no coordinates are provided
+const defaultCenter = {
+  lat: 6.5244, // Example: Lagos approximate center
+  lng: 3.3792,
+};
+
+export default function DirectionsModal({
+  isOpen,
+  onClose,
+  pickup,
+  pickupCoords,
+  destination, // NEW: Destructure the new prop
+  destinationCoords, // NEW: Destructure the new prop
+}: DirectionsModalProps) {
+  if (!isOpen) return null;
+
+  // NEW: Load the Google Maps API script
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    // Ensure you have this in your .env.local
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
+  });
+
+  // NEW: State for directions result
+  const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
+  const [directionsError, setDirectionsError] = useState<string | null>(null);
+
+  // NEW: Calculate directions when both pickup and destination coords are available
+  useEffect(() => {
+    if (isLoaded && pickupCoords && destinationCoords) {
+      const directionsService = new google.maps.DirectionsService();
+      const request: google.maps.DirectionsRequest = {
+        origin: { lat: pickupCoords[1], lng: pickupCoords[0] }, // [lng, lat] to {lat, lng}
+        destination: { lat: destinationCoords[1], lng: destinationCoords[0] }, // [lng, lat] to {lat, lng}
+        travelMode: google.maps.TravelMode.DRIVING,
+      };
+
+      directionsService.route(request, (result, status) => {
+        if (status === "OK" && result) {
+          setDirections(result);
+          setDirectionsError(null);
+        } else {
+          console.error("Directions request failed due to " + status);
+          setDirections(null);
+          setDirectionsError("Could not calculate directions.");
+        }
+      });
+    } else {
+        setDirections(null); // Reset if coords are missing
+        setDirectionsError(null);
+    }
+  }, [isLoaded, pickupCoords, destinationCoords]);
+
+  // NEW: Determine map center based on available coordinates (could be pickup, destination, or midpoint)
+  // For simplicity, using pickup if available, otherwise destination, otherwise default
+  let mapCenter = defaultCenter;
+  if (pickupCoords) {
+      mapCenter = { lat: pickupCoords[1], lng: pickupCoords[0] };
+  } else if (destinationCoords) {
+      mapCenter = { lat: destinationCoords[1], lng: destinationCoords[0] };
+  }
+
+
+  // NEW: Handle loading/error states for the script
+  if (loadError) {
+    return (
+      <div className="fixed inset-0 bg-achrams-bg-primary z-50 flex items-center justify-center">
+        <p className="text-achrams-text-secondary">Error loading map: {loadError.message}</p>
+      </div>
+    );
+  }
+
+  return (
+    // NEW: Apply ACHRAMS bg color
+    <div className="fixed inset-0 bg-achrams-bg-primary z-50">
+      <div className="h-full flex flex-col">
+        {/* NEW: Apply ACHRAMS header styling */}
+        <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4 flex items-center justify-between">
+          <h2 className="text-xl font-bold">Directions to Pickup</h2>
+          <button
+            onClick={onClose}
+            className="text-achrams-text-light hover:text-achrams-text-light/80 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* NEW: Map Container */}
+        <div className="flex-1 relative">
+          {isLoaded ? (
+            <GoogleMap
+              mapContainerStyle={mapContainerStyle}
+              center={mapCenter}
+              zoom={12} // Adjust zoom level as needed, maybe fitBounds later
+              options={{
+                // Optional: Disable default UI elements for a cleaner look
+                // mapTypeControl: false,
+                // streetViewControl: false,
+                // fullscreenControl: false,
+                // zoomControl: false,
+                // Add other map options as needed
+              }}
+            >
+              {/* NEW: Add marker for pickup location if coordinates are available */}
+              {pickupCoords && (
+                <Marker
+                  position={{ lat: pickupCoords[1], lng: pickupCoords[0] }}
+                  // Optional: Customize marker icon
+                  // icon={...}
+                  title={`Pickup: ${pickup}`}
+                />
+              )}
+              {/* NEW: Add marker for destination location if coordinates are available */}
+              {destinationCoords && (
+                <Marker
+                  position={{ lat: destinationCoords[1], lng: destinationCoords[0] }}
+                  // Optional: Customize marker icon
+                  // icon={...}
+                  title={`Destination: ${destination}`}
+                />
+              )}
+              {/* NEW: Render directions if available */}
+              {directions && <DirectionsRenderer directions={directions} />}
+              {/* NEW: Display error if directions failed */}
+              {directionsError && (
+                 <div className="absolute top-4 left-4 bg-red-100 text-red-800 p-2 rounded">
+                    {directionsError}
+                 </div>
+              )}
+            </GoogleMap>
+          ) : (
+            // NEW: Fallback while loading or if failed to load
+            <div className="absolute inset-0 flex items-center justify-center bg-achrams-bg-secondary">
+              <p className="text-achrams-text-secondary">Loading map...</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src/components/app/modals/DriverVerificationModal.tsx -----
+// src/components/app/modals/DriverVerificationModal.tsx
+import { Shield, Check } from 'lucide-react';
+
+interface DriverVerificationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  securityCode: string; // Pass the code from parent
+}
+
+export default function DriverVerificationModal({
+  isOpen,
+  onClose,
+  securityCode,
+}: DriverVerificationModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50">
+      <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto  shadow-sm">
+        <div className="flex justify-center mb-6">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+            <Shield className="w-8 h-8" />
+          </div>
+        </div>
+        <div className="text-center mb-6">
+          <h3 className="text-xl font-bold text-achrams-text-primary">Verify Your Driver</h3>
+          <p className="text-achrams-text-secondary mt-2">Share this code with your driver to confirm their identity</p>
+        </div>
+        <div className="bg-achrams-bg-secondary rounded-xl p-4 mb-6 text-center">
+          <div className="text-xs text-achrams-text-secondary mb-2">SECURITY CODE</div>
+          <div className="text-4xl font-bold text-achrams-text-primary">{securityCode}</div>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-full py-4 rounded-xl font-semibold bg-achrams-gradient-primary text-achrams-text-light hover:opacity-90 active:scale-[0.98] transition-all"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src/components/app/modals/CancelModal.tsx -----
+// src/components/app/modals/CancelModal.tsx
+import { X, MapPin } from 'lucide-react';
+import { useState } from 'react';
+
+const cancelReasons = [
+  'Driver is taking too long',
+  'Changed my mind',
+  'Found another ride',
+  'Driver is unprofessional',
+  'Other'
+];
+
+interface CancelModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string, location?: [number, number], address?: string) => void;
+  pickupAddress?: string;
+}
+
+export default function CancelModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  pickupAddress,
+}: CancelModalProps) {
+  const [selectedReason, setSelectedReason] = useState<string | null>(null);
+  const [otherReason, setOtherReason] = useState('');
+
+  const handleConfirm = () => {
+    const reason = selectedReason === 'Other' ? otherReason : selectedReason;
+    if (reason) {
+      // In real app, get current coordinates via Geolocation
+      onConfirm(reason, undefined, pickupAddress);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50 animate-fadeIn">
+      <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-2xl font-bold">Cancel trip</h3>
+          <button onClick={onClose}>
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <p className="text-gray-600 mb-6">Why do you want to cancel?</p>
+
+        <div className="space-y-3 mb-6">
+          {cancelReasons.map((reason, idx) => (
+            <button
+              key={idx}
+              onClick={() => setSelectedReason(reason)}
+              className={`w-full text-left px-4 py-4 rounded-xl transition-all ${
+                selectedReason === reason
+                  ? 'bg-achrams-primary-solid text-white'
+                  : 'bg-gray-50 hover:bg-gray-100'
+              }`}
+            >
+              {reason}
+            </button>
+          ))}
+        </div>
+
+        {selectedReason === 'Other' && (
+          <div className="mb-6">
+            <textarea
+              placeholder="Please specify..."
+              value={otherReason}
+              onChange={(e) => setOtherReason(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-50 rounded-xl outline-none resize-none"
+              rows={2}
+            />
+          </div>
+        )}
+
+        {pickupAddress && (
+          <div className="flex items-center gap-3 mb-6 p-4 bg-gray-50 rounded-xl">
+            <MapPin className="w-5 h-5 text-gray-600 flex-shrink-0" />
+            <span className="text-sm">{pickupAddress}</span>
+          </div>
+        )}
+
+        <button
+          onClick={handleConfirm}
+          disabled={!selectedReason || (selectedReason === 'Other' && !otherReason.trim())}
+          className="w-full bg-red-600 text-white py-4 rounded-xl font-semibold disabled:bg-gray-300"
+        >
+          Confirm cancellation
+        </button>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src/components/app/ui/TripUpdateNotification.tsx -----
+// src/components/app/ui/TripUpdateNotification.tsx
+import { useEffect } from 'react';
+import { AlertTriangle, CheckCircle, Info, X } from 'lucide-react';
+
+interface TripUpdateNotificationProps {
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  onDismiss: () => void;
+}
+
+export default function TripUpdateNotification({
+  message,
+  type,
+  onDismiss,
+}: TripUpdateNotificationProps) {
+  let icon = null;
+  let bgColor = '';
+  let textColor = '';
+  let iconColor = '';
+
+  switch (type) {
+    case 'info':
+      icon = <Info className="w-5 h-5" />;
+      bgColor = 'bg-blue-100';
+      textColor = 'text-blue-800';
+      iconColor = 'text-blue-500';
+      break;
+    case 'success':
+      icon = <CheckCircle className="w-5 h-5" />;
+      bgColor = 'bg-green-100';
+      textColor = 'text-green-800';
+      iconColor = 'text-green-500';
+      break;
+    case 'warning':
+      icon = <AlertTriangle className="w-5 h-5" />;
+      bgColor = 'bg-yellow-100';
+      textColor = 'text-yellow-800';
+      iconColor = 'text-yellow-500';
+      break;
+    case 'error':
+      icon = <AlertTriangle className="w-5 h-5" />;
+      bgColor = 'bg-red-100';
+      textColor = 'text-red-800';
+      iconColor = 'text-red-500';
+      break;
+  }
+
+  return (
+    <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 max-w-xs w-full p-4 rounded-lg shadow-lg ${bgColor} ${textColor} flex items-start gap-2 z-50 animate-fadeInUp`}>
+      <div className={`flex-shrink-0 mt-0.5 ${iconColor}`}>{icon}</div>
+      <div className="flex-1">
+        <p className="text-sm">{message}</p>
+      </div>
+      <button
+        onClick={onDismiss}
+        className="flex-shrink-0 text-current hover:opacity-80"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
+----- FILE: src/components/app/screens/TripProgressScreen.tsx -----
+// src/components/app/screens/TripProgressScreen.tsx
+'use client';
+
+import { Shield } from 'lucide-react';
+import { GoogleMap, Marker, Polyline, useJsApiLoader } from '@react-google-maps/api';
+import { Driver } from '@/types/passenger'; // Assuming this type is defined
+import { useState, useEffect } from 'react';
+
+interface TripProgressScreenProps {
+  driver: Driver;
+  onPanic: () => void;
+  onComplete: () => void;
+  pickupCoords: [number, number] | null; // NEW: Prop for pickup coordinates
+  destinationCoords: [number, number] | null; // NEW: Prop for destination coordinates
+  tripProgress: number; // NEW: Prop for simulated progress
+}
+
+export default function TripProgressScreen({
+  driver,
+  onPanic,
+  onComplete,
+  pickupCoords,
+  destinationCoords,
+  tripProgress, // NEW: Destructure prop
+}: TripProgressScreenProps) {
+  const [driverLocation, setDriverLocation] = useState<[number, number] | null>(null); // NEW: State for driver location
+
+  // NEW: Simulate driver movement based on tripProgress
+  useEffect(() => {
+    if (pickupCoords && destinationCoords) {
+      const [startLng, startLat] = pickupCoords;
+      const [endLng, endLat] = destinationCoords;
+
+      // Simple linear interpolation for simulation
+      const lat = startLat + (endLat - startLat) * (tripProgress / 100);
+      const lng = startLng + (endLng - startLng) * (tripProgress / 100);
+
+      setDriverLocation([lng, lat]);
+    }
+  }, [tripProgress, pickupCoords, destinationCoords]);
+
+  // NEW: Load Google Maps API
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
+  });
+
+  // NEW: Determine map center (use driver location if available, otherwise pickup or default)
+  let mapCenter = { lat: 6.5244, lng: 3.3792 }; // Default
+  if (driverLocation) {
+    mapCenter = { lat: driverLocation[1], lng: driverLocation[0] };
+  } else if (pickupCoords) {
+    mapCenter = { lat: pickupCoords[1], lng: pickupCoords[0] };
+  }
+
+  if (loadError) {
+    return (
+      <div className="h-screen bg-achrams-bg-primary flex flex-col">
+        <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4">
+          <h1 className="text-xl font-bold">Trip in progress</h1>
+        </div>
+        <div className="flex-1 flex items-center justify-center bg-achrams-bg-secondary">
+          <p className="text-achrams-text-secondary">Error loading map: {loadError.message}</p>
+        </div>
+        <div className="bg-achrams-bg-primary px-6 py-6 border-t border-achrams-border">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-14 h-14 bg-gradient-to-br from-achrams-primary-solid to-achrams-secondary-solid rounded-full flex items-center justify-center text-achrams-text-light text-lg font-bold">
+              {driver.initials || driver.name?.charAt(0) || 'D'}
+            </div>
+            <div>
+              <div className="font-bold text-achrams-text-primary">{driver.name}</div>
+              <div className="text-sm text-achrams-text-secondary">
+                En route to {destinationCoords ? 'your destination' : 'unknown'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-screen bg-achrams-bg-primary flex flex-col">
+      {/* Header */}
+      <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4 flex items-center justify-between">
+        <h1 className="text-xl font-bold">Trip in progress</h1>
+        <button
+          onClick={onPanic}
+          className="w-12 h-12 bg-achrams-bg-primary rounded-full shadow-lg flex items-center justify-center border border-achrams-border hover:bg-achrams-bg-secondary transition-colors"
+        >
+          <Shield className="w-6 h-6 text-white" />
+        </button>
+      </div>
+      {/* Map Container */}
+      <div className="flex-1 relative">
+        {isLoaded ? (
+          <GoogleMap
+            mapContainerStyle={{ width: '100%', height: '100%' }}
+            center={mapCenter}
+            zoom={14}
+            options={{
+              // Optional: Disable default UI elements for a cleaner look
+              // mapTypeControl: false,
+              // streetViewControl: false,
+              // fullscreenControl: false,
+              // zoomControl: false,
+              // Add other map options as needed
+            }}
+          >
+            {/* Pickup Marker */}
+            {pickupCoords && (
+              <Marker
+                position={{ lat: pickupCoords[1], lng: pickupCoords[0] }}
+                icon={{
+                  url: 'https://maps.google.com/mapfiles/ms/micons/green-dot.png',
+                  scaledSize: new window.google.maps.Size(32, 32),
+                }}
+                title="Pickup Location"
+              />
+            )}
+            {/* Destination Marker */}
+            {destinationCoords && (
+              <Marker
+                position={{ lat: destinationCoords[1], lng: destinationCoords[0] }}
+                icon={{
+                  url: 'https://maps.google.com/mapfiles/ms/micons/red-dot.png',
+                  scaledSize: new window.google.maps.Size(32, 32),
+                }}
+                title="Destination"
+              />
+            )}
+            {/* Driver Marker */}
+            {driverLocation && (
+              <Marker
+                position={{ lat: driverLocation[1], lng: driverLocation[0] }}
+                icon={{
+                  url: 'https://maps.google.com/mapfiles/ms/micons/blue-dot.png',
+                  scaledSize: new window.google.maps.Size(32, 32),
+                }}
+                title={`Driver ${driver.name}`}
+              />
+            )}
+            {/* Route Polyline (Optional) */}
+            {pickupCoords && destinationCoords && (
+              <Polyline
+                path={[
+                  { lat: pickupCoords[1], lng: pickupCoords[0] },
+                  { lat: destinationCoords[1], lng: destinationCoords[0] },
+                ]}
+                options={{
+                  strokeColor: '#FF0000',
+                  strokeOpacity: 0.8,
+                  strokeWeight: 2,
+                }}
+              />
+            )}
+          </GoogleMap>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-achrams-bg-secondary">
+            <p className="text-achrams-text-secondary">Loading map...</p>
+          </div>
+        )}
+      </div>
+      {/* Driver Info Bar */}
+      <div className="bg-achrams-bg-primary px-6 py-6 border-t border-achrams-border">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-14 h-14 bg-gradient-to-br from-achrams-primary-solid to-achrams-secondary-solid rounded-full flex items-center justify-center text-achrams-text-light text-lg font-bold">
+            {driver.initials || driver.name?.charAt(0) || 'D'}
+          </div>
+          <div>
+            <div className="font-bold text-achrams-text-primary">{driver.name}</div>
+            <div className="text-sm text-achrams-text-secondary">
+              En route to {destinationCoords ? 'your destination' : 'unknown'}
+            </div>
+          </div>
+        </div>
+        {/* NEW: Progress indicator */}
+        <div className="w-full bg-achrams-border rounded-full h-2.5">
+          <div
+            className="bg-achrams-gradient-primary h-2.5 rounded-full transition-all duration-300"
+            style={{ width: `${tripProgress}%` }}
+          ></div>
+        </div>
+        <div className="text-center mt-1 text-sm text-achrams-text-secondary">
+          {tripProgress}% Complete
+        </div>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src/components/app/screens/BookingScreen.tsx -----
+// src/components/app/screens/BookingScreen.tsx
+'use client';
+
+import { useState, useEffect } from 'react';
+import { MapPin, Navigation, Plane, ChevronDown, X } from 'lucide-react';
+import { useGeolocation } from '@/hooks/useGeolocation';
+import ACHRAMSHeader from '@/components/ui/ACHRAMSHeader';
+
+// NEW: Define type for location data
+interface LocationData {
+  name: string;
+  coords: [number, number] | null; // [lng, lat]
+}
+
+interface BookingScreenProps {
+  pickup: string;
+  setPickup: (val: string) => void;
+  destination: string;
+  setDestination: (val: string) => void;
+  fareEstimate: number | null;
+  setFareEstimate: (val: number | null) => void;
+  onProceed: () => void;
+  setShowPassengerDetails: (val: boolean) => void;
+  passengerData: any;
+  setPassengerData: (val: any) => void;
+  showPassengerDetails: boolean;
+  requirements: any;
+  setRequirements: (val: any) => void;
+  // NEW: Prop to set pickup coordinates in parent (page.tsx)
+  setPickupCoords: (coords: [number, number] | null) => void;
+  // NEW: Prop to set destination coordinates in parent (page.tsx)
+  setDestinationCoords: (coords: [number, number] | null) => void; // NEW
+}
+
+// NEW: Define coordinates for airports (replace with actual coordinates)
+const losCoords: [number, number] = [3.330058, 6.568287]; // Actual coord from API doc
+const abvCoords: [number, number] = [7.2667, 9.0167]; // Placeholder, find actual
+
+const airports = [
+  { id: 'current', name: 'Use my current location', special: true },
+  { id: 'los', name: 'Murtala Muhammed Int\'l Airport (LOS)', city: 'Lagos' },
+  { id: 'abv', name: 'Nnamdi Azikiwe Int\'l Airport (ABV)', city: 'Abuja' },
+];
+
+const commonDestinations = [
+  'Victoria Island, Lagos',
+  'Lekki Phase 1, Lagos',
+  'Ikeja GRA, Lagos',
+];
+
+// NEW: Placeholder coordinates for common destinations (find actual coords)
+const destinationCoordsMap: Record<string, [number, number] | null> = {
+  'Victoria Island, Lagos': [3.4084, 6.4397],
+  'Lekki Phase 1, Lagos': [3.9942, 6.4253],
+  'Ikeja GRA, Lagos': [3.3519, 6.5550],
+  'Ikorodu, Lagos': [3.504145, 6.620891], // From API doc
+  // Add more as needed
+};
+
+export default function BookingScreen({
+  pickup,
+  setPickup,
+  destination,
+  setDestination,
+  fareEstimate,
+  setFareEstimate,
+  onProceed,
+  setShowPassengerDetails,
+  passengerData,
+  setPassengerData,
+  showPassengerDetails,
+  requirements,
+  setRequirements,
+  setPickupCoords, // NEW: Destructure the setter
+  setDestinationCoords, // NEW: Destructure the setter
+}: BookingScreenProps) {
+  const [pickupOpen, setPickupOpen] = useState(false);
+  const [destOpen, setDestOpen] = useState(false);
+  const { coords, error, requestPermission } = useGeolocation(); // Destructure coords
+
+  // NEW: State to hold full pickup location data including coordinates
+  const [pickupLocationData, setPickupLocationData] = useState<LocationData>({
+    name: pickup,
+    coords: null,
+  });
+
+  // NEW: State to hold full destination location data including coordinates
+  const [destinationLocationData, setDestinationLocationData] = useState<LocationData>({ // NEW
+    name: destination,
+    coords: null,
+  });
+
+  // NEW: Sync pickupLocationData.name with the parent's pickup state if it changes externally
+  useEffect(() => {
+    setPickupLocationData(prev => ({ ...prev, name: pickup }));
+  }, [pickup]);
+
+  // NEW: Sync destinationLocationData.name with the parent's destination state if it changes externally
+  useEffect(() => { // NEW
+    setDestinationLocationData(prev => ({ ...prev, name: destination }));
+  }, [destination]); // NEW
+
+
+  // NEW: Sync parent's pickup and pickupCoords states when pickupLocationData changes
+  useEffect(() => {
+    setPickup(pickupLocationData.name);
+    setPickupCoords(pickupLocationData.coords);
+  }, [pickupLocationData, setPickup, setPickupCoords]);
+
+  // NEW: Sync parent's destination and destinationCoords states when destinationLocationData changes
+  useEffect(() => { // NEW
+    setDestination(destinationLocationData.name);
+    setDestinationCoords(destinationLocationData.coords);
+  }, [destinationLocationData, setDestination, setDestinationCoords]); // NEW
+
+
+  // NEW: Sync parent's fareEstimate when pickupLocationData or destinationLocationData changes
+  useEffect(() => {
+    if (destinationLocationData.name && pickupLocationData.name) { // Use names from local state
+      const estimate = 4500 + Math.floor(Math.random() * 2000);
+      setFareEstimate(estimate);
+    } else {
+      setFareEstimate(null);
+    }
+  }, [destinationLocationData, pickupLocationData, setFareEstimate]); // Depend on location data
+
+
+  const handleUseCurrentLocation = async () => {
+    const granted = await requestPermission();
+    if (granted && coords) {
+      // In a real app, you'd reverse geocode coords.latitude, coords.longitude
+      setPickupLocationData({
+        name: 'Your current location', // Placeholder
+        coords: [coords.longitude, coords.latitude] // [lng, lat]
+      });
+      setPickupOpen(false);
+    } else if (error) {
+      console.error("Location error:", error);
+      // Optionally show a user-friendly message
+    }
+  };
+
+  const handleAirportSelect = (airportId: string) => {
+    let selectedCoords: [number, number] | null = null;
+    let selectedName = '';
+
+    switch (airportId) {
+      case 'los':
+        selectedCoords = losCoords;
+        selectedName = 'Murtala Muhammed Int\'l Airport (LOS)';
+        break;
+      case 'abv':
+        selectedCoords = abvCoords;
+        selectedName = 'Nnamdi Azikiwe Int\'l Airport (ABV)';
+        break;
+      default:
+        selectedName = 'Unknown Airport';
+    }
+
+    if (selectedCoords) {
+      setPickupLocationData({
+        name: selectedName,
+        coords: selectedCoords
+      });
+    }
+    setPickupOpen(false);
+  };
+
+  // NEW: Handle destination selection
+  const handleDestinationSelect = (selectedDestination: string) => {
+    const selectedCoords = destinationCoordsMap[selectedDestination] || null; // Use map or null
+    setDestinationLocationData({
+      name: selectedDestination,
+      coords: selectedCoords
+    });
+    setDestOpen(false);
+  };
+
+
+  return (
+    <div className="h-screen bg-achrams-bg-primary flex flex-col">
+      {/* Header container now spans full width with no horizontal padding */}
+      <div className="bg-achrams-primary-solid text-achrams-text-light px-0 py-4">
+        <div className="px-6">
+          <ACHRAMSHeader title="" />
+        </div>
+      </div>
+      <div className="flex-1 px-6 py-8 overflow-y-auto">
+        <h2 className="text-2xl font-semibold tracking-tight text-achrams-text-primary pb-4">
+          Book Your Airport Ride
+        </h2>
+
+        <div className="space-y-4">
+          {/* Pickup */}
+          <div className="relative">
+            <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border">
+              <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
+              <input
+                type="text"
+                placeholder="Airport pickup location"
+                value={pickupLocationData.name} // Use name from local state
+                onChange={(e) => setPickupLocationData(prev => ({ ...prev, name: e.target.value }))} // Update local state
+                onFocus={() => setPickupOpen(true)}
+                className="flex-1 bg-transparent outline-none text-base text-achrams-text-primary"
+              />
+              <button
+                onClick={() => setPickupOpen(!pickupOpen)}
+                className="p-2 text-achrams-text-secondary hover:text-achrams-text-primary transition-colors"
+              >
+                {pickupOpen ? (
+                  <ChevronDown className="w-5 h-5" />
+                ) : (
+                  <Navigation className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+            {pickupOpen && (
+              // Dropdown now uses solid background color and border
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 max-h-64 overflow-y-auto">
+                <button
+                  onClick={handleUseCurrentLocation}
+                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-achrams-bg-secondary border-b border-achrams-border text-left"
+                >
+                  <MapPin className="w-5 h-5 text-achrams-primary-solid flex-shrink-0" />
+                  <span className="text-achrams-text-primary">Use my current location</span>
+                </button>
+                {airports.slice(1).map((a) => (
+                  <button
+                    key={a.id}
+                    onClick={() => handleAirportSelect(a.id)} // Use new handler
+                    className="w-full px-4 py-3 flex items-start gap-3 hover:bg-achrams-bg-secondary border-b border-achrams-border text-left"
+                  >
+                    <Plane className="w-5 h-5 text-achrams-primary-solid flex-shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-medium text-achrams-text-primary text-sm">{a.name}</div>
+                      <div className="text-xs text-achrams-text-secondary">{a.city}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-center py-1">
+            <div className="w-0.5 h-6 bg-achrams-border" />
+          </div>
+
+          {/* Destination */}
+          <div className="relative">
+            <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border">
+              <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
+              <input
+                type="text"
+                placeholder="Enter destination"
+                value={destinationLocationData.name} // NEW: Use name from local state
+                onChange={(e) => { // NEW: Update local state
+                  setDestinationLocationData(prev => ({ ...prev, name: e.target.value }));
+                  setDestOpen(true); // NEW: Open dropdown
+                }}
+                onFocus={() => setDestOpen(true)}
+                className="flex-1 bg-transparent outline-none text-base text-achrams-text-primary"
+              />
+              {destOpen && destinationLocationData.name && ( // NEW: Use local state
+                <button
+                  onClick={() => {
+                    setDestinationLocationData({ name: '', coords: null }); // NEW: Clear local state
+                    setDestination(''); // NEW: Clear parent state
+                  }}
+                  className="p-2 text-achrams-text-secondary hover:text-achrams-text-primary transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+            {destOpen && destinationLocationData.name && ( // NEW: Use local state
+              // Dropdown now uses solid background color and border
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 max-h-64 overflow-y-auto">
+                {commonDestinations
+                  .filter((d) => d.toLowerCase().includes(destinationLocationData.name.toLowerCase())) // NEW: Filter based on local state
+                  .map((d, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleDestinationSelect(d)} // NEW: Use new handler
+                      className="w-full px-4 py-3 flex items-center gap-3 hover:bg-achrams-bg-secondary border-b border-achrams-border text-left"
+                    >
+                      <MapPin className="w-5 h-5 text-achrams-primary-solid flex-shrink-0" />
+                      <div className="text-achrams-text-primary text-sm">{d}</div>
+                    </button>
+                  ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {fareEstimate && (
+          <div className="mt-6 p-4 bg-achrams-bg-secondary rounded-xl border border-achrams-border">
+            <div className="flex justify-between items-center">
+              <span className="text-achrams-text-secondary">Estimated fare</span>
+              <span className="text-xl font-bold text-achrams-text-primary">₦{fareEstimate.toLocaleString()}</span>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="p-6">
+        <button
+          onClick={onProceed}
+          disabled={!fareEstimate}
+          className={`w-full py-4 rounded-xl text-lg font-bold text-achrams-text-light transition-all ${
+            fareEstimate
+              ? 'bg-achrams-gradient-primary hover:opacity-95 active:scale-[0.98] shadow-md'
+              : 'bg-achrams-secondary-solid opacity-75 cursor-not-allowed'
+          }`}
+        >
+          {fareEstimate ? `Proceed • ₦${fareEstimate.toLocaleString()}` : 'Enter destinations'}
+        </button>
+      </div>
+
+      {/* Modals handled by parent */}
+    </div>
+  );
+}
+
+----- FILE: src/components/app/screens/DriverAssignedScreen.tsx -----
+// src/components/app/screens/DriverAssignedScreen.tsx
+'use client';
+
+import { MapPin, MessageCircle, Phone, X, CheckCircle, Shield } from 'lucide-react'; // Added CheckCircle
+import { Driver } from '@/types/passenger';
+import { useState, useEffect } from 'react'; // Add useEffect if not already present
+
+
+
+
+interface DriverAssignedScreenProps {
+  pickup: string;
+  destination: string;
+  driver: Driver;
+  verificationCode: string; // NEW: Prop for verification code
+  onShowDirections: () => void;
+  onShowDriverVerification: () => void; // NEW: Handler for verification modal
+  onStartTrip: () => void;
+  onBack: () => void;
+}
+
+export default function DriverAssignedScreen({
+  pickup,
+  destination,
+  driver,
+  verificationCode, // NEW: Destructure prop
+  onShowDirections,
+  onShowDriverVerification, // NEW: Destructure handler
+  onStartTrip,
+  onBack,
+}: DriverAssignedScreenProps) {
+  // NEW: State to track if driver is verified (mock for now)
+  const [isVerified, setIsVerified] = useState(false);
+
+  // NEW: Simulate verification after 5 seconds for demo
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsVerified(true);
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div className="h-screen bg-achrams-bg-primary flex flex-col relative">
+      <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4 flex items-center justify-between">
+        <h1 className="text-xl font-bold">Driver Assigned</h1>
+        <button onClick={onBack}>
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-6 py-6">
+        {/* Trip Details */}
+        <div className="bg-achrams-bg-secondary rounded-xl p-4 mb-6 border border-achrams-border">
+          <div className="flex items-start gap-3 mb-3">
+            <div className="w-2 h-2 bg-achrams-primary-solid rounded-full mt-2"></div>
+            <div className="flex-1">
+              <div className="text-xs text-achrams-text-secondary mb-1">PICKUP</div>
+              <div className="font-medium text-achrams-text-primary">{pickup}</div>
+            </div>
+          </div>
+          <div className="ml-3 w-0.5 h-6 bg-achrams-border"></div>
+          <div className="flex items-start gap-3">
+            <div className="w-2 h-2 bg-achrams-primary-solid rounded-full mt-2"></div>
+            <div className="flex-1">
+              <div className="text-xs text-achrams-text-secondary mb-1">DESTINATION</div>
+              <div className="font-medium text-achrams-text-primary">{destination}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Driver Card */}
+        <div className="bg-achrams-bg-secondary border border-achrams-border rounded-xl p-6 mb-4">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-20 h-20 bg-gradient-to-br from-achrams-primary-solid to-achrams-secondary-solid rounded-full flex items-center justify-center text-achrams-text-light text-2xl font-bold">
+              {driver.initials || driver.name?.charAt(0) || 'D'}
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold mb-1 text-achrams-text-primary">{driver.name}</h3>
+              <div className="flex items-center gap-1 text-sm text-achrams-text-secondary">
+                <span className="font-medium text-achrams-text-primary">{driver.rating}</span>
+                <span className="text-achrams-text-secondary">• {driver.trips} trips</span>
+              </div>
+            </div>
+          </div>
+          <div className="bg-achrams-bg-primary rounded-lg p-4 mb-4 border border-achrams-border">
+            <div className="text-sm text-achrams-text-secondary mb-2">{driver.car_type} • {driver.car_color}</div>
+            <div className="text-3xl font-mono font-bold text-achrams-text-primary">{driver.plate_number}</div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button className="flex items-center justify-center gap-2 py-3 bg-achrams-bg-primary border border-achrams-border rounded-xl font-medium text-achrams-text-primary hover:bg-achrams-bg-secondary transition-colors">
+              <MessageCircle className="w-5 h-5" />
+              Message
+            </button>
+            <button className="flex items-center justify-center gap-2 py-3 bg-achrams-bg-primary border border-achrams-border rounded-xl font-medium text-achrams-text-primary hover:bg-achrams-bg-secondary transition-colors">
+              <Phone className="w-5 h-5" />
+              Call
+            </button>
+          </div>
+        </div>
+
+        {/* NEW: Verify Driver Link/Button */}
+        <button
+          onClick={onShowDriverVerification}
+          className="w-full flex items-center justify-center gap-2 py-3 mb-3 bg-achrams-bg-primary border border-achrams-border rounded-xl font-medium text-achrams-text-primary hover:bg-achrams-bg-secondary transition-colors"
+        >
+          {isVerified ? <CheckCircle className="w-5 h-5 text-green-500" /> : <Shield className="w-5 h-5" />}
+          {isVerified ? 'Driver Verified' : 'Verify Driver'}
+        </button>
+
+        <button
+          onClick={onShowDirections}
+          className="w-full border border-achrams-primary-solid text-achrams-primary-solid bg-transparent py-4 rounded-xl font-semibold mb-3 hover:bg-achrams-bg-secondary transition-colors"
+        >
+          Get directions to pickup
+        </button>
+        <button
+          onClick={onStartTrip}
+          disabled={!isVerified} // NEW: Disable until verified (mock logic)
+          className={`w-full py-4 rounded-xl font-semibold transition-all ${
+            isVerified
+              ? 'bg-achrams-gradient-primary text-achrams-text-light hover:opacity-90 active:scale-[0.98]'
+              : 'bg-achrams-secondary-solid text-achrams-text-light opacity-75 cursor-not-allowed'
+          }`}
+        >
+          Start trip
+        </button>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src/components/app/screens/AssigningScreen.tsx -----
+// src/components/app/screens/AssigningScreen.tsx
+'use client';
+
+import { Loader } from 'lucide-react';
+
+export default function AssigningScreen() {
+  return (
+    <div className="h-screen bg-achrams-bg-primary flex flex-col items-center justify-center px-6">
+      {/* Spinner using ACHRAMS primary color */}
+      <div className="w-20 h-20 border-4 border-achrams-primary-solid border-t-transparent rounded-full animate-spin mb-8"></div>
+      <h2 className="text-2xl font-bold mb-2 text-achrams-text-primary">Please hold on</h2>
+      <p className="text-achrams-text-secondary">Assigning a driver</p>
+    </div>
+  );
+}
+
+----- FILE: src/components/app/screens/TripCompleteScreen.tsx -----
+// src/components/app/screens/TripCompleteScreen.tsx
+'use client';
+
+import { Check, Star } from 'lucide-react'; // Added Star icon
+import { Driver } from '@/types/passenger';
+import { useState, useEffect } from 'react';
+
+interface TripCompleteScreenProps {
+  fareEstimate: number | null;
+  driver: Driver;
+  onRate?: () => void;
+}
+
+export default function TripCompleteScreen({
+  fareEstimate,
+  driver,
+  onRate,
+}: TripCompleteScreenProps) {
+  return (
+    <div className="h-screen bg-achrams-bg-primary flex flex-col">
+      {/* Header */}
+      <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4">
+        <h1 className="text-xl font-bold">Trip completed</h1>
+      </div>
+      <div className="flex-1 overflow-y-auto px-6 py-8">
+        {/* Success Message */}
+        <div className="text-center mb-8">
+          <div className="w-20 h-20 bg-achrams-bg-secondary rounded-full flex items-center justify-center mx-auto mb-4 border border-achrams-border">
+            <Check className="w-10 h-10 text-achrams-primary-solid" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2 text-achrams-text-primary">You've arrived!</h2>
+          <p className="text-achrams-text-secondary">How was your trip?</p>
+        </div>
+
+        {/* Fare Summary */}
+        <div className="bg-achrams-bg-secondary rounded-xl p-6 mb-6 border border-achrams-border">
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-achrams-text-secondary">Total Fare</span>
+            <span className="text-3xl font-bold text-achrams-text-primary">
+              ₦{fareEstimate?.toLocaleString() || '0'}
+            </span>
+          </div>
+          <div className="text-sm text-achrams-text-secondary">Paid via Cash</div>
+        </div>
+
+        {/* Rate Button */}
+        {onRate && (
+          <button
+            onClick={onRate}
+            className="w-full py-4 rounded-xl font-semibold mb-3 bg-achrams-gradient-primary text-achrams-text-light hover:opacity-90 active:scale-[0.98] transition-all"
+          >
+            Rate your ride
+          </button>
+        )}
+
+        {/* Done Button */}
+        <button
+          onClick={() => window.location.reload()} // or navigate to dashboard if auth
+          className="w-full py-4 text-achrams-text-secondary font-medium hover:text-achrams-text-primary transition-colors"
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src/components/app/screens/DashboardScreen.tsx -----
+// src/components/app/screens/DashboardScreen.tsx
+'use client';
+
+import { useEffect, useState } from 'react';
+import { MapPin } from 'lucide-react';
+
+interface DashboardScreenProps {
+  passengerData: { name: string; phone: string; email: string };
+  onShowProfile: () => void;
+  onBookNewTrip: () => void;
+}
+
+export default function DashboardScreen({
+  passengerData,
+  onShowProfile,
+  onBookNewTrip,
+}: DashboardScreenProps) {
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const firstName = passengerData.name.split(' ')[0] || 'Passenger';
+
+  const [weather] = useState({ temp: 28, condition: 'sunny', location: 'Lagos' });
+
+  return (
+    <div className="h-screen bg-gray-50 flex flex-col">
+      <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white px-6 py-4 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">ACHRAM</h1>
+        <button
+          onClick={onShowProfile}
+          className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-sm font-bold shadow-lg"
+        >
+          {passengerData.name
+            .split(' ')
+            .map((n) => n[0])
+            .join('')}
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="bg-gradient-to-br from-amber-50 to-orange-50 px-6 py-8">
+          <h2 className="text-3xl font-bold mb-2">{greeting}, {firstName}!</h2>
+          <p className="text-gray-600 mb-6">Ready for your next journey?</p>
+          <div className="bg-white rounded-2xl p-5 shadow-sm flex items-center justify-between">
+            <div>
+              <div className="text-4xl font-bold mb-1">{weather.temp}°C</div>
+              <div className="text-gray-600 capitalize">{weather.condition}</div>
+              <div className="text-sm text-gray-500">{weather.location}, Nigeria</div>
+            </div>
+            <div className="text-6xl">
+              {weather.condition === 'sunny' && '☀️'}
+              {weather.condition === 'cloudy' && '☁️'}
+              {weather.condition === 'rainy' && '🌧️'}
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-6 space-y-6">
+          <button
+            onClick={onBookNewTrip}
+            className="w-full bg-gradient-to-r from-gray-900 to-gray-800 text-white py-6 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all"
+          >
+            Book your airport ride
+          </button>
+
+          <div>
+            <h3 className="font-bold text-lg mb-3">Recent trip</h3>
+            <div className="bg-white rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-gray-600" />
+                  <span className="text-sm">Lagos Airport → VI</span>
+                </div>
+                <span className="text-lg font-bold">₦4,500</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="text-3xl">✈️</div>
+              <div>
+                <h4 className="font-semibold mb-1">Flight Delay?</h4>
+                <p className="text-sm text-gray-700">We’ll wait for you — no extra charge.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white rounded-2xl p-4 shadow-sm text-center">
+              <div className="text-2xl font-bold mb-1">1</div>
+              <div className="text-xs text-gray-600">Trips</div>
+            </div>
+            <div className="bg-white rounded-2xl p-4 shadow-sm text-center">
+              <div className="text-2xl font-bold mb-1">5.0</div>
+              <div className="text-xs text-gray-600">Rating</div>
+            </div>
+            <div className="bg-white rounded-2xl p-4 shadow-sm text-center">
+              <div className="text-2xl font-bold mb-1">₦0</div>
+              <div className="text-xs text-gray-600">Saved</div>
+            </div>
+          </div>
+          <div className="h-4"></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src/app/globals.css -----
+/* src/app/globals.css */
+@import "tailwindcss";
+/* Define ACHRAMS theme tokens using @theme */
+
+
+@utility bg-achrams-gradient-primary {
+  background: linear-gradient(
+    135deg,
+    #06b27c 0%,
+    #059669 40%,
+    #0d9488 100%
+  );
+}
+
+@utility bg-achrams-gradient-secondary {
+  background: linear-gradient(
+    135deg,
+    #0da9a0 0%,
+    #0d9488 45%,
+    #0891b2 100%
+  );
+}
+
+@theme {
+
+  /* Solid Colors */
+  --color-achrams-primary-solid: #059669;
+  --color-achrams-secondary-solid: #0d9488;
+  --color-achrams-accent: #0891b2;
+  --color-achrams-text-primary: #1f2937;
+  --color-achrams-text-secondary: #6b7280;
+  --color-achrams-text-light: #f9fafb;
+  --color-achrams-background-primary: #ffffff;
+  --color-achrams-background-secondary: #f3f4f6;
+  --color-achrams-background-card: #ffffff;
+  --color-achrams-border: #e5e7eb;
+}
+
+/* Your existing default theme variables can remain if needed */
+:root {
+  --background: #ffffff; /* Aligns with achrams-background-primary */
+  --foreground: #171717;
+}
+
+/* @media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+} */
+
+/* Your existing body styles */
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+#__next,
+html,
+body {
+  height: 100%;
+}
+
+/* 3. Mobile viewport height fix (very important on iOS/Android) */
+@viewport {
+  width: device-width;
+  height: device-height;
+}
+
+/* 4. Optional: respect safe-area on notched devices */
+@layer utilities {
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes scaleIn {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+.animate-fadeInUp {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+.animate-scaleIn {
+  animation: scaleIn 0.3s ease-out forwards;
+}
+.animate-fadeInScale {
+  animation: fadeInScale 0.3s ease-out forwards;
+}
+
+----- FILE: src/app/page.tsx -----
+// src/app/page.tsx
+"use client";
+
+import { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import BookingScreen from "@/components/app/screens/BookingScreen";
+import AssigningScreen from "@/components/app/screens/AssigningScreen";
+import DriverAssignedScreen from "@/components/app/screens/DriverAssignedScreen";
+import TripProgressScreen from "@/components/app/screens/TripProgressScreen";
+import TripCompleteScreen from "@/components/app/screens/TripCompleteScreen";
+import DashboardScreen from "@/components/app/screens/DashboardScreen";
+
+// Modals
+import PassengerDetailsModal from "@/components/app/modals/PassengerDetailsModal";
+import DirectionsModal from "@/components/app/modals/DirectionsModal";
+import PanicModal from "@/components/app/modals/PanicModal";
+import SignupPromptModal from "@/components/app/modals/SignupPromptModal";
+import OTPModal from "@/components/app/modals/OTPModal";
+import ProfileModal from "@/components/app/modals/ProfileModal";
+import CancelModal from "@/components/app/modals/CancelModal";
+import RateModal from "@/components/app/modals/RateModal";
+import MessageWindowModal from "@/components/app/modals/MessageWindowModal";
+import TripRequestStatusModal from "@/components/app/modals/TripRequestStatusModal";
+import DriverVerificationModal from "@/components/app/modals/DriverVerificationModal";
+import LoginModal from "@/components/app/modals/LoginModal"; // NEW: Import LoginModal
+import Image from "next/image";
+
+// UI
+import TripUpdateNotification from "@/components/app/ui/TripUpdateNotification";
+
+// Types
+type ScreenState =
+  | "booking"
+  | "assigning"
+  | "driver-assigned"
+  | "trip-progress"
+  | "trip-complete"
+  | "dashboard";
+
+type Requirements = {
+  luggage: boolean;
+  wheelchair: boolean;
+  elderly: boolean;
+};
+
+type PassengerData = {
+  name: string;
+  phone: string;
+  email: string;
+};
+
+// NEW: Define type for the state you want to persist
+interface PersistedState {
+  screen: ScreenState;
+  pickup: string;
+  destination: string;
+  fareEstimate: number | null;
+  driver: any | null;
+  tripProgress: number;
+  pickupCoords: [number, number] | null;
+  destinationCoords: [number, number] | null;
+  verificationCode: string | null;
+  // Add other critical states as needed
+}
+
+// NEW: Function to save state to sessionStorage - only runs on client
+const saveAppState = (state: PersistedState) => {
+  if (typeof window !== "undefined" && window.sessionStorage) {
+    try {
+      sessionStorage.setItem("achrams_app_state", JSON.stringify(state));
+      console.log("App state saved to sessionStorage"); // Optional: For debugging
+    } catch (e) {
+      console.error("Failed to save app state to sessionStorage", e);
+    }
+  }
+};
+
+// NEW: Function to load state from sessionStorage - only runs on client
+const loadAppState = (): PersistedState | null => {
+  if (typeof window !== "undefined" && window.sessionStorage) {
+    try {
+      const savedStateStr = sessionStorage.getItem("achrams_app_state");
+      if (savedStateStr) {
+        const savedState = JSON.parse(savedStateStr) as PersistedState;
+        console.log("App state loaded from sessionStorage", savedState); // Optional: For debugging
+        return savedState;
+      }
+    } catch (e) {
+      console.error("Failed to load app state from sessionStorage", e);
+    }
+  }
+  return null; // Return null if sessionStorage is not available or error occurred
+};
+
+export default function ACHRAMApp() {
+  const { token } = useAuth();
+
+  // NEW: Use a state variable to track if we have checked sessionStorage on the client
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  // NEW: Define state variables without initial values from loadAppState here
+  const [screen, setScreen] = useState<ScreenState>("booking"); // Will be set after hydration
+  const [pickup, setPickup] = useState<string>("");
+  const [destination, setDestination] = useState<string>("");
+  const [fareEstimate, setFareEstimate] = useState<number | null>(null);
+  const [driver, setDriver] = useState<any>(null);
+  const [tripProgress, setTripProgress] = useState<number>(0);
+  const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(
+    null
+  );
+  const [destinationCoords, setDestinationCoords] = useState<
+    [number, number] | null
+  >(null);
+  const [verificationCode, setVerificationCode] = useState<string | null>(null);
+
+  // NEW: State for modals (these can be initialized normally)
+  const [showPassengerDetails, setShowPassengerDetails] = useState(false);
+  const [showDirections, setShowDirections] = useState(false);
+  const [showPanic, setShowPanic] = useState(false);
+  const [showSignup, setShowSignup] = useState(false);
+  const [showOTP, setShowOTP] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showCancel, setShowCancel] = useState(false);
+  const [showRate, setShowRate] = useState(false);
+  const [showMessage, setShowMessage] = useState(false);
+
+  // NEW: State for Login Modal
+  const [showLogin, setShowLogin] = useState(false); // NEW: Add state for login modal
+
+  // NEW: State for trip request status modal
+  const [tripRequestStatus, setTripRequestStatus] = useState<
+    "loading" | "accepted" | "no-driver" | "error" | null
+  >(null);
+  const [tripRequestError, setTripRequestError] = useState<string | null>(null);
+
+  // NEW: State for driver verification modal
+  const [showDriverVerification, setShowDriverVerification] = useState(false);
+
+  // NEW: State for trip update notifications
+  const [currentNotification, setCurrentNotification] = useState<{
+    message: string;
+    type: "info" | "success" | "warning" | "error";
+  } | null>(null);
+
+  // NEW: Effect to run only on the client after mount to load state and set initial values
+  useEffect(() => {
+    // Check if we are on the client
+    if (typeof window !== "undefined") {
+      const savedState = loadAppState();
+      if (savedState) {
+        // Set state using the loaded values
+        setScreen(savedState.screen);
+        setPickup(savedState.pickup);
+        setDestination(savedState.destination);
+        setFareEstimate(savedState.fareEstimate);
+        setDriver(savedState.driver);
+        setTripProgress(savedState.tripProgress);
+        setPickupCoords(savedState.pickupCoords);
+        setDestinationCoords(savedState.destinationCoords);
+        setVerificationCode(savedState.verificationCode);
+      } else {
+        // Set default initial state based on token
+        setScreen(token ? "dashboard" : "booking");
+      }
+      // Mark as hydrated after loading/saving defaults
+      setHasHydrated(true);
+    } else {
+      // Fallback if somehow this runs on server (shouldn't with 'use client')
+      setScreen(token ? "dashboard" : "booking");
+      setHasHydrated(true);
+    }
+  }, [token]); // Depend on token if initial screen logic depends on it
+
+  // Data state
+  const [passengerData, setPassengerData] = useState<PassengerData>({
+    name: "",
+    phone: "",
+    email: "",
+  });
+  const [requirements, setRequirements] = useState<Requirements>({
+    luggage: false,
+    wheelchair: false,
+    elderly: false,
+  });
+
+  // NEW: Function to show notifications
+  const showNotification = (
+    message: string,
+    type: "info" | "success" | "warning" | "error"
+  ) => {
+    setCurrentNotification({ message, type });
+    setTimeout(() => {
+      setCurrentNotification(null);
+    }, 5000); // Auto-dismiss after 5 seconds
+  };
+
+  // NEW: Effect to trigger notifications based on screen changes (simulated)
+  useEffect(() => {
+    if (screen === "driver-assigned" && driver) {
+      // Simulate driver found notification
+      showNotification("Driver assigned successfully!", "success");
+      // Simulate trip updates after some delay
+      const timer1 = setTimeout(
+        () => showNotification("Driver is 7 mins from pickup location", "info"),
+        3000
+      );
+      const timer2 = setTimeout(
+        () =>
+          showNotification("Driver has arrived at pickup location", "success"),
+        10000
+      );
+
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
+    }
+    if (screen === "trip-progress") {
+      // Simulate ongoing trip updates
+      const timer = setInterval(() => {
+        setTripProgress((prev) => {
+          if (prev >= 100) {
+            clearInterval(timer);
+            setScreen("trip-complete");
+            return 100;
+          }
+          return prev + 2; // Simulate progress
+        });
+      }, 1000); // Update every second for simulation
+
+      return () => clearInterval(timer);
+    }
+  }, [screen, driver]); // Depend on screen and driver
+
+  // NEW: Effect to save state whenever it changes (only runs on client after hydration)
+  useEffect(() => {
+    if (hasHydrated) {
+      // Only save after initial state has been loaded/set
+      const stateToSave: PersistedState = {
+        screen,
+        pickup,
+        destination,
+        fareEstimate,
+        driver,
+        tripProgress,
+        pickupCoords,
+        destinationCoords,
+        verificationCode,
+        // Add other states...
+      };
+      saveAppState(stateToSave);
+    }
+  }, [
+    screen,
+    pickup,
+    destination,
+    fareEstimate,
+    driver,
+    tripProgress,
+    pickupCoords,
+    destinationCoords,
+    verificationCode,
+    hasHydrated, // Include hydration flag to prevent saving before state is loaded
+  ]);
+
+  // Reset trip flow after completion (for unauthenticated) - adapted for state persistence
+  useEffect(() => {
+    if (screen === "trip-complete" && !token) {
+      const timer = setTimeout(() => setShowSignup(true), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [screen, token]);
+
+  // NEW: Handler passed to SignupPromptModal for successful registration (e.g., open OTP)
+  const handleRegistrationSuccess = (email: string) => {
+    // For now, simulate OTP verification success and move to dashboard
+    // In reality, you'd open OTPModal here
+    // setShowOTP(true); // Assuming OTPModal exists and handles verification
+    // If OTP verification is successful within OTPModal, it would then trigger navigation to dashboard
+    // OR, if registration API directly logs in (less common), update token and screen here.
+    // Let's assume it leads to OTP first, then dashboard.
+    // For this mock, let's just move to dashboard after "registration"
+    setScreen("dashboard");
+    setShowSignup(false); // Close signup prompt modal
+    // setShowOTP(true); // Uncomment if implementing OTP flow
+  };
+
+  // NEW: Handler passed to LoginModal for successful login
+  const handleLoginSuccess = () => {
+    // The useAuth context should now have the token
+    // page.tsx relies on the `token` from useAuth to determine initial screen and rendering logic
+    // If token exists, screen should be 'dashboard' (handled by initial load or subsequent logic)
+    // Ensure screen is set correctly, maybe explicitly if needed after login
+    // setScreen('dashboard'); // Often not needed if initial load logic handles it based on token
+    // onClose in LoginModal should be sufficient if screen logic in render is correct
+    // No explicit action needed here if state management is correct, just let the parent re-render based on updated token.
+    // If token changes and initial screen logic in useEffect isn't catching it, maybe force update screen here.
+    // For now, assume token update in context triggers correct re-render.
+  };
+
+  // NEW: Effect to handle navigation after trip completion
+  useEffect(() => {
+    if (screen === "trip-complete") {
+      // Check if user is authenticated
+      if (token) {
+        // If authenticated, maybe show rate modal (if not already shown) and then go to dashboard
+        // Or, if rating is handled elsewhere, just go to dashboard after a delay or user action
+        // For now, let's assume the user can click a button or it happens automatically after a short delay
+        // Or, the TripCompleteScreen itself could trigger this.
+        // Let's simulate a delay and then transition to dashboard if authenticated.
+        // This is just a simulation, the real trigger might be clicking 'Done' in TripCompleteScreen.
+        // We'll add a specific state to manage this transition cleanly.
+        // Let's assume the TripCompleteScreen has a button that calls a handler passed from page.tsx.
+        // For now, let's just add the logic here that *would* happen when the user wants to leave the trip-complete screen.
+        // The key is to clear trip data and set screen to dashboard *before* the save effect runs.
+      } else {
+        // If not authenticated (guest), show signup prompt after a delay
+        const timer = setTimeout(() => {
+          // NEW: Clear specific trip-related state before navigating to signup
+          setPickup("");
+          setDestination("");
+          setFareEstimate(null);
+          setDriver(null);
+          setTripProgress(0);
+          setPickupCoords(null);
+          setDestinationCoords(null);
+          setVerificationCode(null); // NEW: Clear verification code
+          setScreen("signup-prompt"); // NEW: Navigate to signup prompt
+        }, 1500); // Delay matches the original effect
+
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [
+    screen,
+    token,
+    setPickup,
+    setDestination,
+    setFareEstimate,
+    setDriver,
+    setTripProgress,
+    setPickupCoords,
+    setDestinationCoords,
+    setVerificationCode,
+    setScreen,
+  ]); // Depend on state setters and screen/token
+
+  const handleProceed = () => {
+    if (fareEstimate && pickup && destination) {
+      setShowPassengerDetails(true);
+    }
+  };
+
+  // NEW: Modified handleRequestRide with mock API call simulation and state persistence
+  const handleRequestRide = () => {
+    if (passengerData.name && passengerData.phone && passengerData.email) {
+      setShowPassengerDetails(false);
+      setTripRequestStatus("loading"); // Show loading modal
+
+      // Simulate API call delay
+      setTimeout(() => {
+        const mockApiResponse = Math.random(); // Random number to simulate different outcomes
+
+        if (mockApiResponse < 0.7) {
+          // 70% chance of success
+          // Simulate successful trip creation
+          setTripRequestStatus("accepted");
+          setDriver({
+            name: "Adebayo Ogunlesi",
+            rating: 4.9,
+            trips: 1247,
+            phone: "+234 801 234 5678",
+            car: {
+              model: "Toyota Camry 2021",
+              color: "Silver",
+              plate: "ABC 123 XY",
+            },
+            photo: "AO",
+          });
+          // NEW: Set verification code (mock)
+          const mockCode = Math.floor(
+            100000 + Math.random() * 900000
+          ).toString(); // 6-digit code
+          setVerificationCode(mockCode);
+
+          // Transition to driver assigned screen after a short delay
+          setTimeout(() => {
+            setTripRequestStatus(null); // Close loading modal
+            setScreen("driver-assigned");
+          }, 2000);
+        } else if (mockApiResponse < 0.9) {
+          // 20% chance of no driver
+          setTripRequestStatus("no-driver");
+          setTripRequestError(
+            "No drivers available in your area at the moment."
+          );
+        } else {
+          // 10% chance of other error
+          setTripRequestStatus("error");
+          setTripRequestError(
+            "An unexpected error occurred. Please try again."
+          );
+        }
+      }, 2000); // Simulate 2 seconds API call
+    }
+  };
+
+  const handleTripStart = () => {
+    setScreen("trip-progress");
+  };
+
+  const handleTripComplete = () => {
+    setScreen("trip-complete");
+  };
+
+  // NEW: Wait for hydration before rendering main content to avoid SSR/client mismatch
+  if (!hasHydrated) {
+    return (
+      <div className="flex items-center justify-center h-screen w-full bg-white animate-fadeIn">
+        <div className="relative">
+          {/* Soft pulsing glow */}
+          <div className="absolute inset-0 rounded-2xl bg-achrams-gradient-primary opacity-40 blur-xl animate-pulse"></div>
+
+          {/* Main Logo Container */}
+          <div className="w-16 h-16 bg-achrams-gradient-primary rounded-2xl flex items-center justify-center shadow-xl animate-scaleIn relative overflow-hidden">
+            {/* Subtle rotating light sweep */}
+            <div className="absolute inset-0 bg-white/20 animate-sweep pointer-events-none"></div>
+
+            <Image
+              src="/images/achrams-logo.png"
+              alt="ACHRAMS Logo"
+              width={30}
+              height={30}
+              className="object-contain animate-popIn"
+            />
+          </div>
+        </div>
+      </div>
+    ); // Or a skeleton loader
+  }
+
+  // === Render current screen as main content ===
+  let mainContent = null;
+
+  if (screen === "booking") {
+    mainContent = (
+      <BookingScreen
+        pickup={pickup}
+        setPickup={setPickup}
+        destination={destination}
+        setDestination={setDestination}
+        fareEstimate={fareEstimate}
+        setFareEstimate={setFareEstimate}
+        onProceed={handleProceed}
+        setShowPassengerDetails={setShowPassengerDetails}
+        passengerData={passengerData}
+        setPassengerData={setPassengerData}
+        showPassengerDetails={showPassengerDetails}
+        requirements={requirements}
+        setRequirements={setRequirements}
+        setPickupCoords={setPickupCoords} // NEW
+        setDestinationCoords={setDestinationCoords} // NEW
+      />
+    );
+  } else if (screen === "assigning") {
+    mainContent = <AssigningScreen />;
+  } else if (screen === "driver-assigned") {
+    mainContent = (
+      <DriverAssignedScreen
+        pickup={pickup}
+        destination={destination}
+        driver={driver}
+        verificationCode={verificationCode || ""} // NEW: Pass verification code
+        onShowDirections={() => setShowDirections(true)}
+        onShowDriverVerification={() => setShowDriverVerification(true)} // NEW: Handler for verification modal
+        onStartTrip={handleTripStart}
+        onBack={() => setScreen("booking")}
+      />
+    );
+  } else if (screen === "trip-progress") {
+    mainContent = (
+      <TripProgressScreen
+        driver={driver}
+        onPanic={() => setShowPanic(true)}
+        onComplete={handleTripComplete}
+        pickupCoords={pickupCoords} // NEW: Pass coordinates
+        destinationCoords={destinationCoords} // NEW: Pass coordinates
+        tripProgress={tripProgress} // NEW: Pass progress
+      />
+    );
+  } else if (screen === "trip-complete") {
+    mainContent = (
+      <TripCompleteScreen
+        fareEstimate={fareEstimate}
+        driver={driver}
+        onRate={() => setShowRate(true)}
+        onDone={() => {
+          // NEW: Clear specific trip-related state before navigating
+          setPickup("");
+          setDestination("");
+          setFareEstimate(null);
+          setDriver(null);
+          setTripProgress(0);
+          setPickupCoords(null);
+          setDestinationCoords(null);
+          setVerificationCode(null); // NEW: Clear verification code
+          if (token) {
+            setScreen("dashboard");
+          } else {
+            setScreen("signup-prompt");
+          }
+        }}
+      />
+    );
+  } else if (screen === "signup-prompt") {
+    // NEW: Add the signup-prompt screen render logic if not already present
+    // This might just be handled by the modal now, depending on your structure.
+    // If the signup prompt is *only* a modal triggered from trip-complete, this block might not be needed.
+    // The modal (SignupPromptModal) is rendered based on showSignup state.
+    // The screen state 'signup-prompt' might be redundant if showSignup handles it.
+    // Let's assume the screen state change is primarily for state management and saving.
+    // The modal rendering is handled by the showSignup effect/logic elsewhere.
+    // However, if you want the screen to *be* 'signup-prompt' (not just show a modal from 'trip-complete'),
+    // you'd render a different component here.
+    // For now, let's focus on the modal approach triggered by the effect above.
+    // If you render a component here, it would be something like:
+    // mainContent = <SignupPromptComponent />; // Or just let the modal render overlay
+    // Let's stick with the modal approach for now.
+    // The important part is the state transition in the effect or the onDone handler.
+    // If screen becomes 'signup-prompt', the main content might just be empty or a loading state,
+    // while the modal renders on top.
+    // The key is the state change and clearing trip data.
+    // Let's add the render block for 'signup-prompt' screen just in case,
+    // assuming the modal is triggered by the screen change effect in page.tsx.
+    // However, since the modal (SignupPromptModal) is rendered conditionally based on showSignup,
+    // and we control showSignup from page.tsx, maybe we don't need a separate screen render for 'signup-prompt'.
+    // The screen state 'signup-prompt' can just be an intermediate state before the modal opens,
+    // or it can be the state representing the post-trip signup phase.
+    // Let's assume the screen state 'signup-prompt' is set, which then causes the showSignup modal to open.
+    // We need to ensure showSignup is true when screen is 'signup-prompt'.
+    // Let's add an effect for that:
+    useEffect(() => {
+      if (screen === "signup-prompt" && !token) {
+        setShowSignup(true);
+        // No need to clear trip data here again, it's already cleared when screen changed from 'trip-complete'.
+      }
+    }, [screen, token, setShowSignup]);
+
+    // The main content for 'signup-prompt' screen can be minimal or just the background for the modal.
+    // We don't render the SignupPromptModal here based on screen directly anymore,
+    // but based on showSignup state.
+    // So, for 'signup-prompt' screen, mainContent could just be a placeholder or the default dashboard background if token exists (which shouldn't happen).
+    // If token exists, screen should be dashboard anyway.
+    // Let's just keep mainContent as null or a minimal view if screen is 'signup-prompt'.
+    // The modal will overlay it.
+    // This part might need adjustment based on your exact UI flow preference.
+    // For now, let's assume mainContent remains the dashboard background or booking background.
+    // The key is the modal rendering based on showSignup.
+    // The screen state 'signup-prompt' is just to mark the phase and allow state clearing.
+    // Let's just ensure the modal rendering logic in the return statement is correct.
+    // The effect above (line ~200) handles setting showSignup when screen is 'signup-prompt'.
+    // mainContent = <div>Post-Trip Signup Phase</div>; // Placeholder if needed
+    // Actually, let's just let the previous screen's background remain or render the dashboard background.
+    // The modal is the important part.
+    // We already have the effect to set showSignup.
+    // No need for specific mainContent here unless it's a distinct screen, not just a modal trigger state.
+    // Let's assume 'signup-prompt' is just a state transition step, not a full-screen render.
+    // So, mainContent remains from the previous render or defaults.
+    // The critical part is the state transition and modal trigger.
+    // Let's remove this block for now and rely on the effect and modal rendering.
+    // If you need 'signup-prompt' as a distinct screen, add the render logic here.
+    // For the current flow (trip-complete -> modal), this block is likely not needed.
+    // The onDone handler in TripCompleteScreen (or the effect) sets screen to 'signup-prompt' and clears data.
+    // Then the effect `if (screen === 'signup-prompt' && !token) { setShowSignup(true); }` runs.
+    // Then the modal renders because `showSignup` is true.
+    // The mainContent doesn't need to change for 'signup-prompt' if it's just a modal trigger state.
+  } else if (screen === "dashboard") {
+    mainContent = (
+      <DashboardScreen
+        passengerData={passengerData}
+        onShowProfile={() => setShowProfile(true)}
+        onBookNewTrip={() => {
+          setScreen("booking");
+          setPickup("");
+          setDestination("");
+          setFareEstimate(null);
+          setPickupCoords(null);
+          setDestinationCoords(null);
+          setDriver(null);
+          setTripProgress(0); // NEW: Reset trip progress
+          setVerificationCode(null); // NEW: Reset verification code
+        }}
+      />
+    );
+  }
+
+  // === Return full UI tree including modals and notifications ===
+  return (
+    <>
+      <div className="min-h-screen flex items-center justify-center">
+        <div
+          className="
+  min-h-screen h-dvh
+  w-full max-w-[430px] mx-auto
+  bg-white
+  flex flex-col
+  /* Critical for header/body/footer layouts */
+  text-sm
+  antialiased
+  [font-feature-settings:'ss01']
+"
+        >
+          {/* NEW: Render notification if available */}
+          {currentNotification && (
+            <TripUpdateNotification
+              message={currentNotification.message}
+              type={currentNotification.type}
+              onDismiss={() => setCurrentNotification(null)}
+            />
+          )}
+
+          {mainContent}
+
+          {/* Modals — all rendered as overlays */}
+          <PassengerDetailsModal
+            isOpen={showPassengerDetails}
+            onClose={() => setShowPassengerDetails(false)}
+            passengerData={passengerData}
+            setPassengerData={setPassengerData}
+            requirements={requirements}
+            setRequirements={setRequirements}
+            onRequestRide={handleRequestRide}
+          />
+
+          <DirectionsModal
+            isOpen={showDirections}
+            onClose={() => setShowDirections(false)}
+            pickup={pickup}
+            pickupCoords={pickupCoords}
+            destination={destination} // NEW
+            destinationCoords={destinationCoords} // NEW
+          />
+
+          <PanicModal
+            isOpen={showPanic}
+            onClose={() => setShowPanic(false)}
+            onComplete={() => {
+              setShowPanic(false);
+              alert("Safety team notified");
+            }}
+          />
+
+          {!token &&
+            showSignup && ( // Ensure it only shows for unauthenticated users
+              <SignupPromptModal
+                isOpen={showSignup} // Use showSignup state
+                passengerData={passengerData}
+                onClose={() => setShowSignup(false)} // Close the modal state
+                onVerifyEmail={() => setShowOTP(true)} // Keep existing link to OTP
+                onRegistrationSuccess={handleRegistrationSuccess} // NEW: Pass success handler
+                onOpenLoginModal={() => setShowLogin(true)} // NEW: Pass handler to open login modal
+              />
+            )}
+
+          <OTPModal
+            isOpen={showOTP}
+            email={passengerData.email}
+            onComplete={() => {
+              setTimeout(() => {
+                setScreen("dashboard");
+                setShowOTP(false);
+                setShowSignup(false);
+              }, 1000);
+            }}
+            onClose={() => setShowOTP(false)}
+          />
+
+          <ProfileModal
+            isOpen={showProfile}
+            passengerData={passengerData}
+            onClose={() => setShowProfile(false)}
+            onLogout={() => {
+              // Clear saved state on logout
+              if (typeof window !== "undefined" && window.sessionStorage) {
+                sessionStorage.removeItem("achrams_app_state");
+              }
+              window.location.href = "/auth/login";
+            }}
+          />
+
+          {/* NEW: Trip Request Status Modal */}
+          <TripRequestStatusModal
+            isOpen={!!tripRequestStatus}
+            status={tripRequestStatus}
+            message={tripRequestError}
+            onClose={() => setTripRequestStatus(null)}
+          />
+
+          {/* NEW: Driver Verification Modal */}
+          <DriverVerificationModal
+            isOpen={showDriverVerification}
+            securityCode={verificationCode || ""}
+            onClose={() => setShowDriverVerification(false)}
+          />
+
+          {/* NEW: Login Modal */}
+          <LoginModal
+            isOpen={showLogin}
+            onClose={() => setShowLogin(false)}
+            onLoginSuccess={handleLoginSuccess} // NEW: Pass success handler
+          />
+
+          {/* Future: Uncomment when implemented */}
+          {/* <CancelModal isOpen={showCancel} onClose={() => setShowCancel(false)} onConfirm={() => {}} />
+      <RateModal isOpen={showRate} onClose={() => setShowRate(false)} onRate={() => {}} driverName={driver?.name} />
+      <MessageWindowModal isOpen={showMessage} onClose={() => setShowMessage(false)} recipientName={driver?.name || 'Driver'} /> */}
+        </div>
+      </div>
+    </>
+  );
+}
+
+
+----- FILE: src/app/layout.tsx -----
+// src/app/layout.tsx
+import type { Metadata } from "next";
+import "./globals.css";
+import ClientProviders from "@/components/ClientProviders"; // We'll create this
+
+export const metadata: Metadata = {
+  title: "ACHRAMS Passenger App",
+  description: "Book your airport transfer with ACHRAMS.",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body className="bg-achrams-background-primary">
+        <ClientProviders>
+          {children}
+        </ClientProviders>
+      </body>
+    </html>
+  );
+}
+

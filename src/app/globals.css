@@ -1,0 +1,124 @@
+/* src/app/globals.css */
+@import "tailwindcss";
+/* Define ACHRAMS theme tokens using @theme */
+
+
+@utility bg-achrams-gradient-primary {
+  background: linear-gradient(
+    135deg,
+    #06b27c 0%,
+    #059669 40%,
+    #0d9488 100%
+  );
+}
+
+@utility bg-achrams-gradient-secondary {
+  background: linear-gradient(
+    135deg,
+    #0da9a0 0%,
+    #0d9488 45%,
+    #0891b2 100%
+  );
+}
+
+@theme {
+
+  /* Solid Colors */
+  --color-achrams-primary-solid: #059669;
+  --color-achrams-secondary-solid: #0d9488;
+  --color-achrams-accent: #0891b2;
+  --color-achrams-text-primary: #1f2937;
+  --color-achrams-text-secondary: #6b7280;
+  --color-achrams-text-light: #f9fafb;
+  --color-achrams-background-primary: #ffffff;
+  --color-achrams-background-secondary: #f3f4f6;
+  --color-achrams-background-card: #ffffff;
+  --color-achrams-border: #e5e7eb;
+}
+
+/* Your existing default theme variables can remain if needed */
+:root {
+  --background: #ffffff; /* Aligns with achrams-background-primary */
+  --foreground: #171717;
+}
+
+/* @media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+} */
+
+/* Your existing body styles */
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+#__next,
+html,
+body {
+  height: 100%;
+}
+
+/* 3. Mobile viewport height fix (very important on iOS/Android) */
+@viewport {
+  width: device-width;
+  height: device-height;
+}
+
+/* 4. Optional: respect safe-area on notched devices */
+@layer utilities {
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes scaleIn {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+.animate-fadeInUp {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+.animate-scaleIn {
+  animation: scaleIn 0.3s ease-out forwards;
+}
+.animate-fadeInScale {
+  animation: fadeInScale 0.3s ease-out forwards;
+}
