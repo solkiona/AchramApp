@@ -1,12 +1,10 @@
-
 // src/components/app/modals/LoginModal.tsx
-'use client'
-import { X, Loader, Mail, Chrome } from 'lucide-react'; // Chrome icon for Google
+import { X, Loader, Mail, Chrome, Eye, EyeOff } from 'lucide-react'; // Added Eye/EyeOff for password visibility
 import { useState } from 'react';
 // NEW: Import apiClient for login call, useAuth hook to update context
-import { apiClient } from '@/services/apiClient';
+import { apiClient } from '@/services/apiClient'; // Assuming you create this service
 import { useAuth } from '@/contexts/AuthContext'; // Assuming this context manages the token
-import GoogleColor from '@/components/icons/GoogleColor'
+
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -23,9 +21,10 @@ export default function LoginModal({
 
   const { login: updateAuthContext } = useAuth(); // NEW: Get login function from context
 
-  // NEW: Local state for credentials, loading, error
+  // NEW: Local state for credentials, password visibility, loading, error
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // NEW: State for password visibility
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false); // NEW: Separate loading state for Google
@@ -89,8 +88,8 @@ export default function LoginModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50">
-      <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border">
+    <div className="fixed inset-0 bg-achrams-bg-primary bg-opacity-70 flex items-end z-50">
+      <div className="bg-achrams-bg-primary w-full rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border">
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-xl font-bold text-achrams-text-primary">Sign In to your account</h3>
           <button
@@ -115,14 +114,23 @@ export default function LoginModal({
               className="w-full pl-10 pr-4 py-3 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border"
             />
           </div>
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={loading || loadingGoogle} // NEW: Disable input while loading
-            className="w-full px-4 py-3 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border"
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"} // NEW: Toggle input type
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading || loadingGoogle} // NEW: Disable input while loading
+              className="w-full px-4 py-3 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border pr-10" // Added pr-10 for eye button
+            />
+            <button // NEW: Toggle password visibility
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-achrams-text-secondary hover:text-achrams-text-primary"
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
 
         {/* NEW: Error Message Display */}
@@ -166,7 +174,7 @@ export default function LoginModal({
             </div>
           ) : (
             <>
-              <GoogleColor className="w-5 h-5" />
+              <Chrome className="w-5 h-5" />
               Sign In with Google
             </>
           )}
@@ -177,9 +185,9 @@ export default function LoginModal({
           <button
             onClick={() => {
               onClose(); // Close this modal
-              // Assuming page.tsx will handle opening the signup prompt modal again or a dedicated signup modal
-              // e.g., if page.tsx passes onOpenSignupModal prop:
-              // onOpenSignupModal();
+              // Assuming page.tsx will handle opening the signup prompt modal via a state prop
+              // e.g., if page.tsx passes onOpenSignupPrompt prop:
+              // onOpenSignupPrompt();
             }}
             className="text-sm text-achrams-primary-solid hover:underline"
           >
