@@ -103,7 +103,6 @@
 //     setDestinationLocationData(prev => ({ ...prev, name: destination }));
 //   }, [destination]); // NEW
 
-
 //   // NEW: Sync parent's pickup and pickupCoords states when pickupLocationData changes
 //   useEffect(() => {
 //     setPickup(pickupLocationData.name);
@@ -116,7 +115,6 @@
 //     setDestinationCoords(destinationLocationData.coords);
 //   }, [destinationLocationData, setDestination, setDestinationCoords]); // NEW
 
-
 //   // NEW: Sync parent's fareEstimate when pickupLocationData or destinationLocationData changes
 //   useEffect(() => {
 //     if (destinationLocationData.name && pickupLocationData.name) { // Use names from local state
@@ -126,7 +124,6 @@
 //       setFareEstimate(null);
 //     }
 //   }, [destinationLocationData, pickupLocationData, setFareEstimate]); // Depend on location data
-
 
 //   // NEW: Updated handleUseCurrentLocation function
 //   const handleUseCurrentLocation = async () => {
@@ -193,7 +190,6 @@
 //     });
 //     setDestOpen(false);
 //   };
-
 
 //   return (
 //     <div className="h-screen bg-achrams-bg-primary flex flex-col">
@@ -383,14 +379,20 @@
 //   );
 // }
 
-
 // src/components/app/screens/BookingScreen.tsx
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { MapPin, Navigation, Plane, ChevronDown, X, Loader } from 'lucide-react'; // NEW: Add Gps and Loader
-import { useGeolocation } from '@/hooks/useGeolocation';
-import ACHRAMSHeader from '@/components/ui/ACHRAMSHeader';
+import { useState, useEffect } from "react";
+import {
+  MapPin,
+  Navigation,
+  Plane,
+  ChevronDown,
+  X,
+  Loader,
+} from "lucide-react"; // NEW: Add Gps and Loader
+import { useGeolocation } from "@/hooks/useGeolocation";
+import ACHRAMSHeader from "@/components/ui/ACHRAMSHeader";
 
 // NEW: Define type for location data
 interface LocationData {
@@ -423,23 +425,23 @@ const losCoords: [number, number] = [3.330058, 6.568287]; // Actual coord from A
 const abvCoords: [number, number] = [7.2667, 9.0167]; // Placeholder, find actual
 
 const airports = [
-  { id: 'current', name: 'Use my current location', special: true },
-  { id: 'los', name: 'Murtala Muhammed Int\'l Airport (LOS)', city: 'Lagos' },
-  { id: 'abv', name: 'Nnamdi Azikiwe Int\'l Airport (ABV)', city: 'Abuja' },
+  { id: "current", name: "Use my current location", special: true },
+  { id: "los", name: "Murtala Muhammed Int'l Airport (LOS)", city: "Lagos" },
+  { id: "abv", name: "Nnamdi Azikiwe Int'l Airport (ABV)", city: "Abuja" },
 ];
 
 const commonDestinations = [
-  'Victoria Island, Lagos',
-  'Lekki Phase 1, Lagos',
-  'Ikeja GRA, Lagos',
+  "Victoria Island, Lagos",
+  "Lekki Phase 1, Lagos",
+  "Ikeja GRA, Lagos",
 ];
 
 // NEW: Placeholder coordinates for common destinations (find actual coords)
 const destinationCoordsMap: Record<string, [number, number] | null> = {
-  'Victoria Island, Lagos': [3.4084, 6.4397],
-  'Lekki Phase 1, Lagos': [3.9942, 6.4253],
-  'Ikeja GRA, Lagos': [3.3519, 6.5550],
-  'Ikorodu, Lagos': [3.504145, 6.620891], // From API doc
+  "Victoria Island, Lagos": [3.4084, 6.4397],
+  "Lekki Phase 1, Lagos": [3.9942, 6.4253],
+  "Ikeja GRA, Lagos": [3.3519, 6.555],
+  "Ikorodu, Lagos": [3.504145, 6.620891], // From API doc
   // Add more as needed
 };
 
@@ -463,7 +465,12 @@ export default function BookingScreen({
   const [pickupOpen, setPickupOpen] = useState(false);
   const [destOpen, setDestOpen] = useState(false);
   // NEW: Destructure loading state from the hook
-  const { coords, error, requestPermission, loading: hookLoading } = useGeolocation();
+  const {
+    coords,
+    error,
+    requestPermission,
+    loading: hookLoading,
+  } = useGeolocation();
 
   // NEW: State to track if location is being fetched (combines hook loading and UI state)
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
@@ -475,21 +482,23 @@ export default function BookingScreen({
   });
 
   // NEW: State to hold full destination location data including coordinates
-  const [destinationLocationData, setDestinationLocationData] = useState<LocationData>({ // NEW
-    name: destination,
-    coords: null,
-  });
+  const [destinationLocationData, setDestinationLocationData] =
+    useState<LocationData>({
+      // NEW
+      name: destination,
+      coords: null,
+    });
 
   // NEW: Sync pickupLocationData.name with the parent's pickup state if it changes externally
   useEffect(() => {
-    setPickupLocationData(prev => ({ ...prev, name: pickup }));
+    setPickupLocationData((prev) => ({ ...prev, name: pickup }));
   }, [pickup]);
 
   // NEW: Sync destinationLocationData.name with the parent's destination state if it changes externally
-  useEffect(() => { // NEW
-    setDestinationLocationData(prev => ({ ...prev, name: destination }));
+  useEffect(() => {
+    // NEW
+    setDestinationLocationData((prev) => ({ ...prev, name: destination }));
   }, [destination]); // NEW
-
 
   // NEW: Sync parent's pickup and pickupCoords states when pickupLocationData changes
   useEffect(() => {
@@ -498,22 +507,22 @@ export default function BookingScreen({
   }, [pickupLocationData, setPickup, setPickupCoords]);
 
   // NEW: Sync parent's destination and destinationCoords states when destinationLocationData changes
-  useEffect(() => { // NEW
+  useEffect(() => {
+    // NEW
     setDestination(destinationLocationData.name);
     setDestinationCoords(destinationLocationData.coords);
   }, [destinationLocationData, setDestination, setDestinationCoords]); // NEW
 
-
   // NEW: Sync parent's fareEstimate when pickupLocationData or destinationLocationData changes
   useEffect(() => {
-    if (destinationLocationData.name && pickupLocationData.name) { // Use names from local state
+    if (destinationLocationData.name && pickupLocationData.name) {
+      // Use names from local state
       const estimate = 4500 + Math.floor(Math.random() * 2000);
       setFareEstimate(estimate);
     } else {
       setFareEstimate(null);
     }
   }, [destinationLocationData, pickupLocationData, setFareEstimate]); // Depend on location data
-
 
   // NEW: Updated handleUseCurrentLocation function
   const handleUseCurrentLocation = async () => {
@@ -525,16 +534,17 @@ export default function BookingScreen({
       // NEW: Await the result of requestPermission
       const fetchedCoords = await requestPermission();
       // NEW: Check if coords were successfully obtained
+      // In handleUseCurrentLocation:
       if (fetchedCoords) {
-        // In a real app, you'd reverse geocode fetchedCoords.latitude, fetchedCoords.longitude
         setPickupLocationData({
-          name: 'Your current location', // Placeholder
-          coords: [fetchedCoords.longitude, fetchedCoords.latitude] // [lng, lat]
+          name: "Use my current location", // ← MUST match string used in resolver
+          coords: [fetchedCoords.longitude, fetchedCoords.latitude],
         });
-        // Dropdown is already closed
       } else {
         // NEW: Handle case where request was granted but coords were null (unlikely but possible)
-        console.warn("Geolocation request granted but no coordinates returned.");
+        console.warn(
+          "Geolocation request granted but no coordinates returned."
+        );
         // Optionally update UI to show a generic error or retry option
       }
     } catch (err) {
@@ -549,25 +559,25 @@ export default function BookingScreen({
 
   const handleAirportSelect = (airportId: string) => {
     let selectedCoords: [number, number] | null = null;
-    let selectedName = '';
+    let selectedName = "";
 
     switch (airportId) {
-      case 'los':
+      case "los":
         selectedCoords = losCoords;
-        selectedName = 'Murtala Muhammed Int\'l Airport (LOS)';
+        selectedName = "Murtala Muhammed Int'l Airport (LOS)";
         break;
-      case 'abv':
+      case "abv":
         selectedCoords = abvCoords;
-        selectedName = 'Nnamdi Azikiwe Int\'l Airport (ABV)';
+        selectedName = "Nnamdi Azikiwe Int'l Airport (ABV)";
         break;
       default:
-        selectedName = 'Unknown Airport';
+        selectedName = "Unknown Airport";
     }
 
     if (selectedCoords) {
       setPickupLocationData({
         name: selectedName,
-        coords: selectedCoords
+        coords: selectedCoords,
       });
     }
     setPickupOpen(false);
@@ -578,11 +588,10 @@ export default function BookingScreen({
     const selectedCoords = destinationCoordsMap[selectedDestination] || null; // Use map or null
     setDestinationLocationData({
       name: selectedDestination,
-      coords: selectedCoords
+      coords: selectedCoords,
     });
     setDestOpen(false);
   };
-
 
   // NEW: Combine internal fetching state with hook's loading state for UI
   const showFetchingUI = isFetchingLocation || hookLoading;
@@ -610,23 +619,32 @@ export default function BookingScreen({
                 type="text"
                 placeholder="Airport pickup location"
                 // NEW: Show fetching message or actual name, make read-only if fetching
-                value={showFetchingUI ? 'Getting your location...' : pickupLocationData.name}
+                value={
+                  showFetchingUI
+                    ? "Getting your location..."
+                    : pickupLocationData.name
+                }
                 // NEW: Disable input while fetching
                 onChange={(e) => {
-                    if (!showFetchingUI) {
-                        setPickupLocationData(prev => ({ ...prev, name: e.target.value }));
-                    }
+                  if (!showFetchingUI) {
+                    setPickupLocationData((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }));
+                  }
                 }}
                 onFocus={() => {
-                    if (!showFetchingUI) {
-                        setPickupOpen(true);
-                    }
+                  if (!showFetchingUI) {
+                    setPickupOpen(true);
+                  }
                 }}
                 // NEW: Show read-only state while fetching
                 readOnly={showFetchingUI}
                 className={`flex-1 bg-transparent outline-none text-base ${
                   // NEW: Apply different text color when fetching to indicate disabled state
-                  showFetchingUI ? 'text-achrams-text-secondary italic' : 'text-achrams-text-primary'
+                  showFetchingUI
+                    ? "text-achrams-text-secondary italic"
+                    : "text-achrams-text-primary"
                 }`}
               />
               {/* Dropdown/Open Button */}
@@ -637,21 +655,25 @@ export default function BookingScreen({
                 )}
                 <button
                   onClick={() => {
-                      if (!showFetchingUI) {
-                          setPickupOpen(!pickupOpen);
-                      }
+                    if (!showFetchingUI) {
+                      setPickupOpen(!pickupOpen);
+                    }
                   }}
                   disabled={showFetchingUI} // NEW: Disable button while fetching
                   className={`p-2 ${
                     // NEW: Apply different text color and cursor when disabled
-                    showFetchingUI ? 'text-achrams-text-secondary opacity-50 cursor-not-allowed' : 'text-achrams-text-secondary hover:text-achrams-text-primary'
+                    showFetchingUI
+                      ? "text-achrams-text-secondary opacity-50 cursor-not-allowed"
+                      : "text-achrams-text-secondary hover:text-achrams-text-primary"
                   } transition-colors`}
                 >
                   {/* NEW: Show spinner inside button instead of Navigation icon while fetching */}
                   {showFetchingUI ? (
                     <Loader className="w-5 h-5 animate-spin text-achrams-primary-solid" />
+                  ) : pickupOpen ? (
+                    <ChevronDown className="w-5 h-5" />
                   ) : (
-                    pickupOpen ? <ChevronDown className="w-5 h-5" /> : <Navigation className="w-5 h-5" />
+                    <Navigation className="w-5 h-5" />
                   )}
                 </button>
               </div>
@@ -664,7 +686,8 @@ export default function BookingScreen({
                 {showFetchingUI ? (
                   <div className="w-full px-4 py-3 flex items-center gap-3 justify-center text-achrams-text-secondary">
                     <Loader className="w-5 h-5 animate-spin mr-2" />
-                    <span>Locating you...</span> {/* NEW: Professional message */}
+                    <span>Locating you...</span>{" "}
+                    {/* NEW: Professional message */}
                   </div>
                 ) : (
                   <>
@@ -685,8 +708,12 @@ export default function BookingScreen({
                       >
                         <Plane className="w-5 h-5 text-achrams-primary-solid flex-shrink-0 mt-0.5" />
                         <div>
-                          <div className="font-medium text-achrams-text-primary text-sm">{a.name}</div>
-                          <div className="text-xs text-achrams-text-secondary">{a.city}</div>
+                          <div className="font-medium text-achrams-text-primary text-sm">
+                            {a.name}
+                          </div>
+                          <div className="text-xs text-achrams-text-secondary">
+                            {a.city}
+                          </div>
                         </div>
                       </button>
                     ))}
@@ -708,50 +735,66 @@ export default function BookingScreen({
                 type="text"
                 placeholder="Enter destination"
                 value={destinationLocationData.name} // NEW: Use name from local state
-                onChange={(e) => { // NEW: Update local state
-                  setDestinationLocationData(prev => ({ ...prev, name: e.target.value }));
+                onChange={(e) => {
+                  // NEW: Update local state
+                  setDestinationLocationData((prev) => ({
+                    ...prev,
+                    name: e.target.value,
+                  }));
                   setDestOpen(true); // NEW: Open dropdown
                 }}
                 onFocus={() => setDestOpen(true)}
                 className="flex-1 bg-transparent outline-none text-base text-achrams-text-primary"
               />
-              {destOpen && destinationLocationData.name && ( // NEW: Use local state
-                <button
-                  onClick={() => {
-                    setDestinationLocationData({ name: '', coords: null }); // NEW: Clear local state
-                    setDestination(''); // NEW: Clear parent state
-                  }}
-                  className="p-2 text-achrams-text-secondary hover:text-achrams-text-primary transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              )}
+              {destOpen &&
+                destinationLocationData.name && ( // NEW: Use local state
+                  <button
+                    onClick={() => {
+                      setDestinationLocationData({ name: "", coords: null }); // NEW: Clear local state
+                      setDestination(""); // NEW: Clear parent state
+                    }}
+                    className="p-2 text-achrams-text-secondary hover:text-achrams-text-primary transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
             </div>
-            {destOpen && destinationLocationData.name && ( // NEW: Use local state
-              // Dropdown now uses solid background color and border
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 max-h-64 overflow-y-auto">
-                {commonDestinations
-                  .filter((d) => d.toLowerCase().includes(destinationLocationData.name.toLowerCase())) // NEW: Filter based on local state
-                  .map((d, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleDestinationSelect(d)} // NEW: Use new handler
-                      className="w-full px-4 py-3 flex items-center gap-3 hover:bg-achrams-bg-secondary border-b border-achrams-border text-left"
-                    >
-                      <MapPin className="w-5 h-5 text-achrams-primary-solid flex-shrink-0" />
-                      <div className="text-achrams-text-primary text-sm">{d}</div>
-                    </button>
-                  ))}
-              </div>
-            )}
+            {destOpen &&
+              destinationLocationData.name && ( // NEW: Use local state
+                // Dropdown now uses solid background color and border
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 max-h-64 overflow-y-auto">
+                  {commonDestinations
+                    .filter((d) =>
+                      d
+                        .toLowerCase()
+                        .includes(destinationLocationData.name.toLowerCase())
+                    ) // NEW: Filter based on local state
+                    .map((d, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleDestinationSelect(d)} // NEW: Use new handler
+                        className="w-full px-4 py-3 flex items-center gap-3 hover:bg-achrams-bg-secondary border-b border-achrams-border text-left"
+                      >
+                        <MapPin className="w-5 h-5 text-achrams-primary-solid flex-shrink-0" />
+                        <div className="text-achrams-text-primary text-sm">
+                          {d}
+                        </div>
+                      </button>
+                    ))}
+                </div>
+              )}
           </div>
         </div>
 
         {fareEstimate && (
           <div className="mt-6 p-4 bg-achrams-bg-secondary rounded-xl border border-achrams-border">
             <div className="flex justify-between items-center">
-              <span className="text-achrams-text-secondary">Estimated fare</span>
-              <span className="text-xl font-bold text-achrams-text-primary">₦{fareEstimate.toLocaleString()}</span>
+              <span className="text-achrams-text-secondary">
+                Estimated fare
+              </span>
+              <span className="text-xl font-bold text-achrams-text-primary">
+                ₦{fareEstimate.toLocaleString()}
+              </span>
             </div>
           </div>
         )}
@@ -762,11 +805,13 @@ export default function BookingScreen({
           disabled={!fareEstimate}
           className={`w-full py-4 rounded-xl text-lg font-bold text-achrams-text-light transition-all ${
             fareEstimate
-              ? 'bg-achrams-gradient-primary hover:opacity-95 active:scale-[0.98] shadow-md'
-              : 'bg-achrams-secondary-solid opacity-75 cursor-not-allowed'
+              ? "bg-achrams-gradient-primary hover:opacity-95 active:scale-[0.98] shadow-md"
+              : "bg-achrams-secondary-solid opacity-75 cursor-not-allowed"
           }`}
         >
-          {fareEstimate ? `Proceed • ₦${fareEstimate.toLocaleString()}` : 'Enter destinations'}
+          {fareEstimate
+            ? `Proceed • ₦${fareEstimate.toLocaleString()}`
+            : "Enter destinations"}
         </button>
       </div>
 

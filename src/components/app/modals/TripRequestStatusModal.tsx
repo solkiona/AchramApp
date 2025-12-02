@@ -5,7 +5,8 @@ interface TripRequestStatusModalProps {
   isOpen: boolean;
   onClose: () => void;
   status: 'loading' | 'accepted' | 'no-driver' | 'error' | null;
-  message?: string; // Optional custom message
+  message?: string | null; // Optional custom message
+  onConfirm?: () => void
 }
 
 export default function TripRequestStatusModal({
@@ -13,6 +14,7 @@ export default function TripRequestStatusModal({
   onClose,
   status,
   message,
+  onConfirm,
 }: TripRequestStatusModalProps) {
   if (!isOpen || !status) return null;
 
@@ -49,7 +51,7 @@ export default function TripRequestStatusModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50">
+    <div className="fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-100">
       <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold text-achrams-text-primary">{title}</h3>
@@ -70,9 +72,9 @@ export default function TripRequestStatusModal({
               // The parent (page.tsx) handles the transition after 'accepted' status is set
               onClose(); // Close the modal
             } else if (status === 'no-driver' || status === 'error') {
-              // Retry logic or close - in this mock, just close
-              onClose();
-            }
+              // Retry logic or close - in this mock, just 
+              if (onConfirm) {onConfirm()} else onClose();
+            } else onClose();
           }}
           className={`w-full py-4 rounded-xl font-semibold transition-all ${
             status === 'accepted'

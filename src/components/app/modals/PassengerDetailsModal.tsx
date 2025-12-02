@@ -10,6 +10,9 @@ interface PassengerDetailsModalProps {
   requirements: { luggage: boolean; wheelchair: boolean; elderly: boolean };
   setRequirements: (req: any) => void;
   onRequestRide: () => void;
+
+  isLoading? : boolean;
+
 }
 
 export default function PassengerDetailsModal({
@@ -20,6 +23,7 @@ export default function PassengerDetailsModal({
   requirements,
   setRequirements,
   onRequestRide,
+  isLoading,
 }: PassengerDetailsModalProps) {
   const [showRequirements, setShowRequirements] = useState(false);
 
@@ -120,7 +124,7 @@ export default function PassengerDetailsModal({
               : 'bg-achrams-secondary-solid text-achrams-text-light opacity-75 cursor-not-allowed' // Disabled state
           }`}
         >
-          Request a ride
+          {isLoading ? 'Requesting...': 'Request a ride'}
         </button>
       </div>
     </div>

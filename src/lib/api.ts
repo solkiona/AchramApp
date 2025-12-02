@@ -37,7 +37,9 @@ export const apiClient = {
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({ message: 'Network or server error' }));
+      console.log(`Data: ${data} \n Result: ${res}`)
       throw new Error(errorData.message || `HTTP error! status: ${res.status}`);
+      
     }
 
     return res.json();
