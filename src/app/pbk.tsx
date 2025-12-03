@@ -41,8 +41,6 @@ import LoginModal from "@/components/app/modals/LoginModal";
 import Enable2FAModal from "@/components/app/modals/Enable2FAModal";
 import Disable2FAModal from "@/components/app/modals/Disable2FAModal";
 import UpdateProfileModal from "@/components/app/modals/UpdateProfileModal";
-
-
 import Image from "next/image";
 import { apiClient } from "@/lib/api";
 
@@ -52,7 +50,6 @@ import TripUpdateNotification from "@/components/app/ui/TripUpdateNotification";
 import BottomNavBar from "@/components/app/ui/BottomNavBar";
 import { findNearestAirport, KNOWN_AIRPORTS } from "@/lib/airports";
 import ReconnectingWebSocket from "reconnecting-websocket";
-import LocationPermissionModal from '@/components/app/modals/LocationPermissionModal'; // NEW: Import the new modal
 
 type TripStatusValue =
   | "searching"
@@ -210,10 +207,6 @@ export default function ACHRAMApp() {
 
   // NEW: State for driver verification modal
   const [showDriverVerification, setShowDriverVerification] = useState(false);
-
-  const [showLocationModal, setShowLocationModal] = useState(false);
-
-
 
   // NEW: State for trip update notifications
   const [currentNotification, setCurrentNotification] = useState<{
@@ -517,208 +510,176 @@ export default function ACHRAMApp() {
   // NEW: Modified handleRequestRide with mock API call simulation and state persistence
   // NEW: Modified handleRequestRide with real API call integration and state persistence
   const handleRequestRide = async () => {
-  if (!passengerData.name || !passengerData.phone || !passengerData.email) {
-    showNotification("Please fill all passenger details.", "error");
-    return;
-  }
-
-  if (!pickupCoords || !destinationCoords) {
-    showNotification(
-      "Pickup and destination locations are required.",
-      "error"
-    );
-    return;
-  }
-
-  setShowPassengerDetails(false);
-  setTripRequestStatus("loading"); // Shows "Finding a driver..." modal
-
-  try {
-    // === Step A: Resolve airport ID ===
-    let airportId: string | null = null;
-
-    if (pickup.startsWith("Use my current location")) {
-      // NEW: This branch might now be less likely to be triggered if BookingScreen
-      // correctly sets the `pickup` state to the *resolved name* (e.g., "Murtala Muhammed International Airport")
-      // and `pickupCoords` to the geolocation coords, because `pickup` no longer literally starts with "Use my current location".
-      // However, keep it as a potential fallback or if the naming logic in BookingScreen changes slightly.
-      // The critical part is that `pickupCoords` contains the coordinates used for the API call,
-      // and `pickup` contains the *name* of the *selected* airport.
-
-      // Fetch airports based on the coordinates stored in pickupCoords
-      const nearestAirports = await findNearestAirport(pickupCoords[0], pickupCoords[1]);
-
-      if (!nearestAirports || !nearestAirports.length) {
-        setTripRequestStatus("error");
-        setTripRequestError("You’re outside our service area. Booking not available from this location.");
-        return;
-      }
-
-      // NEW: Find the specific airport ID based on the `pickup` name state
-      // This assumes the name set by BookingScreen matches the `name` field from the API exactly.
-      // This is the crucial change: match the name stored in state to the array returned by the API.
-      const selectedAirport = nearestAirports.find(apt => apt.name === pickup);
-      if (!selectedAirport) {
-          console.error("Selected pickup name does not match any fetched airport:", pickup, nearestAirports);
-          setTripRequestStatus("error");
-          setTripRequestError("Could not confirm selected pickup location. Please try again.");
-          return;
-      }
-      airportId = selectedAirport.id;
-
-    } else if (pickup in KNOWN_AIRPORTS) {
-      // Handle selection from the hardcoded list in BookingScreen
-      airportId = KNOWN_AIRPORTS[pickup];
-    } else {
-      // Handle a custom pickup name typed by the user (e.g., via Google Autocomplete or manual entry).
-      // The `pickupCoords` should now be the coordinates resolved from the *typed* destination name
-      // by the Google Autocomplete component integrated into BookingScreen.
-      // Call the API again to ensure the coordinates map to a valid ACHRAMS airport.
-      const nearestAirports = await findNearestAirport(pickupCoords[0], pickupCoords[1]);
-
-      if (!nearestAirports || !nearestAirports.length) {
-        setTripRequestStatus("error");
-        setTripRequestError("Pickup location is not near a supported airport.");
-        return;
-      }
-
-      // NEW: Similar to the "Use my current location" case, find the ID based on the name stored in state.
-      // For a custom name, `pickup` is the typed name, and `pickupCoords` are its resolved coordinates.
-      // The API might return airports near those coordinates.
-      // This logic assumes that for a custom name, the intention is to find *an* ACHRAMS airport near the *typed* location.
-      // If the user types "Some Random Street", and it resolves to coordinates not near an ACHRAMS airport,
-      // `findNearestAirport` should return null, and the check above (`!nearestAirports`) handles it.
-      // If it *does* resolve near an airport, this code finds the ID for that airport.
-      // However, if the user typed "Murtala Muhammed Int'l Airport", it should ideally resolve coordinates
-      // that `findNearestAirport` matches back to the ACHRAMS entry for that airport.
-      // The name matching logic here is primarily for the "Use my current location" case where the name is explicitly selected.
-      // For custom names, if the coordinates are accurate, `findNearestAirport` should ideally return the relevant airport.
-      // If the typed name doesn't correspond to a specific ACHRAMS airport boundary but is nearby,
-      // the backend might expect the ID of the nearest ACHRAMS airport.
-      // The safest bet is still to match the name if possible, or default to the first result if names don't match perfectly.
-      // Let's try name matching first, then fall back.
-      const selectedAirport = nearestAirports.find(apt => apt.name === pickup);
-      if (selectedAirport) {
-          airportId = selectedAirport.id;
-      } else {
-          // Fallback: if the typed name doesn't exactly match an API result name,
-          // use the first result from the API call (assuming it's the nearest one).
-          // This covers cases where the user types a location close to an airport but not the airport name itself,
-          // and the system correctly identifies the nearest airport boundary.
-          console.warn("Typed pickup name did not match any fetched airport name, using first result.", pickup, nearestAirports);
-          airportId = nearestAirports[0].id;
-      }
+    if (!passengerData.name || !passengerData.phone || !passengerData.email) {
+      showNotification("Please fill all passenger details.", "error");
+      return;
     }
 
-    // === Step B: Prepare request body (amount, guest details, requirements, locations) ===
-    // (This part remains largely the same, using fareEstimate, passengerData, requirements, pickupCoords, destinationCoords)
-    const tripData = {
-      amount: {
-        amount: fareEstimate?.toString() || "0",
-        currency: "NGN",
-      },
-      airport: airportId, // Use the resolved ID
-      guest_name: passengerData.name,
-      guest_email: passengerData.email,
-      guest_phone: formatPhoneNumber(passengerData.phone),
-      has_extra_leg_room: requirements.elderly,
-      has_extra_luggage: requirements.luggage,
-      has_wheel_chair_access: requirements.wheelchair,
-      pickup_address: pickup, // The resolved/typed pickup name
-      pickup_location: pickupCoords, // [lng, lat] from state
-      destination_address: destination, // The typed destination name
-      destination_location: destinationCoords, // [lng, lat] from state (resolved by Google Autocomplete in BookingScreen)
-    };
-
-    console.log("Request Data:", tripData);
-
-    // === Step C: Make API call ===
-    const response = await apiClient.post("/trips/guest-booking", tripData);
-
-    console.log("Raw API Response:", response);
-
-    if (response.status === "success" && response.data) {
-      const trip = response.data;
-      const extractedGuestId = trip.guest?.id;
-
-      if (!extractedGuestId) {
-        console.error("Guest ID not found in booking response, cannot start WebSocket.");
-        setTripRequestStatus('error');
-        setTripRequestError('Failed to get guest session. Booking cancelled.');
-        return;
-      }
-
-      console.log("Trip data received:", trip);
-      console.log("Guest ID received:", extractedGuestId);
-
-      setVerificationCode(trip.verification_code || "");
-      setActiveTripId(trip.id);
-      setGuestId(extractedGuestId);
-
-      if (trip.status.value === "searching") {
-        setTripRequestStatus(null);
-        setScreen("assigning");
-        startWebSocketConnection(extractedGuestId, trip.id);
-      } else if (trip.status.value === "driver_assigned" && trip.driver) {
-        setDriver(trip.driver);
-        setTripRequestStatus(null);
-        setScreen("driver-assigned");
-        // No need to start WebSocket or polling if driver is already assigned
-      } else {
-        console.warn("Unexpected trip status after booking:", trip.status);
-        setTripRequestStatus("error");
-        setTripRequestError(`Unexpected booking state: ${trip.status.label}`);
-      }
-    } else {
-      console.error(
-        "API responded with non-success status or missing data:",
-        response
+    if (!pickupCoords || !destinationCoords) {
+      showNotification(
+        "Pickup and destination locations are required.",
+        "error"
       );
-      let errorMessage = "Failed to book your trip. Server responded unexpectedly.";
-      if (response.message) {
-        errorMessage = response.message;
-        if (response.details) {
-          const fieldErrors = [];
-          for (const [field, messages] of Object.entries(response.details)) {
-            if (Array.isArray(messages)) {
-              fieldErrors.push(`${field}: ${messages.join(", ")}`);
+      return;
+    }
+
+    setShowPassengerDetails(false);
+    setTripRequestStatus("loading"); // Shows "Finding a driver..." modal
+
+    try {
+      // === Step A: Resolve airport ID ===
+      let airportId: string | null = null;
+
+      if (pickup.startsWith("Use my current location")) {
+        // Reverse geocode current location → airport
+        const nearest = await findNearestAirport(
+          pickupCoords[0],
+          pickupCoords[1]
+        );
+        if (!nearest) {
+          setTripRequestStatus("error");
+          setTripRequestError(
+            "You’re outside our service area. Booking not available from this location."
+          );
+          return;
+        }
+        airportId = nearest.id;
+      } else if (pickup in KNOWN_AIRPORTS) {
+        airportId = KNOWN_AIRPORTS[pickup];
+      } else {
+        // If user typed a custom pickup that isn't a known airport,
+        // try reverse geocoding it too
+        const nearest = await findNearestAirport(
+          pickupCoords[0],
+          pickupCoords[1]
+        );
+        if (!nearest) {
+          setTripRequestStatus("error");
+          setTripRequestError(
+            "Pickup location is not near a supported airport."
+          );
+          return;
+        }
+        airportId = nearest.id;
+      }
+
+      // === Step B: Prepare request body ===
+      const tripData = {
+        amount: {
+          amount: fareEstimate?.toString() || "0",
+          currency: "NGN",
+        },
+        airport: airportId,
+        guest_name: passengerData.name,
+        guest_email: passengerData.email,
+        guest_phone: formatPhoneNumber(passengerData.phone), // Use the format helper
+        has_extra_leg_room: requirements.elderly, // or map as needed
+        has_extra_luggage: requirements.luggage,
+        has_wheel_chair_access: requirements.wheelchair,
+        pickup_address: pickup,
+        pickup_location: pickupCoords, // [lng, lat]
+        destination_address: destination,
+        destination_location: destinationCoords, // [lng, lat]
+      };
+
+      console.log("Request Data:", tripData); // Log the object structure, not stringified
+      // === Step C: Make API call ===
+      const response = await apiClient.post("/trips/guest-booking", tripData);
+
+      console.log("Raw API Response:", response); // Log the full response object from apiClient
+
+      // Check if the API's internal status indicates success (response.status is from API body)
+      if (response.status === "success" && response.data) {
+        const trip = response.data; // <-- CORRECT: Get the actual trip object from inside the response body
+        const extractedGuestId = trip.guest?.id; // Extract guest ID from the response
+
+        if (!extractedGuestId) {
+          console.error(
+            "Guest ID not found in booking response, cannot start WebSocket."
+          );
+          setTripRequestStatus("error");
+          setTripRequestError(
+            "Failed to get guest session. Booking cancelled."
+          );
+          return;
+        }
+
+        console.log("Trip data received:", trip);
+        console.log("Guest ID received:", extractedGuestId);
+
+        // Apply the success logic
+        setVerificationCode(trip.verification_code || "");
+        setActiveTripId(trip.id); // Store the trip ID for potential polling fallback
+        setGuestId(extractedGuestId); // Store the guest ID for WebSocket and polling headers
+
+        if (trip.status.value === "searching") {
+          setTripRequestStatus(null); // Hide the initial loading modal
+          setScreen("assigning"); // Transition to assigning screen
+
+          // NEW: Start WebSocket connection using the guest ID and trip ID
+          startWebSocketConnection(extractedGuestId, trip.id);
+          // Do NOT start polling here anymore, WebSocket handles updates initially.
+        } else if (trip.status.value === "driver_assigned" && trip.driver) {
+          // Less likely for guest booking, but handle if it happens immediately
+          setDriver(trip.driver);
+          setTripRequestStatus(null);
+          setScreen("driver-assigned");
+          // No need to start WebSocket or polling if driver is already assigned
+        } else {
+          console.warn("Unexpected trip status after booking:", trip.status);
+          setTripRequestStatus("error");
+          setTripRequestError(`Unexpected booking state: ${trip.status.label}`);
+        }
+      } else {
+        // If the API's internal status is not "success", treat it as an API error
+        console.error(
+          "API responded with non-success status or missing data:",
+          response
+        );
+        // Construct error message from the API's response body
+        let errorMessage =
+          "Failed to book your trip. Server responded unexpectedly.";
+        if (response.message) {
+          // response.message is from the API body via apiClient
+          errorMessage = response.message;
+          if (response.details) {
+            // response.details is from the API body via apiClient
+            const fieldErrors = [];
+            for (const [field, messages] of Object.entries(response.details)) {
+              if (Array.isArray(messages)) {
+                fieldErrors.push(`${field}: ${messages.join(", ")}`);
+              }
+            }
+            if (fieldErrors.length > 0) {
+              errorMessage += ` Details: ${fieldErrors.join("; ")}`;
             }
           }
-          if (fieldErrors.length > 0) {
-            errorMessage += ` Details: ${fieldErrors.join("; ")}`;
-          }
         }
+        throw new Error(errorMessage); // This will be caught by the outer catch block
       }
-      throw new Error(errorMessage);
+    } catch (err: any) {
+      console.error("Guest booking error:", err);
+      setTripRequestStatus("error");
+
+      // Construct a more detailed error message based on the error thrown by apiClient
+      let errorMessage =
+        "Failed to book your trip. Please check your connection and try again.";
+
+      // Check if the error is the one thrown by our apiClient (src/lib/api.ts)
+      // apiClient throws `new Error(message)` for non-2xx responses or network issues.
+      if (err instanceof Error) {
+        // Use the message provided by apiClient's Error object
+        errorMessage = err.message;
+      } else {
+        // If it's not a standard Error object (e.g., if something else threw unexpectedly)
+        console.error("Unexpected error type caught:", typeof err, err);
+        errorMessage = "An unexpected error occurred during booking.";
+      }
+
+      // Set the enhanced error message
+      setTripRequestError(errorMessage);
     }
-  } catch (err: any) {
-    console.error("Guest booking error:", err);
-    setTripRequestStatus("error");
-
-    let errorMessage = "Failed to book your trip. Please check your connection and try again.";
-
-    if (err instanceof Error) {
-      errorMessage = err.message;
-    } else {
-      console.error("Unexpected error type caught:", typeof err, err);
-      errorMessage = 'An unexpected error occurred during booking.';
-    }
-
-    setTripRequestError(errorMessage);
-  }
-};
-
- const handleShowLocationModal = () => {
-    setShowLocationModal(true);
   };
-const handleLocationModalClose = () => {
-    setShowLocationModal(false);
-  };
-
-
-const handleGrantLocationAccess = () => {
-  console.log("location access granted button clicked in modal. The BookingScreen will handle the requestPermission call")
-}
 
   const startWebSocketConnection = (guestId: string, tripId: string) => {
     if (webSocketConnection) {
@@ -852,12 +813,11 @@ rws.onclose = (event) => {
   // NEW: Function to stop the WebSocket connection
   const stopWebSocketConnection = () => {
     if (webSocketConnection) {
-
-      stopPollingTripStatus();
       console.log("Manually stopping WebSocket connection.");
       webSocketConnection.close(); // This will trigger the onclose handler
       setWebSocketConnection(null);
       setWebSocketStatus("closed");
+      stopPollingTripStatus();
     }
   };
 
@@ -1026,9 +986,6 @@ rws.onclose = (event) => {
         setRequirements={setRequirements}
         setPickupCoords={setPickupCoords} // NEW
         setDestinationCoords={setDestinationCoords} // NEW
-        onShowLocationModal={handleShowLocationModal}
-
-
       />
     );
   } else if (screen === "assigning") {
@@ -1215,12 +1172,6 @@ rws.onclose = (event) => {
             isLoading={tripRequestStatus === "loading"}
           />
 
-           <LocationPermissionModal
-              isOpen={showLocationModal}
-              onClose={handleLocationModalClose}
-              onGrantAccess={handleGrantLocationAccess}
-            />
-
           {/* NEW: Dynamically imported DirectionsModal */}
           {hasHydrated && (
             <DirectionsModal
@@ -1268,7 +1219,7 @@ rws.onclose = (event) => {
                   setShowSignup(false);
                   setScreen("dashboard"); // Example: go to dashboard after trip
                 }}
-                // NEW: Pass registration success handler
+                onRegistrationSuccess={handleRegistrationSuccess} // NEW: Pass registration success handler
               />
             )}
 
