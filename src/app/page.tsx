@@ -52,7 +52,6 @@ import TripUpdateNotification from "@/components/app/ui/TripUpdateNotification";
 import BottomNavBar from "@/components/app/ui/BottomNavBar";
 import { findNearestAirport, KNOWN_AIRPORTS } from "@/lib/airports";
 import ReconnectingWebSocket from "reconnecting-websocket";
-import LocationPermissionModal from '@/components/app/modals/LocationPermissionModal'; // NEW: Import the new modal
 
 type TripStatusValue =
   | "searching"
@@ -211,8 +210,7 @@ export default function ACHRAMApp() {
   // NEW: State for driver verification modal
   const [showDriverVerification, setShowDriverVerification] = useState(false);
 
-  const [showLocationModal, setShowLocationModal] = useState(false);
-
+ 
 
 
   // NEW: State for trip update notifications
@@ -1026,7 +1024,7 @@ rws.onclose = (event) => {
         setRequirements={setRequirements}
         setPickupCoords={setPickupCoords} // NEW
         setDestinationCoords={setDestinationCoords} // NEW
-        onShowLocationModal={handleShowLocationModal}
+       
 
 
       />
@@ -1215,11 +1213,7 @@ rws.onclose = (event) => {
             isLoading={tripRequestStatus === "loading"}
           />
 
-           <LocationPermissionModal
-              isOpen={showLocationModal}
-              onClose={handleLocationModalClose}
-              onGrantAccess={handleGrantLocationAccess}
-            />
+      
 
           {/* NEW: Dynamically imported DirectionsModal */}
           {hasHydrated && (
