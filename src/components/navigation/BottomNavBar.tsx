@@ -15,7 +15,7 @@ const BottomNavBar: React.FC = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-achrams-background-primary border-t border-achrams-border p-3 flex justify-around z-10">
+    <nav className="fixed w-full max-w-sm mx-auto bottom-0 left-0 right-0 bg-achrams-background-primary border-t border-achrams-border p-3 flex justify-around z-10">
       {navItems.map((item) => {
         const IconComponent = item.icon;
         const isActive = pathname === item.href;

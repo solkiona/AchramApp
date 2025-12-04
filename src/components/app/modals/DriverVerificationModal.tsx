@@ -16,7 +16,7 @@ export default function DriverVerificationModal({
 
   return (
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50">
-      <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto  shadow-sm">
+      <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp max-h-[90vh] max-w-sm mx-auto overflow-y-auto  shadow-sm">
         <div className="flex justify-center mb-6">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600">
             <Shield className="w-8 h-8" />

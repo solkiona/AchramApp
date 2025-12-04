@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import { MapPin, Plus, CreditCard, ShieldAlert, Settings, Bell, Clock, Wallet, User } from 'lucide-react'; // NEW: Add icons
 import BottomNavBar from '../ui/BottomNavBar'; // NEW: Import BottomNavBar
 import { Driver } from '@/types/passenger'; // Assuming this type exists or define it
+import ACHRAMSHeader from "@/components/ui/ACHRAMSHeader";
+
 
 interface DashboardScreenProps {
   passengerData: { name: string; phone: string; email: string };
@@ -50,7 +52,7 @@ export default function DashboardScreen({
     <div className="h-screen bg-achrams-bg-primary flex flex-col pb-20"> {/* pb-20 to account for fixed BottomNavBar */}
       {/* Header */}
       <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">ACHRAM</h1>
+       < ACHRAMSHeader title=" " />
         <button
           onClick={onShowProfile}
           className="w-10 h-10 bg-gradient-to-br from-achrams-primary-solid to-achrams-secondary-solid rounded-full flex items-center justify-center text-sm font-bold shadow-lg"

@@ -50,7 +50,7 @@ export default function OTPModal({
     return (
       // Verified state modal
       <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50">
-        <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp text-center border-t border-achrams-border">
+        <div className="bg-white  w-full max-w-sm mx-auto rounded-t-3xl p-6 animate-slideUp text-center border-t border-achrams-border">
           <div className="w-16 h-16 bg-achrams-bg-secondary rounded-full flex items-center justify-center mx-auto mb-4 border border-achrams-border">
             <Check className="w-8 h-8 text-achrams-primary-solid" />
           </div>

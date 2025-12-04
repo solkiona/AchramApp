@@ -21,7 +21,7 @@ export default function ProfileModal({
 
   return (
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50 animate-fadeIn">
-      <div className="bg-white w-full rounded-t-3xl animate-slideUp max-h-[90vh] overflow-y-auto">
+      <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl animate-slideUp max-h-[90vh] overflow-y-auto">
         <div className="bg-achrams-primary-solid text-white px-6 py-8">
           <button onClick={onClose} className="mb-6">
             <X className="w-6 h-6" />

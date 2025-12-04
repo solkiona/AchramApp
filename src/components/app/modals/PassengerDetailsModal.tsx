@@ -34,7 +34,7 @@ export default function PassengerDetailsModal({
     // Ensure it covers the whole screen behind the modal
     <div className=" fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50"> 
       {/* The modal content */}
-      <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border">
+      <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border ">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold text-achrams-text-primary">Passenger details</h3>
           <button 

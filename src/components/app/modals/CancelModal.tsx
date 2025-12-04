@@ -38,7 +38,7 @@ export default function CancelModal({
 
   return (
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50 animate-fadeIn">
-      <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto">
+      <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp max-h-[90vh] overflow-y-auto max-w-sm mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-2xl font-bold">Cancel trip</h3>
           <button onClick={onClose}>

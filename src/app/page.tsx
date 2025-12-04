@@ -42,7 +42,6 @@ import Enable2FAModal from "@/components/app/modals/Enable2FAModal";
 import Disable2FAModal from "@/components/app/modals/Disable2FAModal";
 import UpdateProfileModal from "@/components/app/modals/UpdateProfileModal";
 
-
 import Image from "next/image";
 import { apiClient } from "@/lib/api";
 
@@ -62,7 +61,7 @@ type TripStatusValue =
   | "cancelled"
   | "driver not found"; // Added "driver not found"
 
-  type TripStatus = {
+type TripStatus = {
   label: string;
   value: TripStatusValue;
 };
@@ -210,8 +209,7 @@ export default function ACHRAMApp() {
   // NEW: State for driver verification modal
   const [showDriverVerification, setShowDriverVerification] = useState(false);
 
- 
-
+  const [resetBookingKey, setResetBookingKey] = useState(0);
 
   // NEW: State for trip update notifications
   const [currentNotification, setCurrentNotification] = useState<{
@@ -256,18 +254,6 @@ export default function ACHRAMApp() {
     if (hasHydrated && token) {
       const fetchUserProfile = async () => {
         try {
-          // NEW: Call the API to get user profile using apiClient
-          // Example: const response = await apiClient.get('/auth/passenger/me');
-          // Example structure based on passenger postman DOC.txt:
-          // const profileData = response.data.data;
-          // setWalletBalance(profileData.profile.wallet.balance.amount);
-          // setIs2FAEnabled(profileData.is_2fa_enabled);
-          // if (profileData.profile.active_trip) {
-          //    setActiveTripId(profileData.profile.active_trip.id);
-          //    // Potentially set screen to 'driver-assigned' or 'trip-progress' if active trip exists
-          //    // This logic depends on your desired UX for resuming active trips
-          // }
-
           // For now, simulate with mock data after a short delay
           setTimeout(() => {
             setWalletBalance(5000); // Mock balance
@@ -294,16 +280,6 @@ export default function ACHRAMApp() {
     if (screen === "trip-complete") {
       // Check if user is authenticated
       if (token) {
-        // If authenticated, maybe show rate modal (if not already shown) and then go to dashboard
-        // Or, if rating is handled elsewhere, just go to dashboard after a delay or user action
-        // For now, let's assume the user can click a button or it happens automatically after a short delay
-        // Or, the TripCompleteScreen itself could trigger this.
-        // Let's simulate a delay and then transition to dashboard if authenticated.
-        // This is just a simulation, the real trigger might be clicking 'Done' in TripCompleteScreen.
-        // We'll add a specific state to manage this transition cleanly.
-        // Let's assume the TripCompleteScreen has a button that calls a handler passed from page.tsx.
-        // For now, let's just add the logic here that *would* happen when the user wants to leave the trip-complete screen.
-        // The key is to clear trip data and set screen to dashboard *before* the save effect runs.
       } else {
         // If not authenticated (guest), show signup prompt after a delay
         const timer = setTimeout(() => {
@@ -418,33 +394,13 @@ export default function ACHRAMApp() {
 
   // NEW: Handler passed to SignupPromptModal for successful registration (e.g., open OTP)
   const handleRegistrationSuccess = (email: string) => {
-    // For now, simulate OTP verification success and move to dashboard
-    // In reality, you'd open OTPModal here
-    // setShowOTP(true); // Assuming OTPModal exists and handles verification
-    // If OTP verification is successful within OTPModal, it would then trigger navigation to dashboard
-    // OR, if registration API directly logs in (less common), update token and screen here.
-    // Let's assume it leads to OTP first, then dashboard.
-    // For this mock, let's just move to dashboard after "registration"
     setScreen("dashboard");
     setShowSignup(false); // Close signup prompt modal
     // setShowOTP(true); // Uncomment if implementing OTP flow
   };
 
   // NEW: Handler passed to LoginModal for successful login
-  const handleLoginSuccess = () => {
-    // The useAuth context should now have the token
-    // page.tsx relies on the `token` from useAuth to determine initial screen and rendering logic
-    // If token exists, screen should be 'dashboard' (handled by initial load or subsequent logic)
-    // Ensure screen is set correctly, maybe explicitly if needed after login
-    // setScreen('dashboard'); // Often not needed if initial load logic handles it based on token
-    // onClose in LoginModal should be sufficient if screen logic in render is correct
-    // No explicit action needed here if state management is correct, just let the parent re-render based on updated token.
-    // If token changes and initial screen logic in useEffect isn't catching it, maybe force update screen here.
-    // For now, assume token update in context triggers correct re-render.
-    // NEW: Optionally refetch profile data after login
-    // setHasHydrated(false); // Trigger re-fetch logic in profile effect by resetting hydration state slightly
-    // OR, rely on the token change triggering the profile fetch effect naturally.
-  };
+  const handleLoginSuccess = () => {};
 
   // NEW: Handler passed to Enable2FAModal on success
   const handle2FAEnabled = () => {
@@ -515,217 +471,211 @@ export default function ACHRAMApp() {
   // NEW: Modified handleRequestRide with mock API call simulation and state persistence
   // NEW: Modified handleRequestRide with real API call integration and state persistence
   const handleRequestRide = async () => {
-  if (!passengerData.name || !passengerData.phone || !passengerData.email) {
-    showNotification("Please fill all passenger details.", "error");
-    return;
-  }
-
-  if (!pickupCoords || !destinationCoords) {
-    showNotification(
-      "Pickup and destination locations are required.",
-      "error"
-    );
-    return;
-  }
-
-  setShowPassengerDetails(false);
-  setTripRequestStatus("loading"); // Shows "Finding a driver..." modal
-
-  try {
-    // === Step A: Resolve airport ID ===
-    let airportId: string | null = null;
-
-    if (pickup.startsWith("Use my current location")) {
-      // NEW: This branch might now be less likely to be triggered if BookingScreen
-      // correctly sets the `pickup` state to the *resolved name* (e.g., "Murtala Muhammed International Airport")
-      // and `pickupCoords` to the geolocation coords, because `pickup` no longer literally starts with "Use my current location".
-      // However, keep it as a potential fallback or if the naming logic in BookingScreen changes slightly.
-      // The critical part is that `pickupCoords` contains the coordinates used for the API call,
-      // and `pickup` contains the *name* of the *selected* airport.
-
-      // Fetch airports based on the coordinates stored in pickupCoords
-      const nearestAirports = await findNearestAirport(pickupCoords[0], pickupCoords[1]);
-
-      if (!nearestAirports || !nearestAirports.length) {
-        setTripRequestStatus("error");
-        setTripRequestError("You’re outside our service area. Booking not available from this location.");
-        return;
-      }
-
-      // NEW: Find the specific airport ID based on the `pickup` name state
-      // This assumes the name set by BookingScreen matches the `name` field from the API exactly.
-      // This is the crucial change: match the name stored in state to the array returned by the API.
-      const selectedAirport = nearestAirports.find(apt => apt.name === pickup);
-      if (!selectedAirport) {
-          console.error("Selected pickup name does not match any fetched airport:", pickup, nearestAirports);
-          setTripRequestStatus("error");
-          setTripRequestError("Could not confirm selected pickup location. Please try again.");
-          return;
-      }
-      airportId = selectedAirport.id;
-
-    } else if (pickup in KNOWN_AIRPORTS) {
-      // Handle selection from the hardcoded list in BookingScreen
-      airportId = KNOWN_AIRPORTS[pickup];
-    } else {
-      // Handle a custom pickup name typed by the user (e.g., via Google Autocomplete or manual entry).
-      // The `pickupCoords` should now be the coordinates resolved from the *typed* destination name
-      // by the Google Autocomplete component integrated into BookingScreen.
-      // Call the API again to ensure the coordinates map to a valid ACHRAMS airport.
-      const nearestAirports = await findNearestAirport(pickupCoords[0], pickupCoords[1]);
-
-      if (!nearestAirports || !nearestAirports.length) {
-        setTripRequestStatus("error");
-        setTripRequestError("Pickup location is not near a supported airport.");
-        return;
-      }
-
-      // NEW: Similar to the "Use my current location" case, find the ID based on the name stored in state.
-      // For a custom name, `pickup` is the typed name, and `pickupCoords` are its resolved coordinates.
-      // The API might return airports near those coordinates.
-      // This logic assumes that for a custom name, the intention is to find *an* ACHRAMS airport near the *typed* location.
-      // If the user types "Some Random Street", and it resolves to coordinates not near an ACHRAMS airport,
-      // `findNearestAirport` should return null, and the check above (`!nearestAirports`) handles it.
-      // If it *does* resolve near an airport, this code finds the ID for that airport.
-      // However, if the user typed "Murtala Muhammed Int'l Airport", it should ideally resolve coordinates
-      // that `findNearestAirport` matches back to the ACHRAMS entry for that airport.
-      // The name matching logic here is primarily for the "Use my current location" case where the name is explicitly selected.
-      // For custom names, if the coordinates are accurate, `findNearestAirport` should ideally return the relevant airport.
-      // If the typed name doesn't correspond to a specific ACHRAMS airport boundary but is nearby,
-      // the backend might expect the ID of the nearest ACHRAMS airport.
-      // The safest bet is still to match the name if possible, or default to the first result if names don't match perfectly.
-      // Let's try name matching first, then fall back.
-      const selectedAirport = nearestAirports.find(apt => apt.name === pickup);
-      if (selectedAirport) {
-          airportId = selectedAirport.id;
-      } else {
-          // Fallback: if the typed name doesn't exactly match an API result name,
-          // use the first result from the API call (assuming it's the nearest one).
-          // This covers cases where the user types a location close to an airport but not the airport name itself,
-          // and the system correctly identifies the nearest airport boundary.
-          console.warn("Typed pickup name did not match any fetched airport name, using first result.", pickup, nearestAirports);
-          airportId = nearestAirports[0].id;
-      }
+    if (!passengerData.name || !passengerData.phone || !passengerData.email) {
+      showNotification("Please fill all passenger details.", "error");
+      return;
     }
 
-    // === Step B: Prepare request body (amount, guest details, requirements, locations) ===
-    // (This part remains largely the same, using fareEstimate, passengerData, requirements, pickupCoords, destinationCoords)
-    const tripData = {
-      amount: {
-        amount: fareEstimate?.toString() || "0",
-        currency: "NGN",
-      },
-      airport: airportId, // Use the resolved ID
-      guest_name: passengerData.name,
-      guest_email: passengerData.email,
-      guest_phone: formatPhoneNumber(passengerData.phone),
-      has_extra_leg_room: requirements.elderly,
-      has_extra_luggage: requirements.luggage,
-      has_wheel_chair_access: requirements.wheelchair,
-      pickup_address: pickup, // The resolved/typed pickup name
-      pickup_location: pickupCoords, // [lng, lat] from state
-      destination_address: destination, // The typed destination name
-      destination_location: destinationCoords, // [lng, lat] from state (resolved by Google Autocomplete in BookingScreen)
-    };
-
-    console.log("Request Data:", tripData);
-
-    // === Step C: Make API call ===
-    const response = await apiClient.post("/trips/guest-booking", tripData);
-
-    console.log("Raw API Response:", response);
-
-    if (response.status === "success" && response.data) {
-      const trip = response.data;
-      const extractedGuestId = trip.guest?.id;
-
-      if (!extractedGuestId) {
-        console.error("Guest ID not found in booking response, cannot start WebSocket.");
-        setTripRequestStatus('error');
-        setTripRequestError('Failed to get guest session. Booking cancelled.');
-        return;
-      }
-
-      console.log("Trip data received:", trip);
-      console.log("Guest ID received:", extractedGuestId);
-
-      setVerificationCode(trip.verification_code || "");
-      setActiveTripId(trip.id);
-      setGuestId(extractedGuestId);
-
-      if (trip.status.value === "searching") {
-        setTripRequestStatus(null);
-        setScreen("assigning");
-        startWebSocketConnection(extractedGuestId, trip.id);
-      } else if (trip.status.value === "driver_assigned" && trip.driver) {
-        setDriver(trip.driver);
-        setTripRequestStatus(null);
-        setScreen("driver-assigned");
-        // No need to start WebSocket or polling if driver is already assigned
-      } else {
-        console.warn("Unexpected trip status after booking:", trip.status);
-        setTripRequestStatus("error");
-        setTripRequestError(`Unexpected booking state: ${trip.status.label}`);
-      }
-    } else {
-      console.error(
-        "API responded with non-success status or missing data:",
-        response
+    if (!pickupCoords || !destinationCoords) {
+      showNotification(
+        "Pickup and destination locations are required.",
+        "error"
       );
-      let errorMessage = "Failed to book your trip. Server responded unexpectedly.";
-      if (response.message) {
-        errorMessage = response.message;
-        if (response.details) {
-          const fieldErrors = [];
-          for (const [field, messages] of Object.entries(response.details)) {
-            if (Array.isArray(messages)) {
-              fieldErrors.push(`${field}: ${messages.join(", ")}`);
-            }
-          }
-          if (fieldErrors.length > 0) {
-            errorMessage += ` Details: ${fieldErrors.join("; ")}`;
-          }
+      return;
+    }
+
+    setShowPassengerDetails(false);
+    setTripRequestStatus("loading"); // Shows "Finding a driver..." modal
+
+    try {
+      // === Step A: Resolve airport ID ===
+      let airportId: string | null = null;
+
+      if (pickup.startsWith("Use my current location")) {
+        const nearestAirports = await findNearestAirport(
+          pickupCoords[0],
+          pickupCoords[1]
+        );
+
+        if (!nearestAirports || !nearestAirports.length) {
+          setTripRequestStatus("error");
+          setTripRequestError(
+            "You’re outside our service area. Booking not available from this location."
+          );
+          return;
+        }
+
+        // NEW: Find the specific airport ID based on the `pickup` name state
+        // This assumes the name set by BookingScreen matches the `name` field from the API exactly.
+        // This is the crucial change: match the name stored in state to the array returned by the API.
+        const selectedAirport = nearestAirports.find(
+          (apt) => apt.name === pickup
+        );
+        if (!selectedAirport) {
+          console.error(
+            "Selected pickup name does not match any fetched airport:",
+            pickup,
+            nearestAirports
+          );
+          setTripRequestStatus("error");
+          setTripRequestError(
+            "Could not confirm selected pickup location. Please try again."
+          );
+          return;
+        }
+        airportId = selectedAirport.id;
+      } else if (pickup in KNOWN_AIRPORTS) {
+        // Handle selection from the hardcoded list in BookingScreen
+        airportId = KNOWN_AIRPORTS[pickup];
+      } else {
+        const nearestAirports = await findNearestAirport(
+          pickupCoords[0],
+          pickupCoords[1]
+        );
+
+        if (!nearestAirports || !nearestAirports.length) {
+          setTripRequestStatus("error");
+          setTripRequestError(
+            "Pickup location is not near a supported airport."
+          );
+          return;
+        }
+
+        const selectedAirport = nearestAirports.find(
+          (apt) => apt.name === pickup
+        );
+        if (selectedAirport) {
+          airportId = selectedAirport.id;
+        } else {
+          console.warn(
+            "Typed pickup name did not match any fetched airport name, using first result.",
+            pickup,
+            nearestAirports
+          );
+          airportId = nearestAirports[0].id;
         }
       }
-      throw new Error(errorMessage);
+
+      const tripData = {
+        amount: {
+          amount: fareEstimate?.toString() || "0",
+          currency: "NGN",
+        },
+        airport: airportId, // Use the resolved ID
+        guest_name: passengerData.name,
+        guest_email: passengerData.email,
+        guest_phone: formatPhoneNumber(passengerData.phone),
+        has_extra_leg_room: requirements.elderly,
+        has_extra_luggage: requirements.luggage,
+        has_wheel_chair_access: requirements.wheelchair,
+        pickup_address: pickup, // The resolved/typed pickup name
+        pickup_location: pickupCoords, // [lng, lat] from state
+        destination_address: destination, // The typed destination name
+        destination_location: destinationCoords, // [lng, lat] from state (resolved by Google Autocomplete in BookingScreen)
+      };
+
+      console.log("Request Data:", tripData);
+
+      // === Step C: Make API call ===
+      const response = await apiClient.post("/trips/guest-booking", tripData);
+
+      console.log("Raw API Response:", response);
+
+      if (response.status === "success" && response.data) {
+        const trip = response.data;
+        const extractedGuestId = trip.guest?.id;
+
+        if (!extractedGuestId) {
+          console.error(
+            "Guest ID not found in booking response, cannot start WebSocket."
+          );
+          setTripRequestStatus("error");
+          setTripRequestError(
+            "Failed to get guest session. Booking cancelled."
+          );
+          return;
+        }
+
+        console.log("Trip data received:", trip);
+        console.log("Guest ID received:", extractedGuestId);
+
+        setVerificationCode(trip.verification_code || "");
+        setActiveTripId(trip.id);
+        setGuestId(extractedGuestId);
+
+        if (trip.status.value === "searching") {
+          setTripRequestStatus(null);
+          setScreen("assigning");
+          startWebSocketConnection(extractedGuestId, trip.id);
+        } else if (trip.status.value === "driver_assigned" && trip.driver) {
+          setDriver(trip.driver);
+          setTripRequestStatus(null);
+          setScreen("driver-assigned");
+          // No need to start WebSocket or polling if driver is already assigned
+        } else {
+          console.warn("Unexpected trip status after booking:", trip.status);
+          setTripRequestStatus("error");
+          setTripRequestError(`Unexpected booking state: ${trip.status.label}`);
+        }
+      } else {
+        console.error(
+          "API responded with non-success status or missing data:",
+          response
+        );
+        let errorMessage =
+          "Failed to book your trip. Server responded unexpectedly.";
+        if (response.message) {
+          errorMessage = response.message;
+          if (response.details) {
+            const fieldErrors = [];
+            for (const [field, messages] of Object.entries(response.details)) {
+              if (Array.isArray(messages)) {
+                fieldErrors.push(`${field}: ${messages.join(", ")}`);
+              }
+            }
+            if (fieldErrors.length > 0) {
+              errorMessage += ` Details: ${fieldErrors.join("; ")}`;
+            }
+          }
+        }
+        throw new Error(errorMessage);
+      }
+    } catch (err: any) {
+      console.error("Guest booking error:", err);
+      setTripRequestStatus("error");
+
+      let errorMessage =
+        "Failed to book your trip. Please check your connection and try again.";
+
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else {
+        console.error("Unexpected error type caught:", typeof err, err);
+        errorMessage = "An unexpected error occurred during booking.";
+      }
+
+      setTripRequestError(errorMessage);
     }
-  } catch (err: any) {
-    console.error("Guest booking error:", err);
-    setTripRequestStatus("error");
+  };
 
-    let errorMessage = "Failed to book your trip. Please check your connection and try again.";
-
-    if (err instanceof Error) {
-      errorMessage = err.message;
-    } else {
-      console.error("Unexpected error type caught:", typeof err, err);
-      errorMessage = 'An unexpected error occurred during booking.';
-    }
-
-    setTripRequestError(errorMessage);
-  }
-};
-
- const handleShowLocationModal = () => {
+  const handleShowLocationModal = () => {
     setShowLocationModal(true);
   };
-const handleLocationModalClose = () => {
+  const handleLocationModalClose = () => {
     setShowLocationModal(false);
   };
 
-
-const handleGrantLocationAccess = () => {
-  console.log("location access granted button clicked in modal. The BookingScreen will handle the requestPermission call")
-}
+  const handleGrantLocationAccess = () => {
+    console.log(
+      "location access granted button clicked in modal. The BookingScreen will handle the requestPermission call"
+    );
+  };
 
   const startWebSocketConnection = (guestId: string, tripId: string) => {
     if (webSocketConnection) {
       // Close any existing connection before starting a new one
       console.log("Closing existing WebSocket connection.");
       webSocketConnection.close();
-      // Note: The onclose handler will fire, potentially starting polling if trip is still active.
-      // We might want to prevent that if we are intentionally reconnecting.
-      // For now, the logic in onclose checks the screen state or activeTripId to decide.
     }
 
     // Construct the WebSocket URL using the guest ID
@@ -750,23 +700,90 @@ const handleGrantLocationAccess = () => {
       stopPollingTripStatus();
     };
 
-    rws.onmessage = (event) => {
-      try {
-        const messageData: WebSocketMessage = JSON.parse(event.data);
-        console.log("Received WebSocket message:", messageData);
+    // rws.onmessage = (event) => {
+    //   try {
+    //     const messageData: WebSocketMessage = JSON.parse(event.data);
+    //     console.log("Received WebSocket message:", messageData);
 
-        const { event: eventType, data: tripData } = messageData;
+    //     const { event: eventType, data: tripData } = messageData;
 
-        // Check if it's a relevant trip update event
-        if (eventType === 'trip:assigned' || eventType === 'trip:status:update') {
-      // Update UI state based on the received trip data
+    //     // Check if it's a relevant trip update event
+    //     if (
+    //       eventType === "trip:assigned" ||
+    //       eventType === "trip:status:update"
+    //     ) {
+    //       // Update UI state based on the received trip data
 
-      // NEW: Check for 'driver not found' status
+    //       // NEW: Check for 'driver not found' status
+    //       if (tripData.status.value === "driver not found") {
+    //         // Use the exact string from backend/Postman
+    //         console.log("Driver not found via WebSocket, updating UI.");
+    //         // Stop both WebSocket and polling
+    //         stopWebSocketConnection();
+    //         stopPollingTripStatus();
+    //         // Set status to show 'no-driver' modal
+    //         setTripRequestStatus("no-driver");
+    //         // Optionally set a specific error message
+    //         setTripRequestError(`No drivers available for your trip.`);
+    //         // Do NOT change the screen here, let the modal handle the user interaction.
+    //         // The screen might still be 'assigning', which is okay until the user retries/cancels.
+    //         return; // Exit handler after handling 'driver not found'
+    //       }
+
+    //       // NEW: Check for 'accepted' OR 'driver_assigned' status when a driver is present
+    //       if (
+    //         (tripData.status.value === "accepted" ||
+    //           tripData.status.value === "driver_assigned") &&
+    //         tripData.driver
+    //       ) {
+    //         // Driver found or assigned!
+    //         console.log(
+    //           `${tripData.status.label} via WebSocket, updating UI with driver.`
+    //         );
+    //         setDriver(tripData.driver);
+    //         setScreen("driver-assigned");
+    //       } else if (
+    //         tripData.status.value === "cancelled" ||
+    //         tripData.status.value === "completed"
+    //       ) {
+    //         // Trip is no longer active, stop polling and handle accordingly
+    //         console.log(
+    //           `Trip ${tripData.id} is now ${tripData.status.value} via WebSocket.`
+    //         );
+    //         setTripRequestStatus("error"); // Or a specific status like 'trip-cancelled'
+    //         setTripRequestError(`Trip ${tripData.status.label}.`); // Show status message
+    //         stopWebSocketConnection(); // Stop WebSocket as trip is finished
+    //         stopPollingTripStatus(); // Ensure polling is also stopped
+    //         // No need to start polling here, as trip is finished.
+    //       } else {
+    //         console.log(
+    //           `Received trip status update via WebSocket: ${tripData.status.value}`
+    //         );
+    //       }
+    //     } else {
+    //       // Handle other event types if the backend sends them
+    //       console.log(`Received other WebSocket event: ${eventType}`);
+    //     }
+    //   } catch (error) {
+    //     console.error("Error parsing WebSocket message:", error, event.data);
+    //   }
+    // };
+
+    // Inside the rws.onmessage handler in startWebSocketConnection (page.tsx)
+rws.onmessage = (event) => {
+  try {
+    const messageData: WebSocketMessage = JSON.parse(event.data);
+    console.log('Received WebSocket message in page.tsx:', messageData);
+
+    const { event: eventType, data: tripData } = messageData;
+
+    if (eventType === 'trip:assigned' || eventType === 'trip:status:update') {
+      // NEW: Check for 'driver not found' status FIRST
       if (tripData.status.value === 'driver not found') { // Use the exact string from backend/Postman
-        console.log("Driver not found via WebSocket, updating UI.");
+        console.log("Driver not found via WebSocket (page.tsx), updating UI.");
         // Stop both WebSocket and polling
-        stopWebSocketConnection();
-        stopPollingTripStatus();
+        stopWebSocketConnection(); // Stop WebSocket as trip attempt failed
+        stopPollingTripStatus(); // Ensure polling is also stopped
         // Set status to show 'no-driver' modal
         setTripRequestStatus('no-driver');
         // Optionally set a specific error message
@@ -779,24 +796,35 @@ const handleGrantLocationAccess = () => {
       // NEW: Check for 'accepted' OR 'driver_assigned' status when a driver is present
       if ((tripData.status.value === 'accepted' || tripData.status.value === 'driver_assigned') && tripData.driver) {
         // Driver found or assigned!
-        console.log(`${tripData.status.label} via WebSocket, updating UI with driver.`);
+        console.log(`${tripData.status.label} via WebSocket (page.tsx), updating UI with driver.`);
         setDriver(tripData.driver);
         setScreen('driver-assigned'); // Transition to the driver-assigned screen
-        stopWebSocketConnection(); // Stop WebSocket as trip is assigned/accepted
-        stopPollingTripStatus(); // Ensure polling is also stopped
-        // No need to start polling here, as trip is assigned/accepted.
-      } else if (tripData.status.value === 'cancelled' || tripData.status.value === 'completed') {
-        // Trip is no longer active, stop polling and handle accordingly
-        console.log(`Trip ${tripData.id} is now ${tripData.status.value} via WebSocket.`);
+        // NEW: DO NOT stop WebSocket or Polling here. The connection is needed for 'active', 'cancelled', 'completed' events.
+        // stopWebSocketConnection(); // REMOVED
+        // stopPollingTripStatus(); // REMOVED
+        // No need to start polling here, as trip is assigned/accepted, and WebSocket is kept open.
+      }
+      // NEW: Check for 'active' status (Trip Starts)
+      else if (tripData.status.value === 'active') { // Handle the trip start event
+        console.log(`Trip started (status: ${tripData.status.label}) via WebSocket (page.tsx), transitioning to trip-progress.`);
+        setScreen('trip-progress'); // Transition to the trip-progress screen
+        // WebSocket should likely remain open during trip-progress to receive location updates and final status (completed/cancelled)
+        // Do NOT stop WebSocket or Polling here.
+      }
+      // NEW: Check for 'cancelled' or 'completed' status (Trip Ends)
+      else if (tripData.status.value === 'cancelled' || tripData.status.value === 'completed') {
+        // Trip is no longer active, stop WebSocket and polling and handle accordingly
+        console.log(`Trip ${tripData.id} is now ${tripData.status.value} via WebSocket (page.tsx).`);
         setTripRequestStatus('error'); // Or a specific status like 'trip-cancelled'
         setTripRequestError(`Trip ${tripData.status.label}.`); // Show status message
         stopWebSocketConnection(); // Stop WebSocket as trip is finished
         stopPollingTripStatus(); // Ensure polling is also stopped
-        // No need to start polling here, as trip is finished.
-      } else {
-        // Handle other statuses if needed, or just log/update state if necessary
-        // e.g., update verification code, status label, etc., if relevant
-        console.log(`Received trip status update via WebSocket: ${tripData.status.value}`);
+        // Navigate away from trip-progress or driver-assigned screen if needed
+        // e.g., setScreen('trip-complete'); // If you have a dedicated completed screen handler
+        // Or let the TripCompleteScreen's onDone handler manage final navigation and state clearing
+      }
+      else {
+        console.log(`Received trip status update via WebSocket (page.tsx): ${tripData.status.value}`);
         // You might want to update activeTripId if it changed, though unlikely after initial booking
         // setActiveTripId(tripData.id);
         // setVerificationCode(tripData.verification_code || '');
@@ -804,35 +832,58 @@ const handleGrantLocationAccess = () => {
       }
     } else {
       // Handle other event types if the backend sends them
-      console.log(`Received other WebSocket event: ${eventType}`);
+      console.log(`Received other WebSocket event (page.tsx): ${eventType}`);
     }
   } catch (error) {
-    console.error('Error parsing WebSocket message:', error, event.data);
-  }
-    };
-
-    // Inside startWebSocketConnection setup
-rws.onclose = (event) => {
-  console.log('WebSocket connection closed:', event.code, event.reason);
-  setWebSocketStatus('closed');
-  // IMPORTANT: The WebSocket closed. If the trip is *not* in a final state,
-  // we need to start the polling fallback.
-  // Check current screen or potentially fetch latest status via API first before polling.
-  // For now, if screen is still 'assigning' or related to searching/active, and we have an active trip ID, start polling.
-  // We'll pass the activeTripId to the polling function.
-  // NEW: Only start polling if we are still in an intermediate state and polling isn't already active.
-  if (activeTripId && !['driver-assigned', 'completed', 'cancelled', 'driver not found'].includes(screen) && !pollingIntervalId) { // NEW: Check pollingIntervalId
-     console.log(`WebSocket closed, starting polling for trip ${activeTripId} as fallback.`);
-     startPollingTripStatus(activeTripId);
-  } else {
-     console.log(`WebSocket closed, but not starting polling. Trip ID: ${activeTripId}, Screen: ${screen}, Polling Active: ${!!pollingIntervalId}`);
-     // If screen is a final state, ensure polling is definitely stopped just in case.
-     if (['driver-assigned', 'completed', 'cancelled', 'driver not found'].includes(screen)) {
-         console.log("Screen indicates final state, ensuring polling is stopped.");
-         stopPollingTripStatus(); // NEW: Ensure polling stops if closed event happens after final state
-     }
+    console.error('Error parsing WebSocket message in page.tsx:', error, event.data);
   }
 };
+
+    // Inside startWebSocketConnection setup
+    rws.onclose = (event) => {
+      console.log("WebSocket connection closed:", event.code, event.reason);
+      setWebSocketStatus("closed");
+      // IMPORTANT: The WebSocket closed. If the trip is *not* in a final state,
+      // we need to start the polling fallback.
+      // Check current screen or potentially fetch latest status via API first before polling.
+      // For now, if screen is still 'assigning' or related to searching/active, and we have an active trip ID, start polling.
+      // We'll pass the activeTripId to the polling function.
+      // NEW: Only start polling if we are still in an intermediate state and polling isn't already active.
+      if (
+        activeTripId &&
+        ![
+          "driver-assigned",
+          "completed",
+          "cancelled",
+          "driver not found",
+        ].includes(screen) &&
+        !pollingIntervalId
+      ) {
+        // NEW: Check pollingIntervalId
+        console.log(
+          `WebSocket closed, starting polling for trip ${activeTripId} as fallback.`
+        );
+        startPollingTripStatus(activeTripId);
+      } else {
+        console.log(
+          `WebSocket closed, but not starting polling. Trip ID: ${activeTripId}, Screen: ${screen}, Polling Active: ${!!pollingIntervalId}`
+        );
+        // If screen is a final state, ensure polling is definitely stopped just in case.
+        if (
+          [
+            "driver-assigned",
+            "completed",
+            "cancelled",
+            "driver not found",
+          ].includes(screen)
+        ) {
+          console.log(
+            "Screen indicates final state, ensuring polling is stopped."
+          );
+          stopPollingTripStatus(); // NEW: Ensure polling stops if closed event happens after final state
+        }
+      }
+    };
 
     rws.onerror = (error) => {
       console.error("WebSocket error:", error);
@@ -850,7 +901,6 @@ rws.onclose = (event) => {
   // NEW: Function to stop the WebSocket connection
   const stopWebSocketConnection = () => {
     if (webSocketConnection) {
-
       stopPollingTripStatus();
       console.log("Manually stopping WebSocket connection.");
       webSocketConnection.close(); // This will trigger the onclose handler
@@ -917,18 +967,10 @@ rws.onclose = (event) => {
           "Polling API responded with non-success status or missing ",
           response
         );
-        // Decide: Stop polling? Retry? Log and continue?
-        // For a 404 (trip not found), it might imply cancellation.
-        // For other errors (500, etc.), maybe continue polling briefly.
-        // For now, log and continue polling (assuming temporary issue or trip not yet visible).
-        // You could add logic here to stop polling after N consecutive errors.
       }
     } catch (err) {
       // Handle network error or apiClient throwing an error
       console.error("Error polling trip status:", err);
-      // Decide: Stop polling after a few errors? Or continue? Add retry logic?
-      // For now, log and continue polling (assuming temporary network glitch).
-      // Optionally, add retry logic or error count here.
     }
   };
 
@@ -1024,15 +1066,12 @@ rws.onclose = (event) => {
         setRequirements={setRequirements}
         setPickupCoords={setPickupCoords} // NEW
         setDestinationCoords={setDestinationCoords} // NEW
-       
-
-
+        tripRequestStatus={tripRequestStatus}
+        resetKey={resetBookingKey}
       />
     );
   } else if (screen === "assigning") {
-    mainContent = <AssigningScreen 
-    status={tripRequestStatus}
-    />;
+    mainContent = <AssigningScreen status={tripRequestStatus} />;
   } else if (screen === "driver-assigned") {
     mainContent = (
       <DriverAssignedScreen
@@ -1044,6 +1083,7 @@ rws.onclose = (event) => {
         onShowDriverVerification={() => setShowDriverVerification(true)} // NEW: Handler for verification modal
         onStartTrip={handleTripStart}
         onBack={() => setScreen("booking")}
+        showNotification={showNotification}
       />
     );
   } else if (screen === "trip-progress") {
@@ -1067,6 +1107,7 @@ rws.onclose = (event) => {
         onRate={() => setShowRate(true)}
         onDone={() => {
           // NEW: Clear specific trip-related state before navigating
+          setResetBookingKey((prev) => prev + 1);
           setPickup("");
           setDestination("");
           setFareEstimate(null);
@@ -1213,8 +1254,6 @@ rws.onclose = (event) => {
             isLoading={tripRequestStatus === "loading"}
           />
 
-      
-
           {/* NEW: Dynamically imported DirectionsModal */}
           {hasHydrated && (
             <DirectionsModal
@@ -1297,20 +1336,25 @@ rws.onclose = (event) => {
             isOpen={!!tripRequestStatus}
             status={tripRequestStatus}
             message={tripRequestError}
-            onClose={() => {setTripRequestStatus(null)
-              setScreen("booking")
+            onClose={() => {
+              setTripRequestStatus(null);
+              setScreen("booking");
             }}
             onConfirm={() => {
-                if (tripRequestStatus === 'no-driver' || tripRequestStatus === 'error') {
-                  // NEW: If status is 'no-driver' or 'error', retry the booking process
-                  console.log("Retrying booking process...");
-                  setTripRequestStatus(null); // Close the modal first
-                  // NEW: Call the main booking function again to restart the flow
-                  handleRequestRide();
-                } else {
-                  // For 'loading' or 'accepted' states, just close the modal
-                  setTripRequestStatus(null);
-                }}}
+              if (
+                tripRequestStatus === "no-driver" ||
+                tripRequestStatus === "error"
+              ) {
+                // NEW: If status is 'no-driver' or 'error', retry the booking process
+                console.log("Retrying booking process...");
+                setTripRequestStatus(null); // Close the modal first
+                // NEW: Call the main booking function again to restart the flow
+                handleRequestRide();
+              } else {
+                // For 'loading' or 'accepted' states, just close the modal
+                setTripRequestStatus(null);
+              }
+            }}
           />
 
           {/* NEW: Driver Verification Modal */}

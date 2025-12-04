@@ -59,7 +59,7 @@ export default function BottomNavBar({
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-achrams-bg-primary border-t border-achrams-border z-40">
-      <div className="flex justify-around items-center py-3 px-2">
+      <div className="flex justify-around items-center py-3 px-2 mx-auto max-w-sm">
         <button
           onClick={handleHomeClick}
           className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-colors ${

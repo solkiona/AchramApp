@@ -19,7 +19,10 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab }) => {
   ];
 
   return (
-    <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md bg-achrams-background-primary border-t border-achrams-border py-2 px-4 flex justify-around items-center z-20">
+    <div className="fixed   bottom-0 left-1/2 transform -translate-x-1/2 w-full  bg-achrams-background-primary border-t border-achrams-border py-2 px-4 flex justify-around items-center z-20">
+
+      <div className="mx-auto ">
+
       {navItems.map((item) => (
         <button
           key={item.id}
@@ -36,6 +39,8 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab }) => {
           <span className="text-xs font-medium">{item.label}</span>
         </button>
       ))}
+
+      </div>
     </div>
   );
 };

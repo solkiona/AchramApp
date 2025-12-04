@@ -20,7 +20,7 @@ export default function AirportSelectionModal({
   return (
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-100">
       <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-6 max-w-sm mx-auto">
           <h3 className="text-xl font-bold text-achrams-text-primary">Select Airport</h3>
           <button
             onClick={onClose}
