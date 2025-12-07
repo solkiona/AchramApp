@@ -1,5 +1,3 @@
-
-
 // "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
@@ -16,10 +14,13 @@ import { findNearestAirport, Airport } from "@/lib/airports";
 import { LoadScript, StandaloneSearchBox } from "@react-google-maps/api";
 import AirportSelectionModal from "@/components/app/modals/AirportSelectionModal";
 import OutsideServiceAreaModal from "@/components/app/modals/OutsideServiceAreaModal";
+import { apiClient } from "@/lib/api";
 
 interface LocationData {
   name: string;
   coords: [number, number] | null;
+  id?: string;
+  codename?: string;
 }
 
 interface BookingScreenProps {
@@ -38,28 +39,33 @@ interface BookingScreenProps {
   setRequirements: (val: any) => void;
   setPickupCoords: (coords: [number, number] | null) => void;
   setDestinationCoords: (coords: [number, number] | null) => void;
-  tripRequestStatus: 'loading' | 'accepted' | 'no-driver' | 'error' | null;
+  tripRequestStatus: "loading" | "accepted" | "no-driver" | "error" | null;
   resetKey: number;
+  setPickupId: (id: string | null) => void;
+  setPickupCodename: (codename: string | undefined) => void;
+  fareIsFlatRate: boolean | null;
+  setFareIsFlatRate: (val: boolean | null )=> void 
+  
 }
 
 const losCoords: [number, number] = [3.330058, 6.568287];
 const abvCoords: [number, number] = [7.2667, 9.0167];
 
-const airports = [
-  { id: "current", name: "Use my current location", special: true },
-  { id: "los", name: "Murtala Muhammed Int'l Airport (LOS)", city: "Lagos" },
-  { id: "abv", name: "Nnamdi Azikiwe Int'l Airport (ABV)", city: "Abuja" },
-];
+// const airports = [
+//   { id: "current", name: "Use my current location", special: true },
+//   { id: "los", name: "Murtala Muhammed Int'l Airport (LOS)", city: "Lagos" },
+//   { id: "abv", name: "Nnamdi Azikiwe Int'l Airport (ABV)", city: "Abuja" },
+// ];
 
-const destinationCoordsMap: Record<string, [number, number] | null> = {
-  "Victoria Island, Lagos": [3.4084, 6.4397],
-  "Lekki Phase 1, Lagos": [3.9942, 6.4253],
-  "Ikeja GRA, Lagos": [3.3519, 6.555],
-  "Ikorodu, Lagos": [3.504145, 6.620891],
-};
+// const destinationCoordsMap: Record<string, [number, number] | null> = {
+//   "Victoria Island, Lagos": [3.4084, 6.4397],
+//   "Lekki Phase 1, Lagos": [3.9942, 6.4253],
+//   "Ikeja GRA, Lagos": [3.3519, 6.555],
+//   "Ikorodu, Lagos": [3.504145, 6.620891],
+// };
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!;
-const libraries: ("places")[] = ["places"];
+const libraries: "places"[] = ["places"];
 
 // Custom debounce hook (lightweight & stable)
 function useDebounceCallback<T extends (...args: any[]) => any>(
@@ -97,62 +103,166 @@ export default function BookingScreen({
   setDestinationCoords,
   tripRequestStatus,
   resetKey,
+  setPickupId,
+  setPickupCodename,
+  fareIsFlatRate,
+  setFareIsFlatRate,
 }: BookingScreenProps) {
   const [pickupOpen, setPickupOpen] = useState(false);
   const [destOpen, setDestOpen] = useState(false);
-  const [showAirportSelectionModal, setShowAirportSelectionModal] = useState(false);
+  const [showAirportSelectionModal, setShowAirportSelectionModal] =
+    useState(false);
   const [airportsToSelect, setAirportsToSelect] = useState<Airport[]>([]);
   const [showOutsideServiceModal, setShowOutsideServiceModal] = useState(false);
-  const [showLocationSettingsModal, setShowLocationSettingsModal] = useState(false);
+  const [showLocationSettingsModal, setShowLocationSettingsModal] =
+    useState(false);
 
   const searchBoxRef = useRef<google.maps.places.SearchBox | null>(null);
   const destinationInputRef = useRef<HTMLInputElement>(null);
 
-  const { coords, error, requestPermission, loading: hookLoading } = useGeolocation();
+  const {
+    coords,
+    error,
+    requestPermission,
+    loading: hookLoading,
+  } = useGeolocation();
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
   const [pickupLocationData, setPickupLocationData] = useState<LocationData>({
     name: pickup,
     coords: null,
+    id: undefined,
+    codename: undefined,
   });
 
-  const [destinationLocationData, setDestinationLocationData] = useState<LocationData>({
-    name: destination,
-    coords: null,
-  });
+  const [destinationLocationData, setDestinationLocationData] =
+    useState<LocationData>({
+      name: destination,
+      coords: null,
+    });
 
- 
-  
   useEffect(() => {
-    // This effect runs whenever resetKey changes.
-    // page.tsx will increment resetKey when a new booking flow starts or after a trip ends/cancels.
-    setPickupLocationData({ name: '', coords: null });
-    setDestinationLocationData({ name: '', coords: null });
-    // Optionally, clear other relevant local states if needed
-    // e.g., setFareEstimate(null); -> This is likely handled by parent
-    // e.g., setIsFetchingLocation(false); -> Only if explicitly needed here, parent tripRequestStatus effect handles fetching UI
+    console.log("DEBUG: Reset key changed, resetting booking screen state");
+    setPickupLocationData({ name: "", coords: null });
+    setDestinationLocationData({ name: "", coords: null });
   }, [resetKey]); // Depend on resetKey
 
   // Sync local state → parent
   useEffect(() => {
+    console.log(
+      "DEBUG: Syncing pickup data to parent - Name: ",
+      pickupLocationData.name
+    );
     setPickup(pickupLocationData.name);
     setPickupCoords(pickupLocationData.coords);
   }, [pickupLocationData, setPickup, setPickupCoords]);
 
   useEffect(() => {
+    console.log(
+      "DEBUG: Syncing destination data to parent - Name:",
+      destinationLocationData.name,
+      "coords:",
+      destinationLocationData.coords
+    );
     setDestination(destinationLocationData.name);
     setDestinationCoords(destinationLocationData.coords);
   }, [destinationLocationData, setDestination, setDestinationCoords]);
 
-  // Fare estimate mock (replace with API later)
   useEffect(() => {
-    if (pickupLocationData.name && destinationLocationData.name) {
-      const estimate = 4500 + Math.floor(Math.random() * 2000);
-      setFareEstimate(estimate);
-    } else {
+    setPickupCodename(pickupLocationData.codename);
+  }, [pickupLocationData.codename, setPickupCodename]);
+
+  const fetchFareEstimate = async (
+    airportCodename: string,
+    destinationName: string
+  ): Promise<number | null> => {
+    if (!airportCodename || !destinationName) {
+      console.warn(
+        "Cannot fetch fare: airport codename or destination name is missing"
+      );
       setFareEstimate(null);
+      setFareIsFlatRate(null);
+      return null;
     }
-  }, [pickupLocationData, destinationLocationData, setFareEstimate]);
+    try {
+      console.log(
+        `Fetching fare for airport: ${airportCodename}, destination: ${destinationName}`
+      );
+      // The 'search' parameter is the destination address string.
+      // The 'airport' parameter is the airport codename.
+      const response = await apiClient.get(
+        `/fares/lookup?airport=${encodeURIComponent(
+          airportCodename
+        )}&search=${encodeURIComponent(destinationName)}`
+      );
+      // ikeja
+      console.log(`Estimated Fare Response: ${response}`);
+
+      if (response.status === "success" && response.data) {
+        const fareData = response.data;
+        console.log("Fetched fare data:", fareData);
+        // Return the numeric amount from the API response
+        setFareEstimate(fareData.amount.amount);
+        setFareIsFlatRate(fareData.is_flat_rate)
+        return fareData.amount.amount; // e.g., 100 from the example
+      } else {
+        console.log(
+          "Fare lookup API responded with non-success status or missing data:",
+          response
+        );
+        setFareEstimate(null);
+        setFareIsFlatRate(null);
+        return null;
+      }
+    } catch (err) {
+      console.error("Error fetching fare estimate:", err);
+      //showNotification("Could not fetch fare estimate. Using default.", "warning"); // Example
+      setFareEstimate(null);
+      setFareIsFlatRate(null);
+      return null;
+    }
+  };
+
+
+  useEffect(() => {
+    const getFare = async () => {
+      // Only proceed if both codename and destination name are present
+      if (pickupLocationData.codename && destinationLocationData.name) {
+        // Show a loading state if desired (e.g., disable proceed button, show spinner next to fare)
+        // setIsFetchingFare(true); // Example state
+
+        const fare = await fetchFareEstimate(
+          pickupLocationData.codename,
+          destinationLocationData.name
+        );
+
+        // setIsFetchingFare(false); // Example state
+
+        if (fare !== null) {
+          // Update the parent's fare estimate state
+          setFareEstimate(fare);
+        } else {
+          // Handle case where fare lookup failed
+          // You might want to clear the estimate or show an error
+          setFareIsFlatRate(null);
+          setFareEstimate(null); // Or keep the previous value, or set to -1 to indicate error
+          // showNotification("Failed to get fare estimate.", "error"); // Example
+        }
+      } else {
+        // If either codename or destination name is missing, clear the estimate
+        setFareEstimate(null);
+        setFareIsFlatRate(null);
+      }
+    };
+
+    getFare(); // Call the async function
+
+    // Depend on the codename and destination name to re-run the effect when they change
+  }, [
+    pickupLocationData.codename,
+    destinationLocationData.name,
+    setFareEstimate, setFareIsFlatRate
+  ]);
 
   // Reset fetching state when trip request ends
   useEffect(() => {
@@ -163,6 +273,10 @@ export default function BookingScreen({
 
   const showFetchingUI = isFetchingLocation || hookLoading;
 
+  useEffect(() => {
+    setPickupId(pickupLocationData.id || null);
+  }, [pickupLocationData.id, setPickupId]);
+
   // Stable debounced handler
   const debouncedDestinationInput = useDebounceCallback((value: string) => {
     console.log("Destination input settled:", value);
@@ -170,21 +284,30 @@ export default function BookingScreen({
   }, 300);
 
   // Stable change handler
-  const handleDestinationChanged = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setDestinationLocationData(prev => ({ ...prev, name: value }));
-    if (value.trim()) {
-      setDestOpen(true);
-    }
-    debouncedDestinationInput(value);
-  }, [debouncedDestinationInput]);
+  const handleDestinationChanged = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      setDestinationLocationData((prev) => ({ ...prev, name: value }));
+      if (value.trim()) {
+        setDestOpen(true);
+      }
+      debouncedDestinationInput(value);
+    },
+    [debouncedDestinationInput]
+  );
 
   // Stable place selection handler
   const handlePlaceChanged = useCallback(() => {
     if (!searchBoxRef.current) return;
 
     const places = searchBoxRef.current.getPlaces();
-    if (!places || places.length === 0) return;
+    if (!places || places.length === 0) {
+      console.log(
+        "DEBUG: handlePlaceChanged - Setting destination to: ",
+        places
+      );
+      return;
+    }
 
     const place = places[0];
     if (place.geometry?.location) {
@@ -197,6 +320,11 @@ export default function BookingScreen({
         coords: [lng, lat],
       });
       setDestOpen(false);
+    } else {
+      console.error(
+        "DEBUG: handlePlaceChanged - Place selected but not geometry. location found:",
+        place
+      );
     }
   }, []);
 
@@ -221,13 +349,30 @@ export default function BookingScreen({
       if (!position) throw new Error("No coordinates");
 
       const { longitude, latitude } = position;
+      console.log(
+        "DEBUG: handleUseCurrentLocation - Got geolocation:",
+        longitude,
+        latitude
+      );
       const airports = await findNearestAirport(longitude, latitude);
-
+      console.log(
+        "DEBUG: handleUseCurrentLocation - Found airports:",
+        airports
+      );
       if (airports && airports.length > 0) {
         if (airports.length === 1) {
+          console.log(
+            "DEBUG: handleUseCurrentLocation - Setting single airport:",
+            airports[0].name,
+            "with coords:",
+            [longitude, latitude]
+          );
+
           setPickupLocationData({
             name: airports[0].name,
             coords: [longitude, latitude],
+            id: airports[0].id,
+            codename: airports[0].codename,
           });
         } else {
           setAirportsToSelect(airports);
@@ -244,25 +389,102 @@ export default function BookingScreen({
   }, [error, requestPermission]);
 
   const handleAirportSelectedFromModal = useCallback((airport: Airport) => {
-    setPickupLocationData(prev => ({
+    console.log(
+      "DEBUG: handleAirportSelectedFromModal - Selected airport:",
+      airport,
+      "Retaining coords:",
+      pickupLocationData.coords
+    );
+    let selectedCoords: [number, number] | null = null;
+
+    if (
+      airport.map_data &&
+      airport.map_data.pickup_area &&
+      airport.map_data.pickup_area.geometry &&
+      airport.map_data.pickup_area.geometry.coordinates
+    ) {
+      const coordsArray = airport.map_data.pickup_area.geometry.coordinates;
+
+      const geometryType = airport.map_data.pickup_area.geometry.type;
+
+      if (
+        geometryType === "Point" &&
+        Array.isArray(coordsArray) &&
+        coordsArray.length >= 2
+      ) {
+        // For a Point, coordinates is [longitude, latitude]
+        selectedCoords = [coordsArray[0], coordsArray[1]]; // [lng, lat]
+      } else if (
+        geometryType === "Polygon" &&
+        Array.isArray(coordsArray) &&
+        coordsArray.length > 0 &&
+        coordsArray[0].length > 0
+      ) {
+        const firstRing = coordsArray[0]; // Outer ring of the polygon
+        const firstPoint = firstRing[0]; // First point of the outer ring [lng, lat]
+        if (Array.isArray(firstPoint) && firstPoint.length >= 2) {
+          selectedCoords = [firstPoint[0], firstPoint[1]]; // [lng, lat]
+        }
+      } else {
+        console.warn(
+          "DEBUG: handleAirportSelectedFromModal - Unexpected geometry type or coordinates structure for airport:",
+          airport.name,
+          geometryType,
+          coordsArray
+        );
+      }
+    }
+    console.log(
+      "DEBUG: handleAirportSelectedFromModal - Using coords from SELECTED airport object:",
+      selectedCoords
+    );
+    setPickupLocationData({
       name: airport.name,
-      coords: prev.coords, // retain geolocation coords
-    }));
+      coords: selectedCoords, // retain geolocation coords
+      id: airport.id,
+      codename: airport.codename,
+    });
     setShowAirportSelectionModal(false);
   }, []);
 
   const handleAirportSelect = useCallback((airportId: string) => {
-    const map: Record<string, { name: string; coords: [number, number] }> = {
-      los: { name: "Murtala Muhammed Int'l Airport (LOS)", coords: losCoords },
-      abv: { name: "Nnamdi Azikiwe Int'l Airport (ABV)", coords: abvCoords },
+    const map: Record<
+      string,
+      { name: string; coords: [number, number]; id: string; codename?: string }
+    > = {
+      los: {
+        name: "Murtala Muhammed Int'l Airport (LOS)",
+        coords: losCoords,
+        id: "0199de42-10b4-7f53-b670-42f107897a1d",
+        codename: "actual_codename",
+      },
+      abv: {
+        name: "Nnamdi Azikiwe Int'l Airport (ABV)",
+        coords: abvCoords,
+        id: "actual_id",
+        codename: "Acutal_codeName",
+      },
     };
 
     const selected = map[airportId];
     if (selected) {
+      console.log(
+        "DEBUG: handleAirportSelect - Setting pickup to:",
+        selected.name,
+        "with coords:",
+        selected.coords
+      );
       setPickupLocationData({
         name: selected.name,
         coords: selected.coords,
+        id: selected.id,
+        codename: selected.codename,
       });
+    } else {
+      console.warn(
+        "DEBUG: handleAirportSelect - Airport ID not found in map:",
+        airportId
+      );
     }
     setPickupOpen(false);
   }, []);
@@ -304,8 +526,12 @@ export default function BookingScreen({
       {showLocationSettingsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-2">Enable Location Access</h3>
-            <p className="mb-4">Please allow location access in your browser settings.</p>
+            <h3 className="text-lg font-semibold mb-2">
+              Enable Location Access
+            </h3>
+            <p className="mb-4">
+              Please allow location access in your browser settings.
+            </p>
             <ol className="list-decimal list-inside mb-4 space-y-1 text-sm">
               <li>Click the lock/info icon in the address bar</li>
               <li>Go to "Site settings" → "Location" → Allow</li>
@@ -334,12 +560,24 @@ export default function BookingScreen({
               <input
                 type="text"
                 placeholder="Airport pickup location"
-                value={showFetchingUI ? "Getting your location..." : pickupLocationData.name}
-                onChange={(e) => !showFetchingUI && setPickupLocationData(prev => ({ ...prev, name: e.target.value }))}
+                value={
+                  showFetchingUI
+                    ? "Getting your location..."
+                    : pickupLocationData.name
+                }
+                onChange={(e) =>
+                  !showFetchingUI &&
+                  setPickupLocationData((prev) => ({
+                    ...prev,
+                    name: e.target.value,
+                  }))
+                }
                 onFocus={() => !showFetchingUI && setPickupOpen(true)}
                 readOnly={showFetchingUI}
                 className={`flex-1 bg-transparent outline-none text-base ${
-                  showFetchingUI ? "text-achrams-text-secondary italic" : "text-achrams-text-primary"
+                  showFetchingUI
+                    ? "text-achrams-text-secondary italic"
+                    : "text-achrams-text-primary"
                 }`}
               />
               <button
@@ -377,7 +615,7 @@ export default function BookingScreen({
                       <MapPin className="w-5 h-5 text-achrams-primary-solid" />
                       <span>Use my current location</span>
                     </button>
-                    {airports.slice(1).map((a) => (
+                    {/* {airports.slice(1).map((a) => (
                       <button
                         key={a.id}
                         onClick={() => handleAirportSelect(a.id)}
@@ -386,10 +624,12 @@ export default function BookingScreen({
                         <Plane className="w-5 h-5 text-achrams-primary-solid mt-0.5" />
                         <div>
                           <div className="font-medium text-sm">{a.name}</div>
-                          <div className="text-xs text-achrams-text-secondary">{a.city}</div>
+                          <div className="text-xs text-achrams-text-secondary">
+                            {a.city}
+                          </div>
                         </div>
                       </button>
-                    ))}
+                    ))} */}
                   </>
                 )}
               </div>
@@ -402,7 +642,10 @@ export default function BookingScreen({
 
           {/* Destination */}
           <div className="relative">
-            <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY} libraries={libraries}>
+            <LoadScript
+              googleMapsApiKey={GOOGLE_MAPS_API_KEY}
+              libraries={libraries}
+            >
               <StandaloneSearchBox
                 onLoad={(ref) => (searchBoxRef.current = ref)}
                 onPlacesChanged={handlePlaceChanged}
@@ -415,7 +658,9 @@ export default function BookingScreen({
                     placeholder="Enter destination"
                     value={destinationLocationData.name}
                     onChange={handleDestinationChanged}
-                    onFocus={() => destinationLocationData.name && setDestOpen(true)}
+                    onFocus={() =>
+                      destinationLocationData.name && setDestOpen(true)
+                    }
                     className="flex-1 bg-transparent outline-none text-base text-achrams-text-primary"
                   />
                   {destOpen && destinationLocationData.name && (
@@ -432,10 +677,17 @@ export default function BookingScreen({
           </div>
         </div>
 
-        {fareEstimate && (
+        {fareEstimate !== null && (
           <div className="mt-6 p-4 bg-achrams-bg-secondary rounded-xl border border-achrams-border">
             <div className="flex justify-between items-center">
-              <span className="text-achrams-text-secondary">Estimated fare</span>
+              <span className="text-achrams-text-secondary">
+                {fareIsFlatRate ? 
+                <>
+                Estimated fare
+                <br />
+                (subject to bargain)
+                </> : "Actual fare"}
+              </span>
               <span className="text-xl font-bold text-achrams-text-primary">
                 ₦{fareEstimate.toLocaleString()}
               </span>
@@ -454,11 +706,11 @@ export default function BookingScreen({
               : "bg-achrams-secondary-solid opacity-75 cursor-not-allowed"
           }`}
         >
-          {fareEstimate ? `Proceed • ₦${fareEstimate.toLocaleString()}` : "Enter destinations"}
+          {fareEstimate
+            ? `Proceed • ₦${fareEstimate.toLocaleString()}`
+            : "Enter destinations"}
         </button>
       </div>
     </div>
   );
 }
-
-

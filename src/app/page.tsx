@@ -150,11 +150,16 @@ export default function ACHRAMApp() {
   const [pickup, setPickup] = useState<string>("");
   const [destination, setDestination] = useState<string>("");
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
+  const [fareIsFlatRate, setFareIsFlatRate] = useState<boolean | null>(null);
+
   const [driver, setDriver] = useState<any>(null);
   const [tripProgress, setTripProgress] = useState<number>(0);
   const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(
     null
   );
+  const [pickupCodename, setPickupCodename] = useState<string | undefined>(undefined);
+
+
   const [destinationCoords, setDestinationCoords] = useState<
     [number, number] | null
   >(null);
@@ -216,6 +221,9 @@ export default function ACHRAMApp() {
     message: string;
     type: "info" | "success" | "warning" | "error";
   } | null>(null);
+
+  const [pickupId, setPickupId] =  useState<string | null>(null);
+
 
   // NEW: Effect to run only on the client after mount to load state and set initial values
   useEffect(() => {
@@ -556,12 +564,19 @@ export default function ACHRAMApp() {
         }
       }
 
+      if(!pickupId){
+        console.error("Airport ID not available for booking.");
+        showNotification("Failed to confirm pickup location. Please try again,", "error");
+        return;
+      }
+
+
       const tripData = {
         amount: {
           amount: fareEstimate?.toString() || "0",
           currency: "NGN",
         },
-        airport: airportId, // Use the resolved ID
+        airport: pickupId, // Use the resolved ID
         guest_name: passengerData.name,
         guest_email: passengerData.email,
         guest_phone: formatPhoneNumber(passengerData.phone),
@@ -1057,6 +1072,10 @@ rws.onmessage = (event) => {
         setDestination={setDestination}
         fareEstimate={fareEstimate}
         setFareEstimate={setFareEstimate}
+
+        fareIsFlatRate={fareIsFlatRate}
+        setFareIsFlatRate={setFareIsFlatRate}
+
         onProceed={handleProceed}
         setShowPassengerDetails={setShowPassengerDetails}
         passengerData={passengerData}
@@ -1068,6 +1087,9 @@ rws.onmessage = (event) => {
         setDestinationCoords={setDestinationCoords} // NEW
         tripRequestStatus={tripRequestStatus}
         resetKey={resetBookingKey}
+        setPickupId={setPickupId}
+        setPickupCodename={setPickupCodename}
+
       />
     );
   } else if (screen === "assigning") {
