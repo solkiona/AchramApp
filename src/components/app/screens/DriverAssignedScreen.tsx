@@ -18,6 +18,7 @@ interface DriverAssignedScreenProps {
   onBack: () => void; // This should setScreen('booking') in page.tsx
   // NEW: Prop to trigger notifications in the parent (page.tsx)
   showNotification: (message: string, type: 'info' | 'success' | 'warning' | 'error') => void;
+  onCancelTrip: () => void;
 }
 
 export default function DriverAssignedScreen({
@@ -30,6 +31,7 @@ export default function DriverAssignedScreen({
   onStartTrip,
   onBack, // Destructure onBack
   showNotification, // NEW: Destructure the notification function
+  onCancelTrip,
 }: DriverAssignedScreenProps) {
   // NEW: State to track if driver is verified (mock for now)
   const [isVerified, setIsVerified] = useState(false);
@@ -142,7 +144,7 @@ export default function DriverAssignedScreen({
         {/* NEW: Cancel Trip Button */}
         <button
           // onClick={onStartTrip} // REMOVED: Original handler
-          onClick={handleCancelTrip} // NEW: Call the cancel handler
+          onClick={onCancelTrip} // NEW: Call the cancel handler
           // disabled={!isVerified} // REMOVED: Disable until verified (mock logic) - keeping enabled for demo
           className={`w-full py-4 rounded-xl font-semibold transition-all ${
             // isVerified // REMOVED: Conditional styling based on isVerified

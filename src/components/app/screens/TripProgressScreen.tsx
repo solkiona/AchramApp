@@ -15,6 +15,9 @@ interface TripProgressScreenProps {
   pickupCoords: [number, number] | null; // NEW: Prop for pickup coordinates
   destinationCoords: [number, number] | null; // NEW: Prop for destination coordinates
   tripProgress: number; // NEW: Prop for simulated progress
+  isGoogleMapsLoaded: boolean;
+  googleMapsLoadError?: any;
+  
 }
 
 export default function TripProgressScreen({
@@ -24,6 +27,9 @@ export default function TripProgressScreen({
   pickupCoords,
   destinationCoords,
   tripProgress, // NEW: Destructure prop
+  isGoogleMapsLoaded,
+  googleMapsLoadError,
+
 }: TripProgressScreenProps) {
   const [driverLocation, setDriverLocation] = useState<[number, number] | null>(null); // NEW: State for driver location
 
@@ -41,11 +47,11 @@ export default function TripProgressScreen({
     }
   }, [tripProgress, pickupCoords, destinationCoords]);
 
-  // NEW: Load Google Maps API
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-  });
+  // // NEW: Load Google Maps API
+  // const { isLoaded, loadError } = useJsApiLoader({
+  //   id: 'google-map-script',
+  //   googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
+  // });
 
   // NEW: Determine map center (use driver location if available, otherwise pickup or default)
   let mapCenter = { lat: 6.5244, lng: 3.3792 }; // Default
@@ -55,14 +61,14 @@ export default function TripProgressScreen({
     mapCenter = { lat: pickupCoords[1], lng: pickupCoords[0] };
   }
 
-  if (loadError) {
+  if (googleMapsLoadError) {
     return (
       <div className="h-screen bg-achrams-bg-primary flex flex-col">
         <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4">
           <h1 className="text-xl font-bold">Trip in progress</h1>
         </div>
         <div className="flex-1 flex items-center justify-center bg-achrams-bg-secondary">
-          <p className="text-achrams-text-secondary">Error loading map: {loadError.message}</p>
+          <p className="text-achrams-text-secondary">Error loading map: {googleMapsLoadError.message || googleMapsLoadError}</p>
         </div>
         <div className="bg-achrams-bg-primary px-6 py-6 border-t border-achrams-border">
           <div className="flex items-center gap-4 mb-4">
@@ -86,16 +92,37 @@ export default function TripProgressScreen({
       {/* Header */}
       <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4 flex items-center justify-between">
         <h1 className="text-xl font-bold">Trip in progress</h1>
-        <button
+        
+        {/* <button
           onClick={onPanic}
-          className="w-12 h-12 bg-achrams-bg-primary rounded-full shadow-lg flex items-center justify-center border border-achrams-border hover:bg-achrams-bg-secondary transition-colors"
+          className="w-12 h-12 bg-achrams-bg-primary rounded-full shadow-lg flex items-center justify-center border border-red-600 hover:bg-achrams-bg-secondary transition-colors"
         >
-          <Shield className="w-6 h-6 text-white" />
-        </button>
+          <Shield className="w-6 h-6 text-red-600" />
+        </button> */}
+
+        <button
+    onClick={onPanic}
+    className="
+      w-12 h-12
+      bg-gradient-to-br from-red-500 to-red-700 rounded-full // Red gradient
+      shadow-lg
+      flex items-center justify-center
+      border border-white 
+      hover:from-red-600 hover:to-red-800 
+      active:scale-95 
+      hover:scale-[1.05]
+      transition-all duration-200 ease-in-out 
+    "
+  >
+    <Shield className="w-6 h-6 text-white" /> 
+  </button>
+
+
+
       </div>
       {/* Map Container */}
       <div className="flex-1 relative">
-        {isLoaded ? (
+        {isGoogleMapsLoaded ? (
           <GoogleMap
             mapContainerStyle={{ width: '100%', height: '100%' }}
             center={mapCenter}

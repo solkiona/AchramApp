@@ -52,6 +52,7 @@ import BottomNavBar from "@/components/app/ui/BottomNavBar";
 import { findNearestAirport, KNOWN_AIRPORTS } from "@/lib/airports";
 import ReconnectingWebSocket from "reconnecting-websocket";
 
+
 import {useJsApiLoader} from "@react-google-maps/api"
 
 type TripStatusValue =
@@ -160,6 +161,7 @@ export default function ACHRAMApp() {
     null
   );
   const [pickupCodename, setPickupCodename] = useState<string | undefined>(undefined);
+
 
 
   const [destinationCoords, setDestinationCoords] = useState<
@@ -358,7 +360,7 @@ export default function ACHRAMApp() {
         setTripProgress((prev) => {
           if (prev >= 100) {
             clearInterval(timer);
-            setScreen("trip-complete");
+           // setScreen("trip-complete");
             return 100;
           }
           return prev + 2; // Simulate progress
@@ -619,6 +621,7 @@ export default function ACHRAMApp() {
 
         console.log("Trip data received:", trip);
         console.log("Guest ID received:", extractedGuestId);
+        console.log("Trip ID: ", trip.id)
 
         setVerificationCode(trip.verification_code || "");
         setActiveTripId(trip.id);
@@ -631,6 +634,7 @@ export default function ACHRAMApp() {
         } else if (trip.status.value === "driver_assigned" && trip.driver) {
           setDriver(trip.driver);
           setTripRequestStatus(null);
+
           setScreen("driver-assigned");
           // No need to start WebSocket or polling if driver is already assigned
         } else {
@@ -678,6 +682,10 @@ export default function ACHRAMApp() {
       setTripRequestError(errorMessage);
     }
   };
+
+
+
+
 
   const { isLoaded: isGoogleMapsLoaded, loadError: googleMapsLoadError } = useJsApiLoader({
     id: 'google-map-script', // Unique ID for the script
@@ -832,6 +840,7 @@ rws.onmessage = (event) => {
         // Driver found or assigned!
         console.log(`${tripData.status.label} via WebSocket (page.tsx), updating UI with driver.`);
         setDriver(tripData.driver);
+        console.log("Active Trip Id: ", activeTripId)
         setScreen('driver-assigned'); // Transition to the driver-assigned screen
         // NEW: DO NOT stop WebSocket or Polling here. The connection is needed for 'active', 'cancelled', 'completed' events.
         // stopWebSocketConnection(); // REMOVED
@@ -846,16 +855,26 @@ rws.onmessage = (event) => {
         // Do NOT stop WebSocket or Polling here.
       }
       // NEW: Check for 'cancelled' or 'completed' status (Trip Ends)
-      else if (tripData.status.value === 'cancelled' || tripData.status.value === 'completed') {
+      else if (tripData.status.value === 'cancelled' || tripData.status.value === 'completed' ) {
         // Trip is no longer active, stop WebSocket and polling and handle accordingly
         console.log(`Trip ${tripData.id} is now ${tripData.status.value} via WebSocket (page.tsx).`);
-        setTripRequestStatus('error'); // Or a specific status like 'trip-cancelled'
-        setTripRequestError(`Trip ${tripData.status.label}.`); // Show status message
+        // setTripRequestStatus('error'); // Or a specific status like 'trip-cancelled'
+        // setTripRequestError(`Trip ${tripData.status.label}.`); // Show status message
         stopWebSocketConnection(); // Stop WebSocket as trip is finished
         stopPollingTripStatus(); // Ensure polling is also stopped
         // Navigate away from trip-progress or driver-assigned screen if needed
         // e.g., setScreen('trip-complete'); // If you have a dedicated completed screen handler
         // Or let the TripCompleteScreen's onDone handler manage final navigation and state clearing
+         // NEW: Clear specific trip-related state that belongs to the *completed/cancelled* trip
+        setDriver(null); // Clear the associated driver
+        setTripProgress(0); // Reset progress bar
+        setVerificationCode(null); // Clearing seems appropriate as trip is over.
+        // setActiveTripId(null); // Clear the active trip ID as this trip is finished.
+
+
+        if(tripData.status.value === 'completed'){
+                  setScreen('trip-complete');
+      }
       }
       else {
         console.log(`Received trip status update via WebSocket (page.tsx): ${tripData.status.value}`);
@@ -1053,6 +1072,131 @@ rws.onmessage = (event) => {
     setScreen("trip-complete");
   };
 
+
+  const cancelTrip = async (reason: string) => {
+  // NEW: Check for activeTripId first, with more detailed logging
+  console.log('Active Trip Id: ',activeTripId)
+  if (!activeTripId) {
+    console.error("Cannot cancel trip: activeTripId is missing (is null, undefined, or empty string).");
+    console.log("Current activeTripId state:", activeTripId); // Log the actual value
+    console.log("Current screen state:", screen); // Log screen state for context
+    console.log("Current tripRequestStatus:", tripRequestStatus); // Log status for context
+    showNotification("Unable to cancel trip. No active trip found.", "error");
+    setShowCancel(false); // Close the modal as the action cannot proceed
+    return; // Exit the function
+  }
+
+  // NEW: Check for pickup coords and address if needed for the API body
+  // You might want to use geolocation coordinates here instead of pickupCoords if the trip has started.
+  // For now, using pickupCoords as a fallback.
+  const locationToUse = pickupCoords; // Or get current location if possible
+  const addressToUse = pickup; // Or get current location address if possible
+
+  if (!locationToUse || !addressToUse) {
+    console.error("Cannot cancel trip: Missing pickup coordinates or address for cancellation payload.");
+    console.log("Current pickupCoords state:", pickupCoords);
+    console.log("Current pickup state:", pickup);
+    showNotification("Unable to cancel trip. Missing location data.", "error");
+    // Optionally, still close the modal, or keep it open to allow retry if location data is expected soon
+    setShowCancel(false); // Close the modal
+    return; // Exit the function
+  }
+
+  // NEW: Check for guestId
+  if (!guestId) {
+    console.error("Cannot cancel trip: guestId is missing.");
+    console.log("Current guestId state:", guestId);
+    showNotification("Unable to cancel trip. Session expired.", "error");
+    setShowCancel(false); // Close the modal
+    return; // Exit the function
+  }
+
+  try {
+    // Prepare the request body
+    const cancelRequestBody = {
+      reason: reason,
+      location: [locationToUse[0], locationToUse[1]], // [longitude, latitude]
+      address: addressToUse,
+    };
+
+    console.log("Cancelling trip with ID:", activeTripId, "and payload:", cancelRequestBody);
+
+    // Call the API using apiClient
+    // The POST /trips/{id}/cancel endpoint requires X-Guest-Id.
+    console.log("Guest Id: ", guestId)
+    const response = await apiClient.post(`/trips/${guestId}/cancel`, cancelRequestBody, undefined, guestId);
+
+    if (response.status === "success" && response.data) {
+      console.log("Trip cancelled successfully:", response.data);
+      showNotification("Trip cancelled successfully.", "success");
+
+      // NEW: Update state to reflect cancellation
+      // Stop WebSocket and polling if they are active
+      stopWebSocketConnection();
+      stopPollingTripStatus();
+
+      // Clear trip-specific state
+      setDriver(null);
+      setActiveTripId(null); // NEW: Clear the active trip ID after successful cancellation
+      setGuestId(null); // NEW: Clear guest session data if appropriate after cancellation
+      setPickup("");
+      setDestination("");
+      setFareEstimate(null);
+      setTripProgress(0);
+      setPickupCoords(null);
+      setDestinationCoords(null);
+      setVerificationCode(null);
+
+      // Navigate back to booking or dashboard
+      setScreen("booking"); // Or "dashboard" if appropriate for guest
+
+    } else {
+      // Handle API error response structure (e.g., status not "success")
+      console.error("Trip cancellation API responded with non-success status or missing data:", response);
+      let errorMessage = "Failed to cancel your trip. Server responded unexpectedly.";
+      if (response.message) {
+        errorMessage = response.message;
+        if (response.details) {
+          const fieldErrors = [];
+          for (const [field, messages] of Object.entries(response.details)) {
+            if (Array.isArray(messages)) {
+              fieldErrors.push(`${field}: ${messages.join(", ")}`);
+            }
+          }
+          if (fieldErrors.length > 0) {
+            errorMessage += ` Details: ${fieldErrors.join("; ")}`;
+          }
+        }
+      }
+      showNotification(errorMessage, "error");
+    }
+  } catch (err: any) {
+    console.error("Error cancelling trip:", err);
+    let errorMessage = "Failed to cancel your trip. Please check your connection and try again.";
+
+    if (err instanceof Error) {
+      errorMessage = err.message;
+    } else {
+      console.error("Unexpected error type caught:", typeof err, err);
+      errorMessage = 'An unexpected error occurred during cancellation.';
+    }
+    showNotification(errorMessage, "error");
+  } finally {
+    // NEW: Close the modal after the API call finishes (success or failure)
+    // This was missing in the previous version if an error occurred before the success block!
+    setShowCancel(false);
+  }
+};
+
+
+const handleCancelConfirmed = (reason: string, location?: [number, number], address?: string) => {
+  // The CancelModal passes the reason.
+  // For now, we'll use the reason and the state variables (activeTripId, pickupCoords, pickup).
+  // The location and address passed by the modal are optional and could override state if needed,
+  // but using state is simpler if the state is up-to-date.
+  cancelTrip(reason);
+};
+
   // NEW: Wait for hydration before rendering main content to avoid SSR/client mismatch
   if (!hasHydrated) {
     return (
@@ -1127,6 +1271,7 @@ rws.onmessage = (event) => {
         onStartTrip={handleTripStart}
         onBack={() => setScreen("booking")}
         showNotification={showNotification}
+        onCancelTrip={()=> setShowCancel(true)}
       />
     );
   } else if (screen === "trip-progress") {
@@ -1140,6 +1285,8 @@ rws.onmessage = (event) => {
         destinationCoords={destinationCoords} // NEW: Pass coordinates
         tripProgress={tripProgress} // NEW: Pass progress
         // Remove canRenderMaps prop as it's no longer needed if using dynamic import for the screen was the main strategy
+        isGoogleMapsLoaded={isGoogleMapsLoaded}
+        googleMapsLoadError={googleMapsLoadError}
       />
     );
   } else if (screen === "trip-complete") {
@@ -1256,6 +1403,9 @@ rws.onmessage = (event) => {
       />
     );
   }
+
+
+  
   // Note: Removed the 'signup-prompt' screen render block as it's handled by the showSignup state and modal
 
   // === Return full UI tree including modals and notifications ===
@@ -1282,6 +1432,8 @@ rws.onmessage = (event) => {
               onDismiss={() => setCurrentNotification(null)}
             />
           )}
+
+     
 
           {mainContent}
 
@@ -1318,6 +1470,10 @@ rws.onmessage = (event) => {
               setShowPanic(false);
               alert("Safety team notified");
             }}
+            guestId={guestId} 
+            currentLocationAddress={pickup} 
+            currentLocationCoords={pickupCoords || [0, 0]} 
+            tripId={activeTripId || ""} 
           />
 
           {!token &&
@@ -1444,7 +1600,8 @@ rws.onmessage = (event) => {
           <CancelModal
             isOpen={showCancel}
             onClose={() => setShowCancel(false)}
-            onConfirm={() => {}}
+            onConfirm={handleCancelConfirmed}
+            pickupAddress={pickup}
           />
           {showRate && (
             <RateModal
@@ -1454,6 +1611,8 @@ rws.onmessage = (event) => {
               driverName={driver?.name}
               // NEW: Pass the notification setter as setNotification
               setNotification={setCurrentNotification} // Use setCurrentNotification
+              tripId={activeTripId}
+              guestId={guestId}
             />
           )}
           <MessageWindowModal
