@@ -2,7 +2,7 @@
 'use client';
 
 import { Loader } from 'lucide-react';
-
+import ACHRAMFooter from "@/components/app/ui/ACHRAMFooter"
 
 interface RequestStatusProp {
   status: 'loading' | 'accepted' | 'no-driver' | 'error' | null;
@@ -34,6 +34,7 @@ export default function AssigningScreen({status,}: RequestStatusProp) {
         {isNoDriver || error ? "Try again shortly" : "Assigning a driver"}
       </p>
     </div>
+    <ACHRAMFooter />
     </div>
   );
 }

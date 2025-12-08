@@ -15,6 +15,7 @@ import { LoadScript, StandaloneSearchBox } from "@react-google-maps/api";
 import AirportSelectionModal from "@/components/app/modals/AirportSelectionModal";
 import OutsideServiceAreaModal from "@/components/app/modals/OutsideServiceAreaModal";
 import { apiClient } from "@/lib/api";
+import ACHRAMFooter from "@/components/app/ui/ACHRAMFooter"
 
 interface LocationData {
   name: string;
@@ -770,6 +771,9 @@ const geolocationCoordsRef = useRef<[number, number] | null>(null);
             : "Enter destinations"}
         </button>
       </div>
+
+      <ACHRAMFooter />
+
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { Shield } from 'lucide-react';
 import { GoogleMap, Marker, Polyline, useJsApiLoader } from '@react-google-maps/api';
 import { Driver } from '@/types/passenger'; // Assuming this type is defined
 import { useState, useEffect } from 'react';
+import ACHRAMFooter from "@/components/app/ui/ACHRAMFooter"
 
 interface TripProgressScreenProps {
   driver: Driver;
@@ -214,6 +215,7 @@ export default function TripProgressScreen({
           {tripProgress}% Complete
         </div>
       </div>
+      <ACHRAMFooter />
     </div>
   );
 }

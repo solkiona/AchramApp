@@ -5,7 +5,7 @@
 import { MapPin, MessageCircle, Phone, X, CheckCircle, Shield } from 'lucide-react'; // Added CheckCircle
 import { Driver } from '@/types/passenger';
 import { useState, useEffect } from 'react'; // Add useEffect if not already present
-
+import ACHRAMFooter from "@/components/app/ui/ACHRAMFooter"
 // NEW: Define the prop type to include showNotification
 interface DriverAssignedScreenProps {
   pickup: string;
@@ -156,6 +156,9 @@ export default function DriverAssignedScreen({
           Cancel trip {/* NEW: Changed text */}
         </button>
       </div>
+
+      <ACHRAMFooter />
+
     </div>
   );
 }
