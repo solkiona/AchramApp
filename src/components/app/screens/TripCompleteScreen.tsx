@@ -3,6 +3,7 @@
 
 import { Check } from 'lucide-react';
 import { Driver } from '@/types/passenger';
+import ACHRAMFooter from '@/components/app/ui/ACHRAMFooter';
 
 // NEW: Define the type for the onDone prop
 type OnDoneHandler = () => void;
@@ -62,6 +63,7 @@ export default function TripCompleteScreen({
           Done
         </button>
       </div>
+      <ACHRAMFooter />
     </div>
   );
 }
