@@ -193,6 +193,8 @@ interface DirectionsModalProps {
   pickupCoords?: [number, number] | null;
   destination: string; // NEW
   destinationCoords?: [number, number] | null; // NEW
+  isGoogleMapsLoaded: boolean;
+  googleMapsLoadError?: any;
 }
 
 // NEW: Define map container style
@@ -214,15 +216,17 @@ export default function DirectionsModal({
   pickupCoords,
   destination, // NEW: Destructure the new prop
   destinationCoords, // NEW: Destructure the new prop
+  isGoogleMapsLoaded,
+  googleMapsLoadError,
 }: DirectionsModalProps) {
   if (!isOpen) return null;
 
   // NEW: Load the Google Maps API script
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script',
-    // Ensure you have this in your .env.local
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-  });
+  // const { isLoaded, loadError } = useJsApiLoader({
+  //   id: 'google-map-script',
+  //   // Ensure you have this in your .env.local
+  //   googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
+  // });
 
   // NEW: State for directions result
   const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
@@ -230,7 +234,7 @@ export default function DirectionsModal({
 
   // NEW: Calculate directions when both pickup and destination coords are available
   useEffect(() => {
-    if (isLoaded && pickupCoords && destinationCoords) {
+    if (isGoogleMapsLoaded && pickupCoords && destinationCoords) {
       const directionsService = new google.maps.DirectionsService();
       const request: google.maps.DirectionsRequest = {
         origin: { lat: pickupCoords[1], lng: pickupCoords[0] }, // [lng, lat] to {lat, lng}
@@ -252,7 +256,7 @@ export default function DirectionsModal({
         setDirections(null); // Reset if coords are missing
         setDirectionsError(null);
     }
-  }, [isLoaded, pickupCoords, destinationCoords]);
+  }, [isGoogleMapsLoaded, pickupCoords, destinationCoords]);
 
   // NEW: Determine map center based on available coordinates (could be pickup, destination, or midpoint)
   // For simplicity, using pickup if available, otherwise destination, otherwise default
@@ -265,10 +269,10 @@ export default function DirectionsModal({
 
 
   // NEW: Handle loading/error states for the script
-  if (loadError) {
+  if (googleMapsLoadError) {
     return (
       <div className="fixed inset-0 bg-achrams-bg-primary z-50 flex items-center justify-center">
-        <p className="text-achrams-text-secondary">Error loading map: {loadError.message}</p>
+        <p className="text-achrams-text-secondary">Error loading map: {googleMapsLoadError.message || googleMapsLoadError}</p>
       </div>
     );
   }
@@ -290,7 +294,7 @@ export default function DirectionsModal({
 
         {/* NEW: Map Container */}
         <div className="flex-1 relative">
-          {isLoaded ? (
+          {isGoogleMapsLoaded ? (
             <GoogleMap
               mapContainerStyle={mapContainerStyle}
               center={mapCenter}

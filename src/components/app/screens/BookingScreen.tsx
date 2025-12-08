@@ -44,7 +44,10 @@ interface BookingScreenProps {
   setPickupId: (id: string | null) => void;
   setPickupCodename: (codename: string | undefined) => void;
   fareIsFlatRate: boolean | null;
-  setFareIsFlatRate: (val: boolean | null )=> void 
+  setFareIsFlatRate: (val: boolean | null )=> void;
+  
+  isGoogleMapsLoaded: boolean;
+  googleMapsLoadError?: Error | undefined;
   
 }
 
@@ -107,6 +110,8 @@ export default function BookingScreen({
   setPickupCodename,
   fareIsFlatRate,
   setFareIsFlatRate,
+  isGoogleMapsLoaded,
+  googleMapsLoadError,
 }: BookingScreenProps) {
   const [pickupOpen, setPickupOpen] = useState(false);
   const [destOpen, setDestOpen] = useState(false);
@@ -297,36 +302,63 @@ export default function BookingScreen({
   );
 
   // Stable place selection handler
+  // const handlePlaceChanged = useCallback(() => {
+  //   if (!searchBoxRef.current) return;
+
+  //   const places = searchBoxRef.current.getPlaces();
+  //   if (!places || places.length === 0) {
+  //     console.log(
+  //       "DEBUG: handlePlaceChanged - Setting destination to: ",
+  //       places
+  //     );
+  //     return;
+  //   }
+
+  //   const place = places[0];
+  //   if (place.geometry?.location) {
+  //     const lat = place.geometry.location.lat();
+  //     const lng = place.geometry.location.lng();
+  //     const formattedAddress = place.formatted_address || place.name || "";
+
+  //     setDestinationLocationData({
+  //       name: formattedAddress,
+  //       coords: [lng, lat],
+  //     });
+  //     setDestOpen(false);
+  //   } else {
+  //     console.error(
+  //       "DEBUG: handlePlaceChanged - Place selected but not geometry. location found:",
+  //       place
+  //     );
+  //   }
+  // }, []);
+
+const geolocationCoordsRef = useRef<[number, number] | null>(null);
+
+
   const handlePlaceChanged = useCallback(() => {
-    if (!searchBoxRef.current) return;
-
-    const places = searchBoxRef.current.getPlaces();
-    if (!places || places.length === 0) {
-      console.log(
-        "DEBUG: handlePlaceChanged - Setting destination to: ",
-        places
-      );
-      return;
+    if (isGoogleMapsLoaded && searchBoxRef.current) { // NEW: Only run if API is loaded
+      const places = searchBoxRef.current.getPlaces();
+      if (places && places.length > 0) {
+        const place = places[0];
+        if (place.geometry && place.geometry.location) {
+          const lat = place.geometry.location.lat();
+          const lng = place.geometry.location.lng();
+          setDestinationLocationData({
+            name: place.formatted_address || place.name || "", // Prefer formatted address, fallback to name
+            coords: [lng, lat], // [longitude, latitude]
+          });
+          setDestOpen(false); // Close the dropdown after selection
+        } else {
+          console.error("Place selected but no geometry.location found.");
+        }
+      } else {
+          console.log("No places found from search box.");
+          // Optionally clear coordinates if user clears the input and presses enter/selects nothing
+          setDestinationLocationData(prev => ({ ...prev, coords: null }));
+      }
     }
-
-    const place = places[0];
-    if (place.geometry?.location) {
-      const lat = place.geometry.location.lat();
-      const lng = place.geometry.location.lng();
-      const formattedAddress = place.formatted_address || place.name || "";
-
-      setDestinationLocationData({
-        name: formattedAddress,
-        coords: [lng, lat],
-      });
-      setDestOpen(false);
-    } else {
-      console.error(
-        "DEBUG: handlePlaceChanged - Place selected but not geometry. location found:",
-        place
-      );
-    }
-  }, []);
+  }, [isGoogleMapsLoaded]); 
 
   const handleClearDestination = useCallback(() => {
     setDestinationLocationData({ name: "", coords: null });
@@ -354,12 +386,20 @@ export default function BookingScreen({
         longitude,
         latitude
       );
+    
+      const coords = [longitude, latitude] as [number, number];
+
+      geolocationCoordsRef.current = coords;
+
       const airports = await findNearestAirport(longitude, latitude);
       console.log(
         "DEBUG: handleUseCurrentLocation - Found airports:",
         airports
       );
       if (airports && airports.length > 0) {
+
+        
+
         if (airports.length === 1) {
           console.log(
             "DEBUG: handleUseCurrentLocation - Setting single airport:",
@@ -389,58 +429,22 @@ export default function BookingScreen({
   }, [error, requestPermission]);
 
   const handleAirportSelectedFromModal = useCallback((airport: Airport) => {
+
+    const geolocationCoords = geolocationCoordsRef.current;
+
     console.log(
       "DEBUG: handleAirportSelectedFromModal - Selected airport:",
       airport,
       "Retaining coords:",
-      pickupLocationData.coords
+      geolocationCoords
     );
-    let selectedCoords: [number, number] | null = null;
-
-    if (
-      airport.map_data &&
-      airport.map_data.pickup_area &&
-      airport.map_data.pickup_area.geometry &&
-      airport.map_data.pickup_area.geometry.coordinates
-    ) {
-      const coordsArray = airport.map_data.pickup_area.geometry.coordinates;
-
-      const geometryType = airport.map_data.pickup_area.geometry.type;
-
-      if (
-        geometryType === "Point" &&
-        Array.isArray(coordsArray) &&
-        coordsArray.length >= 2
-      ) {
-        // For a Point, coordinates is [longitude, latitude]
-        selectedCoords = [coordsArray[0], coordsArray[1]]; // [lng, lat]
-      } else if (
-        geometryType === "Polygon" &&
-        Array.isArray(coordsArray) &&
-        coordsArray.length > 0 &&
-        coordsArray[0].length > 0
-      ) {
-        const firstRing = coordsArray[0]; // Outer ring of the polygon
-        const firstPoint = firstRing[0]; // First point of the outer ring [lng, lat]
-        if (Array.isArray(firstPoint) && firstPoint.length >= 2) {
-          selectedCoords = [firstPoint[0], firstPoint[1]]; // [lng, lat]
-        }
-      } else {
-        console.warn(
-          "DEBUG: handleAirportSelectedFromModal - Unexpected geometry type or coordinates structure for airport:",
-          airport.name,
-          geometryType,
-          coordsArray
-        );
-      }
-    }
     console.log(
       "DEBUG: handleAirportSelectedFromModal - Using coords from SELECTED airport object:",
-      selectedCoords
+      geolocationCoords
     );
     setPickupLocationData({
       name: airport.name,
-      coords: selectedCoords, // retain geolocation coords
+      coords: geolocationCoords, 
       id: airport.id,
       codename: airport.codename,
     });
@@ -642,7 +646,62 @@ export default function BookingScreen({
 
           {/* Destination */}
           <div className="relative">
-            <LoadScript
+
+            {!isGoogleMapsLoaded ? (
+              <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border">
+                <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
+                <input
+                  type="text"
+                  placeholder="Enter destination (Loading...)"
+                  value={destinationLocationData.name}
+                  // Disable input while loading
+                  onChange={() => {}} // No-op while loading
+                  className="flex-1 bg-transparent outline-none text-base text-achrams-text-secondary italic"
+                  disabled
+                />
+              </div>
+            ) : (
+              // NEW: Render the StandaloneSearchBox only when API is loaded
+              <StandaloneSearchBox
+                onLoad={(ref) => {
+                  searchBoxRef.current = ref; // Store the reference
+                }}
+                onUnmount={() => {
+                  searchBoxRef.current = null; // Clean up reference
+                }}
+                onPlacesChanged={handlePlaceChanged} // Handle place selection
+              >
+                <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border">
+                  <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
+                  <input
+                    type="text"
+                    placeholder="Enter destination"
+                    value={destinationLocationData.name}
+                    onChange={(e) => {
+                      // Update local state name immediately as user types
+                      setDestinationLocationData((prev) => ({ ...prev, name: e.target.value }));
+                      setDestOpen(true); // Keep dropdown open while typing
+                    }}
+                    onFocus={() => setDestOpen(true)} // Open dropdown on focus
+                    className="flex-1 bg-transparent outline-none text-base text-achrams-text-primary"
+                  />
+                  {destOpen &&
+                    destinationLocationData.name && ( // Use local state
+                      <button
+                        onClick={() => {
+                          setDestinationLocationData({ name: "", coords: null });
+                          setDestOpen(false);
+                        }}
+                        className="p-2 text-achrams-text-secondary hover:text-achrams-text-primary transition-colors"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    )}
+                </div>
+              </StandaloneSearchBox>
+            )}
+
+            {/* <LoadScript
               googleMapsApiKey={GOOGLE_MAPS_API_KEY}
               libraries={libraries}
             >
@@ -673,7 +732,7 @@ export default function BookingScreen({
                   )}
                 </div>
               </StandaloneSearchBox>
-            </LoadScript>
+            </LoadScript> */}
           </div>
         </div>
 

@@ -52,6 +52,8 @@ import BottomNavBar from "@/components/app/ui/BottomNavBar";
 import { findNearestAirport, KNOWN_AIRPORTS } from "@/lib/airports";
 import ReconnectingWebSocket from "reconnecting-websocket";
 
+import {useJsApiLoader} from "@react-google-maps/api"
+
 type TripStatusValue =
   | "searching"
   | "driver_assigned"
@@ -225,6 +227,8 @@ export default function ACHRAMApp() {
   const [pickupId, setPickupId] =  useState<string | null>(null);
 
 
+
+  
   // NEW: Effect to run only on the client after mount to load state and set initial values
   useEffect(() => {
     // Check if we are on the client
@@ -324,6 +328,8 @@ export default function ACHRAMApp() {
       setCurrentNotification(null);
     }, 5000); // Auto-dismiss after 5 seconds
   };
+
+  
 
   // NEW: Effect to trigger notifications based on screen changes (simulated)
   useEffect(() => {
@@ -672,6 +678,19 @@ export default function ACHRAMApp() {
       setTripRequestError(errorMessage);
     }
   };
+
+  const { isLoaded: isGoogleMapsLoaded, loadError: googleMapsLoadError } = useJsApiLoader({
+    id: 'google-map-script', // Unique ID for the script
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '', // Ensure key is provided
+    libraries: ['places'], // Load the 'places' library needed for StandaloneSearchBox
+  });
+
+  // NEW: Handle Google Maps load error if necessary
+  if (googleMapsLoadError) {
+    console.error("Failed to load Google Maps API:", googleMapsLoadError);
+    // You might want to show an error message to the user
+    return <div>Error loading Google Maps.</div>; // Or a more user-friendly error component
+  }
 
   const handleShowLocationModal = () => {
     setShowLocationModal(true);
@@ -1076,6 +1095,8 @@ rws.onmessage = (event) => {
         fareIsFlatRate={fareIsFlatRate}
         setFareIsFlatRate={setFareIsFlatRate}
 
+        isGoogleMapsLoaded={isGoogleMapsLoaded}
+        googleMapsLoadError={googleMapsLoadError}
         onProceed={handleProceed}
         setShowPassengerDetails={setShowPassengerDetails}
         passengerData={passengerData}
@@ -1285,6 +1306,8 @@ rws.onmessage = (event) => {
               pickupCoords={pickupCoords}
               destination={destination} // NEW
               destinationCoords={destinationCoords} // NEW
+              isGoogleMapsLoaded={isGoogleMapsLoaded}
+              googleMapsLoadError={googleMapsLoadError}
             />
           )}
 
