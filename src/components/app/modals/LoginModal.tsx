@@ -10,12 +10,14 @@ interface LoginModalProps {
   onClose: () => void;
   // NEW: Prop to handle successful login (e.g., update auth context, navigate to dashboard)
   onLoginSuccess: () => void;
+  onShowSignupPrompt: ()=> void;
 }
 
 export default function LoginModal({
   isOpen,
   onClose,
   onLoginSuccess,
+  onShowSignupPrompt
 }: LoginModalProps) {
   if (!isOpen) return null;
 
@@ -187,7 +189,7 @@ export default function LoginModal({
               onClose(); // Close this modal
               // Assuming page.tsx will handle opening the signup prompt modal via a state prop
               // e.g., if page.tsx passes onOpenSignupPrompt prop:
-              // onOpenSignupPrompt();
+              onShowSignupPrompt();
             }}
             className="text-sm text-achrams-primary-solid hover:underline"
           >

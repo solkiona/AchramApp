@@ -1,8 +1,8 @@
 // src/app/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useEffect, useState, useRef } from "react";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import BookingScreen from "@/components/app/screens/BookingScreen";
 import AssigningScreen from "@/components/app/screens/AssigningScreen";
 import DriverAssignedScreen from "@/components/app/screens/DriverAssignedScreen";
@@ -82,8 +82,11 @@ type ScreenState =
   | "driver-assigned"
   | "trip-progress"
   | "trip-complete"
-  | "dashboard";
-// NEW: Add any new screen states if necessary, though most new features will be modals/screens on top of 'dashboard'
+  | "dashboard" 
+  | "signup-prompt" 
+  | "login-modal" 
+  | "profile" 
+  | "settings"; 
 
 type Requirements = {
   luggage: boolean;
@@ -143,13 +146,13 @@ const loadAppState = (): PersistedState | null => {
 };
 
 export default function ACHRAMApp() {
-  const { token } = useAuth();
+  const { token, isAuthenticated, isLoading: isAuthLoading } = useAuth();
 
   // NEW: Use a state variable to track if we have checked sessionStorage on the client
   const [hasHydrated, setHasHydrated] = useState(false);
 
   // NEW: Define state variables without initial values from loadAppState here
-  const [screen, setScreen] = useState<ScreenState>("booking"); // Will be set after hydration
+  const [screen, setScreen] = useState<ScreenState | null>(null);
   const [pickup, setPickup] = useState<string>("");
   const [destination, setDestination] = useState<string>("");
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
@@ -176,9 +179,33 @@ export default function ACHRAMApp() {
   const [webSocketStatus, setWebSocketStatus] = useState<
     "connecting" | "open" | "closed" | "reconnecting"
   >("closed");
+
+
+
   // NEW: State for polling fallback
   const [pollingIntervalId, setPollingIntervalId] =
     useState<NodeJS.Timeout | null>(null);
+
+
+ const activeTripIdRef = useRef(activeTripId);
+    const screenRef = useRef(screen);
+    const pollingIntervalIdRef = useRef(pollingIntervalId);
+
+    // NEW: Effect to keep the refs updated whenever the corresponding state variables change
+    useEffect(() => {
+      activeTripIdRef.current = activeTripId;
+    }, [activeTripId]);
+
+    useEffect(() => {
+      screenRef.current = screen;
+    }, [screen]);
+
+    useEffect(() => {
+      pollingIntervalIdRef.current = pollingIntervalId;
+    }, [pollingIntervalId]);
+
+
+
 
   // NEW: State for new dashboard features (these might be fetched from API on load)
   const [walletBalance, setWalletBalance] = useState<number>(0); // NEW: State for wallet balance
@@ -229,6 +256,21 @@ export default function ACHRAMApp() {
   const [pickupId, setPickupId] =  useState<string | null>(null);
 
 
+useEffect(() => {
+    if (isAuthLoading) {
+      // NEW: Keep screen as null or show a loading indicator if needed here
+      // For now, just return, screen remains null
+      return;
+    }
+    console.log("AuthContext loaded, determining initial screen. isAuthenticated:", isAuthenticated);
+    if (isAuthenticated) {
+      console.log("User is authenticated, setting screen to 'dashboard'.");
+      setScreen("dashboard");
+    } else {
+      console.log("User is not authenticated, setting screen to 'booking'.");
+      setScreen("booking");
+    }
+  }, [isAuthenticated, isAuthLoading]); 
 
   
   // NEW: Effect to run only on the client after mount to load state and set initial values
@@ -237,31 +279,31 @@ export default function ACHRAMApp() {
     if (typeof window !== "undefined") {
       const savedState = loadAppState();
       if (savedState) {
-        // Set state using the loaded values
-        setScreen(savedState.screen);
-        setPickup(savedState.pickup);
-        setDestination(savedState.destination);
-        setFareEstimate(savedState.fareEstimate);
-        setDriver(savedState.driver);
-        setTripProgress(savedState.tripProgress);
-        setPickupCoords(savedState.pickupCoords);
-        setDestinationCoords(savedState.destinationCoords);
-        setVerificationCode(savedState.verificationCode);
-        // NEW: Load other persisted states if added
-        // setWalletBalance(savedState.walletBalance); // Example
-        // setIs2FAEnabled(savedState.is2FAEnabled); // Example
-      } else {
-        // Set default initial state based on token
-        setScreen(token ? "dashboard" : "booking");
-      }
-      // Mark as hydrated after loading/saving defaults
+
+        try{
+
+          // Set state using the loaded values
+          setScreen(savedState.screen);
+          setPickup(savedState.pickup || " ");
+          setDestination(savedState.destination || " ");
+          setFareEstimate(savedState.fareEstimate || null);
+          //setDriver(savedState.driver || null); //Driver might need re-verification from server on load if authenticated
+          setTripProgress(savedState.tripProgress || 0);
+          setPickupCoords(savedState.pickupCoords || null);
+          setDestinationCoords(savedState.destinationCoords);
+          setVerificationCode(savedState.verificationCode || null);
+          // NEW: Load other persisted states if added
+          // setWalletBalance(savedState.walletBalance); // Example
+          // setIs2FAEnabled(savedState.is2FAEnabled); // Example
+
+        } catch(e){
+          console.error("Failed to load app state from sessionStorage:", e);
+        }
+      } 
       setHasHydrated(true);
-    } else {
-      // Fallback if somehow this runs on server (shouldn't with 'use client')
-      setScreen(token ? "dashboard" : "booking");
-      setHasHydrated(true);
-    }
-  }, [token]); // Depend on token if initial screen logic depends on it
+    } 
+  }, []); 
+
 
   // NEW: Effect to fetch user profile data (including 2FA status, wallet, active trip) on initial load or token change
   useEffect(() => {
@@ -373,7 +415,7 @@ export default function ACHRAMApp() {
 
   // NEW: Effect to save state whenever it changes (only runs on client after hydration)
   useEffect(() => {
-    if (hasHydrated) {
+    if (hasHydrated && screen !== null) {
       // Only save after initial state has been loaded/set
       const stateToSave: PersistedState = {
         screen,
@@ -416,7 +458,18 @@ export default function ACHRAMApp() {
   };
 
   // NEW: Handler passed to LoginModal for successful login
-  const handleLoginSuccess = () => {};
+  const handleLoginSuccess = () => {
+
+    console.log("login successful, Authcontext should update. Screen will update via useEffect")
+    showNotification("Welcome Back!", "success")
+
+  };
+
+  const handleLogoutSuccess = ()=>{
+    console.log("Logout successful, Authcontext should update. Screen will update via useEffect")
+
+    showNotification("You have been logged out.", "info")
+  }
 
   // NEW: Handler passed to Enable2FAModal on success
   const handle2FAEnabled = () => {
@@ -719,7 +772,7 @@ export default function ACHRAMApp() {
       console.log("Closing existing WebSocket connection.");
       webSocketConnection.close();
     }
-
+   
     // Construct the WebSocket URL using the guest ID
     const wsUrl = `wss://api.achrams.com.ng/ws/v1/app?guest_id=${guestId}`;
 
@@ -742,76 +795,7 @@ export default function ACHRAMApp() {
       stopPollingTripStatus();
     };
 
-    // rws.onmessage = (event) => {
-    //   try {
-    //     const messageData: WebSocketMessage = JSON.parse(event.data);
-    //     console.log("Received WebSocket message:", messageData);
-
-    //     const { event: eventType, data: tripData } = messageData;
-
-    //     // Check if it's a relevant trip update event
-    //     if (
-    //       eventType === "trip:assigned" ||
-    //       eventType === "trip:status:update"
-    //     ) {
-    //       // Update UI state based on the received trip data
-
-    //       // NEW: Check for 'driver not found' status
-    //       if (tripData.status.value === "driver not found") {
-    //         // Use the exact string from backend/Postman
-    //         console.log("Driver not found via WebSocket, updating UI.");
-    //         // Stop both WebSocket and polling
-    //         stopWebSocketConnection();
-    //         stopPollingTripStatus();
-    //         // Set status to show 'no-driver' modal
-    //         setTripRequestStatus("no-driver");
-    //         // Optionally set a specific error message
-    //         setTripRequestError(`No drivers available for your trip.`);
-    //         // Do NOT change the screen here, let the modal handle the user interaction.
-    //         // The screen might still be 'assigning', which is okay until the user retries/cancels.
-    //         return; // Exit handler after handling 'driver not found'
-    //       }
-
-    //       // NEW: Check for 'accepted' OR 'driver_assigned' status when a driver is present
-    //       if (
-    //         (tripData.status.value === "accepted" ||
-    //           tripData.status.value === "driver_assigned") &&
-    //         tripData.driver
-    //       ) {
-    //         // Driver found or assigned!
-    //         console.log(
-    //           `${tripData.status.label} via WebSocket, updating UI with driver.`
-    //         );
-    //         setDriver(tripData.driver);
-    //         setScreen("driver-assigned");
-    //       } else if (
-    //         tripData.status.value === "cancelled" ||
-    //         tripData.status.value === "completed"
-    //       ) {
-    //         // Trip is no longer active, stop polling and handle accordingly
-    //         console.log(
-    //           `Trip ${tripData.id} is now ${tripData.status.value} via WebSocket.`
-    //         );
-    //         setTripRequestStatus("error"); // Or a specific status like 'trip-cancelled'
-    //         setTripRequestError(`Trip ${tripData.status.label}.`); // Show status message
-    //         stopWebSocketConnection(); // Stop WebSocket as trip is finished
-    //         stopPollingTripStatus(); // Ensure polling is also stopped
-    //         // No need to start polling here, as trip is finished.
-    //       } else {
-    //         console.log(
-    //           `Received trip status update via WebSocket: ${tripData.status.value}`
-    //         );
-    //       }
-    //     } else {
-    //       // Handle other event types if the backend sends them
-    //       console.log(`Received other WebSocket event: ${eventType}`);
-    //     }
-    //   } catch (error) {
-    //     console.error("Error parsing WebSocket message:", error, event.data);
-    //   }
-    // };
-
-    // Inside the rws.onmessage handler in startWebSocketConnection (page.tsx)
+    
 rws.onmessage = (event) => {
   try {
     const messageData: WebSocketMessage = JSON.parse(event.data);
@@ -844,7 +828,8 @@ rws.onmessage = (event) => {
         setScreen('driver-assigned'); // Transition to the driver-assigned screen
         // NEW: DO NOT stop WebSocket or Polling here. The connection is needed for 'active', 'cancelled', 'completed' events.
         // stopWebSocketConnection(); // REMOVED
-        // stopPollingTripStatus(); // REMOVED
+        stopPollingTripStatus(); // REMOVED
+        console.log("stopPollingTripStatus was just called")
         // No need to start polling here, as trip is assigned/accepted, and WebSocket is kept open.
       }
       // NEW: Check for 'active' status (Trip Starts)
@@ -871,10 +856,17 @@ rws.onmessage = (event) => {
         setVerificationCode(null); // Clearing seems appropriate as trip is over.
         // setActiveTripId(null); // Clear the active trip ID as this trip is finished.
 
-
         if(tripData.status.value === 'completed'){
                   setScreen('trip-complete');
+                  showNotification("Trip completed successfully", "info")
+      } else if (tripData.status.value === 'cancelled'){
+          
+        showNotification("Trip was cancelled successfully", "info")
+          setScreen('booking')
+          
       }
+
+
       }
       else {
         console.log(`Received trip status update via WebSocket (page.tsx): ${tripData.status.value}`);
@@ -892,9 +884,14 @@ rws.onmessage = (event) => {
   }
 };
 
+
     // Inside startWebSocketConnection setup
     rws.onclose = (event) => {
       console.log("WebSocket connection closed:", event.code, event.reason);
+
+      const currentTripId = activeTripIdRef.current;
+      const currentScreen = screenRef.current;
+      const currentPollingId = pollingIntervalIdRef.current;
       setWebSocketStatus("closed");
       // IMPORTANT: The WebSocket closed. If the trip is *not* in a final state,
       // we need to start the polling fallback.
@@ -902,38 +899,39 @@ rws.onmessage = (event) => {
       // For now, if screen is still 'assigning' or related to searching/active, and we have an active trip ID, start polling.
       // We'll pass the activeTripId to the polling function.
       // NEW: Only start polling if we are still in an intermediate state and polling isn't already active.
-      if (
-        activeTripId &&
+          if (
+        currentTripId && // Use ref value
         ![
-          "driver-assigned",
+          "driver-assigned", // NEW: Consider driver-assigned as potentially needing polling if it closed unexpectedly *before* the trip progressed
           "completed",
           "cancelled",
           "driver not found",
-        ].includes(screen) &&
-        !pollingIntervalId
+        ].includes(currentScreen) && // Use ref value
+        !currentPollingId // Use ref value
       ) {
-        // NEW: Check pollingIntervalId
+        // NEW: Check pollingIntervalId using ref value
         console.log(
-          `WebSocket closed, starting polling for trip ${activeTripId} as fallback.`
+          `WebSocket closed unexpectedly while screen is '${currentScreen}', starting polling for trip ${currentTripId} as fallback.`
         );
-        startPollingTripStatus(activeTripId);
+        startPollingTripStatus(currentTripId); // Pass the current trip ID from ref
       } else {
         console.log(
-          `WebSocket closed, but not starting polling. Trip ID: ${activeTripId}, Screen: ${screen}, Polling Active: ${!!pollingIntervalId}`
+          `WebSocket closed, but not starting polling. Trip ID: ${currentTripId}, Screen: ${currentScreen}, Polling Active: ${!!currentPollingId}`
         );
         // If screen is a final state, ensure polling is definitely stopped just in case.
+        // Use the *current* screen value from the ref.
         if (
           [
-            "driver-assigned",
+            "driver-assigned", // NEW: If the screen is driver-assigned but the socket closed unexpectedly, polling *might* have started above.
             "completed",
             "cancelled",
             "driver not found",
-          ].includes(screen)
+          ].includes(currentScreen) // Use ref value
         ) {
           console.log(
-            "Screen indicates final state, ensuring polling is stopped."
+            "Screen indicates final state or driver-assigned (post-cancellation), ensuring polling is stopped."
           );
-          stopPollingTripStatus(); // NEW: Ensure polling stops if closed event happens after final state
+          stopPollingTripStatus(); // NEW: Ensure polling stops if closed event happens after final state or cancellation
         }
       }
     };
@@ -1190,15 +1188,29 @@ rws.onmessage = (event) => {
 
 
 const handleCancelConfirmed = (reason: string, location?: [number, number], address?: string) => {
-  // The CancelModal passes the reason.
-  // For now, we'll use the reason and the state variables (activeTripId, pickupCoords, pickup).
-  // The location and address passed by the modal are optional and could override state if needed,
-  // but using state is simpler if the state is up-to-date.
+ 
   cancelTrip(reason);
 };
 
+
+useEffect(()=>{
+  if(!hasHydrated || isAuthLoading){
+    return;
+  }
+  console.log("Hydration and Auth check complete. isAuthenticated:", isAuthenticated);
+  
+  if(isAuthenticated){
+    console.log("User is authenticated, setting sreen to 'dashboard'.");
+    setScreen("dashboard");
+  } else {
+    console.log("User is not authenticated, setting to 'booking'.");
+    setScreen("booking");
+  }
+}, [hasHydrated, isAuthenticated, isAuthLoading]);
+
+
   // NEW: Wait for hydration before rendering main content to avoid SSR/client mismatch
-  if (!hasHydrated) {
+  if (!hasHydrated || isAuthLoading) {
     return (
       <div className="flex items-center justify-center h-screen w-full bg-white animate-fadeIn">
         <div className="relative">
@@ -1254,6 +1266,7 @@ const handleCancelConfirmed = (reason: string, location?: [number, number], addr
         resetKey={resetBookingKey}
         setPickupId={setPickupId}
         setPickupCodename={setPickupCodename}
+        onShowLogin={() => setShowLogin(true)}
 
       />
     );
@@ -1570,6 +1583,11 @@ const handleCancelConfirmed = (reason: string, location?: [number, number], addr
             isOpen={showLogin}
             onClose={() => setShowLogin(false)}
             onLoginSuccess={handleLoginSuccess} // NEW: Pass success handler
+            onShowSignupPrompt = {()=> {
+              setShowSignup(true)
+              setShowLogin(false)
+
+            }}
           />
 
           {/* NEW: Modals for dashboard features */}

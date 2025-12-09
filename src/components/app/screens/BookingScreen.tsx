@@ -49,6 +49,7 @@ interface BookingScreenProps {
   
   isGoogleMapsLoaded: boolean;
   googleMapsLoadError?: Error | undefined;
+  onShowLogin: (val: boolean)=>void
   
 }
 
@@ -113,6 +114,7 @@ export default function BookingScreen({
   setFareIsFlatRate,
   isGoogleMapsLoaded,
   googleMapsLoadError,
+  onShowLogin
 }: BookingScreenProps) {
   const [pickupOpen, setPickupOpen] = useState(false);
   const [destOpen, setDestOpen] = useState(false);
@@ -771,6 +773,14 @@ const geolocationCoordsRef = useRef<[number, number] | null>(null);
             : "Enter destinations"}
         </button>
       </div>
+      <div className="w-full flex justify-end mb-4"> {/* Example: Top-right aligned */}
+      <button
+        onClick={onShowLogin} // NEW: Call the prop function passed from page.tsx
+        className="text-sm text-achrams-primary-solid hover:underline transition-colors  mx-auto cursor-pointer"
+      >
+        Have an account? Log in
+      </button>
+    </div>
 
       <ACHRAMFooter />
 

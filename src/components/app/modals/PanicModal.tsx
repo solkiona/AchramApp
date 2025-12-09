@@ -130,7 +130,7 @@ export default function PanicModal({
   if (sent) {
     return (
       <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50 animate-fadeIn">
-        <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp text-center">
+        <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl p-6 animate-slideUp text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Check className="w-8 h-8 text-green-600" />
           </div>
@@ -143,7 +143,7 @@ export default function PanicModal({
 
   return (
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-50 flex items-end z-50 animate-fadeIn">
-      <div className="bg-white w-full mx-auto max-w-md rounded-t-3xl p-6 animate-slideUp">
+      <div className="bg-white w-full mx-auto max-w-sm rounded-t-3xl p-6 animate-slideUp">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
