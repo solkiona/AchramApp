@@ -5,7 +5,8 @@ const nextConfig: NextConfig = {
   images: {
     domains: [
       'localhost', 
-      'app.achrams.com.ng', 
+      'app.achrams.com.ng',
+      'api.achrams.com.ng'
     ],
   },
   typescript: {

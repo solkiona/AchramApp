@@ -15,7 +15,7 @@ import { LoadScript, StandaloneSearchBox } from "@react-google-maps/api";
 import AirportSelectionModal from "@/components/app/modals/AirportSelectionModal";
 import OutsideServiceAreaModal from "@/components/app/modals/OutsideServiceAreaModal";
 import { apiClient } from "@/lib/api";
-import ACHRAMFooter from "@/components/app/ui/ACHRAMFooter"
+import ACHRAMFooter from "@/components/app/ui/ACHRAMFooter";
 
 interface LocationData {
   name: string;
@@ -45,29 +45,16 @@ interface BookingScreenProps {
   setPickupId: (id: string | null) => void;
   setPickupCodename: (codename: string | undefined) => void;
   fareIsFlatRate: boolean | null;
-  setFareIsFlatRate: (val: boolean | null )=> void;
-  
+  setFareIsFlatRate: (val: boolean | null) => void;
+
   isGoogleMapsLoaded: boolean;
   googleMapsLoadError?: Error | undefined;
-  onShowLogin: (val: boolean)=>void
-  
+  onShowLogin: (val: boolean) => void;
+  showNotification: (message: string, type: "info" | "success" | "warning" | "error" ) => void;
 }
 
 const losCoords: [number, number] = [3.330058, 6.568287];
 const abvCoords: [number, number] = [7.2667, 9.0167];
-
-// const airports = [
-//   { id: "current", name: "Use my current location", special: true },
-//   { id: "los", name: "Murtala Muhammed Int'l Airport (LOS)", city: "Lagos" },
-//   { id: "abv", name: "Nnamdi Azikiwe Int'l Airport (ABV)", city: "Abuja" },
-// ];
-
-// const destinationCoordsMap: Record<string, [number, number] | null> = {
-//   "Victoria Island, Lagos": [3.4084, 6.4397],
-//   "Lekki Phase 1, Lagos": [3.9942, 6.4253],
-//   "Ikeja GRA, Lagos": [3.3519, 6.555],
-//   "Ikorodu, Lagos": [3.504145, 6.620891],
-// };
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!;
 const libraries: "places"[] = ["places"];
@@ -114,7 +101,8 @@ export default function BookingScreen({
   setFareIsFlatRate,
   isGoogleMapsLoaded,
   googleMapsLoadError,
-  onShowLogin
+  showNotification,
+  onShowLogin,
 }: BookingScreenProps) {
   const [pickupOpen, setPickupOpen] = useState(false);
   const [destOpen, setDestOpen] = useState(false);
@@ -127,6 +115,8 @@ export default function BookingScreen({
 
   const searchBoxRef = useRef<google.maps.places.SearchBox | null>(null);
   const destinationInputRef = useRef<HTMLInputElement>(null);
+  const pickupSearchBoxRef = useRef<google.maps.places.SearchBox | null>(null);
+  const pickupInputRef = useRef<HTMLInputElement>(null);
 
   const {
     coords,
@@ -211,13 +201,14 @@ export default function BookingScreen({
         console.log("Fetched fare data:", fareData);
         // Return the numeric amount from the API response
         setFareEstimate(fareData.amount.amount);
-        setFareIsFlatRate(fareData.is_flat_rate)
+        setFareIsFlatRate(fareData.is_flat_rate);
         return fareData.amount.amount; // e.g., 100 from the example
       } else {
         console.log(
           "Fare lookup API responded with non-success status or missing data:",
           response
         );
+
         setFareEstimate(null);
         setFareIsFlatRate(null);
         return null;
@@ -230,7 +221,6 @@ export default function BookingScreen({
       return null;
     }
   };
-
 
   useEffect(() => {
     const getFare = async () => {
@@ -269,7 +259,8 @@ export default function BookingScreen({
   }, [
     pickupLocationData.codename,
     destinationLocationData.name,
-    setFareEstimate, setFareIsFlatRate
+    setFareEstimate,
+    setFareIsFlatRate,
   ]);
 
   // Reset fetching state when trip request ends
@@ -304,43 +295,11 @@ export default function BookingScreen({
     [debouncedDestinationInput]
   );
 
-  // Stable place selection handler
-  // const handlePlaceChanged = useCallback(() => {
-  //   if (!searchBoxRef.current) return;
-
-  //   const places = searchBoxRef.current.getPlaces();
-  //   if (!places || places.length === 0) {
-  //     console.log(
-  //       "DEBUG: handlePlaceChanged - Setting destination to: ",
-  //       places
-  //     );
-  //     return;
-  //   }
-
-  //   const place = places[0];
-  //   if (place.geometry?.location) {
-  //     const lat = place.geometry.location.lat();
-  //     const lng = place.geometry.location.lng();
-  //     const formattedAddress = place.formatted_address || place.name || "";
-
-  //     setDestinationLocationData({
-  //       name: formattedAddress,
-  //       coords: [lng, lat],
-  //     });
-  //     setDestOpen(false);
-  //   } else {
-  //     console.error(
-  //       "DEBUG: handlePlaceChanged - Place selected but not geometry. location found:",
-  //       place
-  //     );
-  //   }
-  // }, []);
-
-const geolocationCoordsRef = useRef<[number, number] | null>(null);
-
+  const geolocationCoordsRef = useRef<[number, number] | null>(null);
 
   const handlePlaceChanged = useCallback(() => {
-    if (isGoogleMapsLoaded && searchBoxRef.current) { // NEW: Only run if API is loaded
+    if (isGoogleMapsLoaded && searchBoxRef.current) {
+      // NEW: Only run if API is loaded
       const places = searchBoxRef.current.getPlaces();
       if (places && places.length > 0) {
         const place = places[0];
@@ -356,12 +315,67 @@ const geolocationCoordsRef = useRef<[number, number] | null>(null);
           console.error("Place selected but no geometry.location found.");
         }
       } else {
-          console.log("No places found from search box.");
-          // Optionally clear coordinates if user clears the input and presses enter/selects nothing
-          setDestinationLocationData(prev => ({ ...prev, coords: null }));
+        console.log("No places found from search box.");
+        // Optionally clear coordinates if user clears the input and presses enter/selects nothing
+        setDestinationLocationData((prev) => ({ ...prev, coords: null }));
       }
     }
-  }, [isGoogleMapsLoaded]); 
+  }, [isGoogleMapsLoaded]);
+
+  const handlePickupPlaceChanged = useCallback(() => {
+    if (isGoogleMapsLoaded && pickupSearchBoxRef.current) {
+      const places = pickupSearchBoxRef.current.getPlaces();
+      if (places && places.length > 0) {
+        const place = places[0];
+        if (place.geometry?.location) {
+          const lat = place.geometry.location.lat();
+          const lng = place.geometry.location.lng();
+          const coords: [number, number] = [lng, lat];
+
+          // Close dropdown
+          setPickupOpen(false);
+
+          // Trigger airport lookup using these coords
+          (async () => {
+            setIsFetchingLocation(true);
+            try {
+              const airports = await findNearestAirport(lng, lat);
+              if (airports && airports.length > 0) {
+                if (airports.length === 1) {
+                  setPickupLocationData({
+                    name: airports[0].name,
+                    coords,
+                    id: airports[0].id,
+                    codename: airports[0].codename,
+                  });
+                } else {
+                  setAirportsToSelect(airports);
+                  setShowAirportSelectionModal(true);
+                  // Store coords for later use in modal selection
+                  geolocationCoordsRef.current = coords;
+                }
+              } else {
+                setShowOutsideServiceModal(true);
+              }
+            } catch (err) {
+              console.error(
+                "Failed to fetch airports for pickup location:",
+                err
+              );
+              showNotification("Failed to fetch airports for pickup location. Please try again", "error")
+              // 👇 Notify user — see Step 4 for implementation
+              onShowLogin(false); // Placeholder — you’ll replace this with real notification
+              // Example: showNotification("Failed to find nearby airport. Please try again.", "error");
+            } finally {
+              setIsFetchingLocation(false);
+            }
+          })();
+        } else {
+          console.warn("Selected pickup place has no geometry.");
+        }
+      }
+    }
+  }, [isGoogleMapsLoaded]);
 
   const handleClearDestination = useCallback(() => {
     setDestinationLocationData({ name: "", coords: null });
@@ -389,7 +403,7 @@ const geolocationCoordsRef = useRef<[number, number] | null>(null);
         longitude,
         latitude
       );
-    
+
       const coords = [longitude, latitude] as [number, number];
 
       geolocationCoordsRef.current = coords;
@@ -400,9 +414,6 @@ const geolocationCoordsRef = useRef<[number, number] | null>(null);
         airports
       );
       if (airports && airports.length > 0) {
-
-        
-
         if (airports.length === 1) {
           console.log(
             "DEBUG: handleUseCurrentLocation - Setting single airport:",
@@ -432,7 +443,6 @@ const geolocationCoordsRef = useRef<[number, number] | null>(null);
   }, [error, requestPermission]);
 
   const handleAirportSelectedFromModal = useCallback((airport: Airport) => {
-
     const geolocationCoords = geolocationCoordsRef.current;
 
     console.log(
@@ -447,7 +457,7 @@ const geolocationCoordsRef = useRef<[number, number] | null>(null);
     );
     setPickupLocationData({
       name: airport.name,
-      coords: geolocationCoords, 
+      coords: geolocationCoords,
       id: airport.id,
       codename: airport.codename,
     });
@@ -531,7 +541,7 @@ const geolocationCoordsRef = useRef<[number, number] | null>(null);
       )}
 
       {showLocationSettingsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold mb-2">
               Enable Location Access
@@ -562,94 +572,90 @@ const geolocationCoordsRef = useRef<[number, number] | null>(null);
         <div className="space-y-4">
           {/* Pickup */}
           <div className="relative">
-            <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border">
-              <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
-              <input
-                type="text"
-                placeholder="Airport pickup location"
-                value={
-                  showFetchingUI
-                    ? "Getting your location..."
-                    : pickupLocationData.name
-                }
-                onChange={(e) =>
-                  !showFetchingUI &&
-                  setPickupLocationData((prev) => ({
-                    ...prev,
-                    name: e.target.value,
-                  }))
-                }
-                onFocus={() => !showFetchingUI && setPickupOpen(true)}
-                readOnly={showFetchingUI}
-                className={`flex-1 bg-transparent outline-none text-base ${
-                  showFetchingUI
-                    ? "text-achrams-text-secondary italic"
-                    : "text-achrams-text-primary"
-                }`}
-              />
-              <button
-                onClick={() => !showFetchingUI && setPickupOpen(!pickupOpen)}
-                disabled={showFetchingUI}
-                className={`p-2 transition-colors ${
-                  showFetchingUI
-                    ? "text-achrams-text-secondary opacity-50 cursor-not-allowed"
-                    : "text-achrams-text-secondary hover:text-achrams-text-primary"
-                }`}
+            {!isGoogleMapsLoaded ? (
+              <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border">
+                <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
+                <input
+                  type="text"
+                  placeholder="Airport pickup location (Loading...)"
+                  value={pickupLocationData.name}
+                  onChange={() => {}}
+                  className="flex-1 bg-transparent outline-none text-base text-achrams-text-secondary italic"
+                  disabled
+                />
+              </div>
+            ) : (
+              <StandaloneSearchBox
+                onLoad={(ref) => (pickupSearchBoxRef.current = ref)}
+                onUnmount={() => (pickupSearchBoxRef.current = null)}
+                onPlacesChanged={handlePickupPlaceChanged}
               >
-                {showFetchingUI ? (
-                  <Loader className="w-5 h-5 animate-spin text-achrams-primary-solid" />
-                ) : pickupOpen ? (
-                  <ChevronDown className="w-5 h-5" />
-                ) : (
-                  <Navigation className="w-5 h-5" />
-                )}
-              </button>
-            </div>
+                <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border">
+                  <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
+                  <input
+                    ref={pickupInputRef}
+                    type="text"
+                    placeholder="Search pickup location"
+                    value={
+                      showFetchingUI
+                        ? "Getting your location..."
+                        : pickupLocationData.name
+                    }
+                    onChange={(e) =>
+                      !showFetchingUI &&
+                      setPickupLocationData((prev) => ({
+                        ...prev,
+                        name: e.target.value,
+                      }))
+                    }
+                    onFocus={() => !showFetchingUI && setPickupOpen(true)}
+                    readOnly={showFetchingUI}
+                    className={`flex-1 bg-transparent outline-none text-base ${
+                      showFetchingUI
+                        ? "text-achrams-text-secondary italic"
+                        : "text-achrams-text-primary"
+                    }`}
+                  />
+                  <button
+                    onClick={() =>
+                      !showFetchingUI && setPickupOpen(!pickupOpen)
+                    }
+                    disabled={showFetchingUI}
+                    className={`p-2 transition-colors ${
+                      showFetchingUI
+                        ? "text-achrams-text-secondary opacity-50 cursor-not-allowed"
+                        : "text-achrams-text-secondary hover:text-achrams-text-primary"
+                    }`}
+                  >
+                    {showFetchingUI ? (
+                      <Loader className="w-5 h-5 animate-spin text-achrams-primary-solid" />
+                    ) : pickupOpen ? (
+                      <ChevronDown className="w-5 h-5" />
+                    ) : (
+                      <Navigation className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+              </StandaloneSearchBox>
+            )}
 
-            {pickupOpen && (
+            {pickupOpen && !showFetchingUI && isGoogleMapsLoaded && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 max-h-64 overflow-y-auto">
-                {showFetchingUI ? (
-                  <div className="px-4 py-3 flex items-center gap-3 text-achrams-text-secondary">
-                    <Loader className="w-5 h-5 animate-spin" />
-                    <span>Locating you...</span>
-                  </div>
-                ) : (
-                  <>
-                    <button
-                      onClick={handleUseCurrentLocation}
-                      className="w-full px-4 py-3 flex items-center gap-3 hover:bg-achrams-bg-secondary border-b border-achrams-border text-left"
-                    >
-                      <MapPin className="w-5 h-5 text-achrams-primary-solid" />
-                      <span>Use my current location</span>
-                    </button>
-                    {/* {airports.slice(1).map((a) => (
-                      <button
-                        key={a.id}
-                        onClick={() => handleAirportSelect(a.id)}
-                        className="w-full px-4 py-3 flex items-start gap-3 hover:bg-achrams-bg-secondary border-b border-achrams-border text-left"
-                      >
-                        <Plane className="w-5 h-5 text-achrams-primary-solid mt-0.5" />
-                        <div>
-                          <div className="font-medium text-sm">{a.name}</div>
-                          <div className="text-xs text-achrams-text-secondary">
-                            {a.city}
-                          </div>
-                        </div>
-                      </button>
-                    ))} */}
-                  </>
-                )}
+                <button
+                  onClick={handleUseCurrentLocation}
+                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-achrams-bg-secondary text-left"
+                >
+                  <MapPin className="w-5 h-5 text-achrams-primary-solid" />
+                  <span>Use my current location</span>
+                </button>
+                {/* Optionally: Add "Or type to search" hint */}
+                
               </div>
             )}
           </div>
 
-          <div className="flex justify-center py-1">
-            <div className="w-0.5 h-6 bg-achrams-border" />
-          </div>
-
           {/* Destination */}
           <div className="relative">
-
             {!isGoogleMapsLoaded ? (
               <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border">
                 <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
@@ -682,7 +688,10 @@ const geolocationCoordsRef = useRef<[number, number] | null>(null);
                     value={destinationLocationData.name}
                     onChange={(e) => {
                       // Update local state name immediately as user types
-                      setDestinationLocationData((prev) => ({ ...prev, name: e.target.value }));
+                      setDestinationLocationData((prev) => ({
+                        ...prev,
+                        name: e.target.value,
+                      }));
                       setDestOpen(true); // Keep dropdown open while typing
                     }}
                     onFocus={() => setDestOpen(true)} // Open dropdown on focus
@@ -692,7 +701,10 @@ const geolocationCoordsRef = useRef<[number, number] | null>(null);
                     destinationLocationData.name && ( // Use local state
                       <button
                         onClick={() => {
-                          setDestinationLocationData({ name: "", coords: null });
+                          setDestinationLocationData({
+                            name: "",
+                            coords: null,
+                          });
                           setDestOpen(false);
                         }}
                         className="p-2 text-achrams-text-secondary hover:text-achrams-text-primary transition-colors"
@@ -703,39 +715,6 @@ const geolocationCoordsRef = useRef<[number, number] | null>(null);
                 </div>
               </StandaloneSearchBox>
             )}
-
-            {/* <LoadScript
-              googleMapsApiKey={GOOGLE_MAPS_API_KEY}
-              libraries={libraries}
-            >
-              <StandaloneSearchBox
-                onLoad={(ref) => (searchBoxRef.current = ref)}
-                onPlacesChanged={handlePlaceChanged}
-              >
-                <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border">
-                  <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
-                  <input
-                    ref={destinationInputRef}
-                    type="text"
-                    placeholder="Enter destination"
-                    value={destinationLocationData.name}
-                    onChange={handleDestinationChanged}
-                    onFocus={() =>
-                      destinationLocationData.name && setDestOpen(true)
-                    }
-                    className="flex-1 bg-transparent outline-none text-base text-achrams-text-primary"
-                  />
-                  {destOpen && destinationLocationData.name && (
-                    <button
-                      onClick={handleClearDestination}
-                      className="p-2 text-achrams-text-secondary hover:text-achrams-text-primary"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  )}
-                </div>
-              </StandaloneSearchBox>
-            </LoadScript> */}
           </div>
         </div>
 
@@ -743,12 +722,15 @@ const geolocationCoordsRef = useRef<[number, number] | null>(null);
           <div className="mt-6 p-4 bg-achrams-bg-secondary rounded-xl border border-achrams-border">
             <div className="flex justify-between items-center">
               <span className="text-achrams-text-secondary">
-                {fareIsFlatRate ? 
-                <>
-                Estimated fare
-                <br />
-                (subject to bargain)
-                </> : "Actual fare"}
+                {fareIsFlatRate ? (
+                  <>
+                    Estimated fare
+                    <br />
+                    (subject to bargain)
+                  </>
+                ) : (
+                  "Actual fare"
+                )}
               </span>
               <span className="text-xl font-bold text-achrams-text-primary">
                 ₦{fareEstimate.toLocaleString()}
@@ -773,17 +755,18 @@ const geolocationCoordsRef = useRef<[number, number] | null>(null);
             : "Enter destinations"}
         </button>
       </div>
-      <div className="w-full flex justify-end mb-4"> {/* Example: Top-right aligned */}
-      <button
-        onClick={onShowLogin} // NEW: Call the prop function passed from page.tsx
-        className="text-sm text-achrams-primary-solid hover:underline transition-colors  mx-auto cursor-pointer"
-      >
-        Have an account? Log in
-      </button>
-    </div>
+      <div className="w-full flex justify-end mb-4">
+        {" "}
+        {/* Example: Top-right aligned */}
+        <button
+          onClick={onShowLogin} // NEW: Call the prop function passed from page.tsx
+          className="text-sm text-achrams-primary-solid hover:underline transition-colors  mx-auto cursor-pointer"
+        >
+          Have an account? Log in
+        </button>
+      </div>
 
       <ACHRAMFooter />
-
     </div>
   );
 }

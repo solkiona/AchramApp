@@ -1,16 +1,16 @@
-// src/components/app/modals/SignupPromptModal.tsx
+
 import { X, Loader } from 'lucide-react';
 import { useState } from 'react';
-// NEW: Import apiClient for registration call
-import { apiClient } from '@/services/apiClient'; // Assuming you create this service
+
+import { apiClient } from '@/services/apiClient'; 
 
 interface SignupPromptModalProps {
   isOpen: boolean;
   passengerData: { name: string; email: string; phone: string };
   onClose: () => void;
-  // NEW: Prop to handle successful registration and navigation (e.g., to OTP modal)
+  
   onRegistrationSuccess: (email: string) => void;
-  // NEW: Prop to trigger opening the LoginModal from page.tsx
+  
   onOpenLoginModal: () => void;
 }
 
@@ -19,18 +19,18 @@ export default function SignupPromptModal({
   passengerData,
   onClose,
   onRegistrationSuccess,
-  onOpenLoginModal, // NEW: Destructure the new prop
+  onOpenLoginModal, 
 }: SignupPromptModalProps) {
   if (!isOpen) return null;
 
-  // NEW: Local state for password fields and loading/error
+  
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
-    setError(''); // Clear previous errors
+    setError(''); 
     if (!password || !confirmPassword) {
       setError('Please fill in all password fields.');
       return;
@@ -39,38 +39,38 @@ export default function SignupPromptModal({
       setError('Passwords do not match.');
       return;
     }
-    if (password.length < 8) { // Example validation
+    if (password.length < 8) { 
       setError('Password must be at least 8 characters long.');
       return;
     }
 
     setLoading(true);
     try {
-      // NEW: Call the registration API using apiClient
-      // Split name into first and last name for API
+      
+      
       const nameParts = passengerData.name.split(' ');
       const firstName = nameParts[0] || 'Guest';
       const lastName = nameParts.slice(1).join(' ') || 'User';
 
       const response = await apiClient.post('/auth/passenger/register', {
         email: passengerData.email,
-        phone_number: passengerData.phone, // API expects phone_number
+        phone_number: passengerData.phone, 
         first_name: firstName,
         last_name: lastName,
         password: password,
       });
 
-      console.log("Registration Response:", response); // Debug log
-      // NEW: Check response status/message if needed
-      if (response.status === 201) { // Assuming 201 for success
-        // NEW: On success, close modal and trigger success handler (e.g., open OTP modal)
+      console.log("Registration Response:", response); 
+      
+      if (response.status === 201) { 
+        
         onRegistrationSuccess(passengerData.email);
       } else {
           setError('Registration failed. Please try again.');
       }
     } catch (err: any) {
         console.error("Registration Error:", err);
-        // NEW: Handle different error types if possible
+        
         let errorMessage = 'An unexpected error occurred.';
         if (err.response && err.response.data && err.response.data.message) {
             errorMessage = err.response.data.message;
@@ -90,7 +90,7 @@ export default function SignupPromptModal({
           <h3 className="text-xl font-bold text-achrams-text-primary">Create your account</h3>
           <button
             onClick={onClose}
-            disabled={loading} // NEW: Disable close button while loading
+            disabled={loading} 
             className="text-achrams-text-secondary hover:text-achrams-text-primary transition-colors disabled:opacity-50"
           >
             <X className="w-6 h-6" />
@@ -121,7 +121,7 @@ export default function SignupPromptModal({
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            disabled={loading} // NEW: Disable input while loading
+            disabled={loading} 
             className="w-full px-4 py-3 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border"
           />
           <input
@@ -129,7 +129,7 @@ export default function SignupPromptModal({
             placeholder="Confirm Password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            disabled={loading} // NEW: Disable input while loading
+            disabled={loading} 
             className="w-full px-4 py-3 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border"
           />
         </div>
@@ -141,14 +141,14 @@ export default function SignupPromptModal({
 
         <button
           onClick={handleRegister}
-          disabled={loading || !password || !confirmPassword} // NEW: Disable based on loading and password fields
+          disabled={loading || !password || !confirmPassword} 
           className={`w-full py-4 rounded-xl font-semibold mt-6 transition-all ${
             loading || !password || !confirmPassword
               ? 'bg-achrams-secondary-solid text-achrams-text-light opacity-75 cursor-not-allowed'
               : 'bg-achrams-gradient-primary text-achrams-text-light hover:opacity-90 active:scale-[0.98]'
           }`}
         >
-          {loading ? ( // NEW: Show spinner while loading
+          {loading ? ( 
             <div className="flex items-center justify-center">
               <Loader className="w-5 h-5 animate-spin mr-2" />
               Creating...
@@ -162,8 +162,8 @@ export default function SignupPromptModal({
         <div className="mt-4 text-center">
           <button
             onClick={() => {
-              onClose(); // Close this modal
-              onOpenLoginModal(); // NEW: Call the handler passed from page.tsx to open the login modal
+              onClose(); 
+              onOpenLoginModal(); 
             }}
             className="text-sm text-achrams-primary-solid hover:underline"
           >
@@ -173,7 +173,7 @@ export default function SignupPromptModal({
 
         <button
           onClick={onClose}
-          disabled={loading} // NEW: Disable "Not now" while loading
+          disabled={loading} 
           className="w-full mt-4 text-achrams-text-secondary font-medium hover:text-achrams-text-primary transition-colors disabled:opacity-50"
         >
           Not now

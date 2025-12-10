@@ -1,201 +1,175 @@
 // src/components/app/modals/PanicModal.tsx
 import { AlertCircle, X, Check, Loader } from 'lucide-react';
-import { useState } from 'react';
-// NEW: Import apiClient
+import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
 
 const panicOptions = [
-  'Driver is behaving suspiciously',
-  'Taking wrong route',
-  'Uncomfortable with driver behavior',
-  'Vehicle condition is unsafe',
-  'Other emergency',
+  { label: "Panic", value: "panic" },
+  { label: "Assault", value: "assault" },
+  { label: "Dispute", value: "dispute" },
+  { label: "Accident", value: "accident" },
+  { label: "Lost Item", value: "lost_item" },
+  { label: "Harassment", value: "harassment" },
+  { label: "Vehicle Issue", value: "vehicle_issue" },
+  { label: "Medical Emergency", value: "medical_emergency" },
+  { label: "Suspicious Activity", value: "suspicious_activity" },
+  { label: "Unresponsive Driver", value: "unresponsive_driver" },
 ];
 
-// NEW: Define the expected props type
 interface PanicModalProps {
   isOpen: boolean;
   onClose: () => void;
-  // NEW: Prop to receive guestId for the API call
-  guestId: string;
-  // NEW: Props to receive location data (you'll need to pass these from the parent)
-  currentLocationAddress: string; // e.g., pickup address or current geolocation address if available
-  currentLocationCoords: [number, number]; // e.g., [lng, lat] from pickupCoords or current geolocation if available
-  tripId: string; // NEW: Prop to receive the active trip ID
+  guestId: string | null;
+  currentLocationAddress: string;
+  currentLocationCoords: [number, number];
+  tripId: string;
 }
 
 export default function PanicModal({
   isOpen,
   onClose,
-  // NEW: Destructure the new props
   guestId,
   currentLocationAddress,
   currentLocationCoords,
   tripId,
-}: PanicModalProps) { // NEW: Update the interface
+}: PanicModalProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
-  // NEW: State for submission status
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // NEW: State for error message
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // NEW: Function to handle the actual API submission
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSelected(null);
+      setSent(false);
+      setSubmitError(null);
+      setIsSubmitting(false);
+    }
+  }, [isOpen]);
+
   const submitAlert = async () => {
-
-    console.log("currentlocationaddress: ", currentLocationAddress, "CurrentLocationCoords: ", currentLocationCoords, "Trip ID: ", tripId)
-
     if (!selected || !currentLocationCoords || !currentLocationAddress || !tripId) {
-      console.error("Cannot submit alert: missing required data.");
-      setSubmitError("Missing required information. Cannot send alert.");
+      setSubmitError("Missing required data.");
       return;
     }
 
     setIsSubmitting(true);
-    setSubmitError(null); // Clear previous errors
+    setSubmitError(null);
 
     try {
-      // Prepare the request body
-      // The Postman example shows 'panic' as the alert_type, which seems fixed for this modal.
-      const alertRequestBody = {
-        alert_type: "panic", // Fixed for this modal
-        address: currentLocationAddress, // Use the address passed in
-        location: [currentLocationCoords[0], currentLocationCoords[1]], // [longitude, latitude]
-        message: selected, // Use the selected option as the message (or allow custom input later)
-        // trip: tripId, // NEW: Include the trip ID if required by the backend (Postman doc shows it as optional, but safer to include if available)
-      };
-
-      console.log("Submitting trip alert with payload:", alertRequestBody);
-
-      // NEW: Call the API using apiClient
-      // Endpoint: POST /trip-alerts
-      // Requires X-Guest-Id header, so pass guestId as the third argument (isGuest=true) and fourth argument (guestId)
-      const response = await apiClient.post('/trip-alerts', alertRequestBody, undefined, guestId);
+      const response = await apiClient.post('/trip-alerts', {
+        alert_type: selected,
+        address: currentLocationAddress,
+        location: [currentLocationCoords[0], currentLocationCoords[1]],
+      }, undefined, guestId);
 
       if (response.status === 'success') {
-        console.log("Trip alert submitted successfully:", response);
         setSent(true);
-        // NEW: Close the modal after a short delay showing success
         setTimeout(() => {
-          setSent(false);
-          onClose(); // Close the modal
-        }, 2000);
+          onClose();
+        }, 1800);
       } else {
-        // Handle API error response structure (e.g., status not "success")
-        console.error("Trip alert API responded with non-success status:", response);
-        let errorMessage = "Failed to send alert. Server responded unexpectedly.";
-        if (response.message) {
-          errorMessage = response.message;
-          if (response.details) {
-            const fieldErrors = [];
-            for (const [field, messages] of Object.entries(response.details)) {
-              if (Array.isArray(messages)) {
-                fieldErrors.push(`${field}: ${messages.join(", ")}`);
-              }
-            }
-            if (fieldErrors.length > 0) {
-              errorMessage += ` Details: ${fieldErrors.join("; ")}`;
-            }
-          }
-        }
-        setSubmitError(errorMessage);
+        console.log(response)
+        setSubmitError(response.details?.non_field_errors?.[0] || response.message || "Failed to send alert. Please try again.");
       }
-    } catch (err: any) {
-      console.error("Error submitting trip alert:", err);
-      let errorMessage = "Failed to send alert. Please check your connection and try again.";
-
-      if (err instanceof Error) {
-        errorMessage = err.message;
-      } else {
-        console.error("Unexpected error type caught:", typeof err, err);
-        errorMessage = 'An unexpected error occurred.';
-      }
-      setSubmitError(errorMessage);
+    } catch (err) {
+      setSubmitError("Network error. Please check your connection.");
     } finally {
-      setIsSubmitting(false); // Stop loading state regardless of success/error
+      setIsSubmitting(false);
     }
   };
 
-  // NEW: Update handleSubmit to call submitAlert
   const handleSubmit = () => {
-    if (selected) {
-      submitAlert(); // Call the async function
-    }
+    if (selected) submitAlert();
   };
 
-  // NEW: Early return if not open
   if (!isOpen) return null;
 
-  // NEW: Show success screen if sent
-  if (sent) {
-    return (
-      <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50 animate-fadeIn">
-        <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl p-6 animate-slideUp text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Check className="w-8 h-8 text-green-600" />
-          </div>
-          <h3 className="text-xl font-bold mb-2">Alert Sent</h3>
-          <p className="text-gray-600">Your message has been received and someone is looking into it.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-50 flex items-end z-50 animate-fadeIn">
-      <div className="bg-white w-full mx-auto max-w-sm rounded-t-3xl p-6 animate-slideUp">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-              <AlertCircle className="w-6 h-6 text-red-600" />
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-4 sm:p-6 bg-black/40 backdrop-blur-sm animate-fadeIn"
+      onClick={onClose}
+    >
+      {/* Click outside to close */}
+      <div
+        className="w-full max-w-md bg-white rounded-2xl shadow-lg overflow-hidden sm:rounded-3xl transform transition-all duration-300"
+        onClick={(e) => e.stopPropagation()} // prevent closing on inner click
+      >
+        {sent ? (
+          // ✅ Success State: Minimal & Reassuring
+          <div className="p-6 text-center">
+            <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Check className="w-7 h-7 text-emerald-600" />
             </div>
-            <h3 className="text-xl font-bold">Safety Alert</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Alert Sent</h3>
+            <p className="text-gray-600 text-sm">
+              Our safety team has been notified and is responding.
+            </p>
           </div>
-          <button
-            onClick={onClose}
-            disabled={isSubmitting} // NEW: Disable close button while submitting
-            className="disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-        <p className="text-gray-600 mb-6">Select an issue to quickly send an alert</p>
-        <div className="space-y-3">
-          {panicOptions.map((option, idx) => (
-            <button
-              key={idx}
-              onClick={() => setSelected(option)}
-              disabled={isSubmitting} // NEW: Disable options while submitting
-              className={`w-full text-left px-4 py-4 rounded-xl transition-all ${
-                selected === option
-                  ? 'bg-red-50 border border-red-200'
-                  : 'bg-gray-50 hover:bg-gray-100'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
-        {/* NEW: Show error message if present */}
-        {submitError && (
-          <div className="mt-4 p-3 bg-red-100 text-red-800 rounded-lg text-sm">
-            {submitError}
-          </div>
+        ) : (
+          // ✅ Main Form: Compact & Focused
+          <>
+            <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                </div>
+                <h3 className="font-semibold text-gray-900">Report an Issue</h3>
+              </div>
+              <button
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="text-gray-500 hover:text-gray-700 disabled:opacity-40"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5">
+              <p className="text-gray-600 text-sm mb-4">
+                Select the most relevant issue to notify our safety team.
+              </p>
+
+              <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
+                {panicOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setSelected(option.value)}
+                    disabled={isSubmitting}
+                    className={`text-xs px-3 py-2.5 rounded-lg text-gray-700 transition-colors ${
+                      selected === option.value
+                        ? 'bg-red-100 text-red-800 border border-red-200'
+                        : 'bg-gray-100 hover:bg-gray-200'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              {submitError && (
+                <div className="mt-4 p-2.5 bg-red-50 text-red-700 text-xs rounded-lg">
+                  {submitError}
+                </div>
+              )}
+
+              <button
+                onClick={handleSubmit}
+                disabled={!selected || isSubmitting}
+                className="w-full mt-5 py-3 bg-red-600 text-white rounded-xl font-medium text-sm disabled:bg-gray-300 disabled:text-gray-500 flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader className="w-4 h-4 animate-spin" /> Sending...
+                  </>
+                ) : (
+                  "Send Alert"
+                )}
+              </button>
+            </div>
+          </>
         )}
-        <button
-          onClick={handleSubmit}
-          disabled={!selected || isSubmitting} // NEW: Disable button while submitting or no selection
-          className="w-full mt-6 py-4 bg-red-600 text-white rounded-xl font-semibold disabled:bg-gray-300 flex items-center justify-center gap-2"
-        >
-          {/* NEW: Show loader while submitting */}
-          {isSubmitting ? (
-            <>
-              <Loader className="w-5 h-5 animate-spin" /> Sending...
-            </>
-          ) : (
-            "Send Alert"
-          )}
-        </button>
       </div>
     </div>
   );
