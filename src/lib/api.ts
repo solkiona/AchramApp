@@ -26,7 +26,7 @@ const buildHeaders = (
   }
 
   // NEW: Add Authorization header only if:
-  // 1. A token is provided AND
+  // 1. A token is provided AND {undefined, false, undefined, false, true}
   // 2. It's NOT an authenticated request relying on cookies (isAuthRequest is false) OR
   // 3. The backend is configured to check both (less common, but possible)
   // For cookie-based auth, the header is often omitted.

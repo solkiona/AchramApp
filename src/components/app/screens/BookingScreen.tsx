@@ -51,6 +51,7 @@ interface BookingScreenProps {
   googleMapsLoadError?: Error | undefined;
   onShowLogin: (val: boolean) => void;
   showNotification: (message: string, type: "info" | "success" | "warning" | "error" ) => void;
+  isAuthenticated: boolean;
 }
 
 const losCoords: [number, number] = [3.330058, 6.568287];
@@ -103,6 +104,7 @@ export default function BookingScreen({
   googleMapsLoadError,
   showNotification,
   onShowLogin,
+  isAuthenticated
 }: BookingScreenProps) {
   const [pickupOpen, setPickupOpen] = useState(false);
   const [destOpen, setDestOpen] = useState(false);
@@ -580,7 +582,7 @@ export default function BookingScreen({
                   placeholder="Airport pickup location (Loading...)"
                   value={pickupLocationData.name}
                   onChange={() => {}}
-                  className="flex-1 bg-transparent outline-none text-base text-achrams-text-secondary italic"
+                  className="flex-1 bg-transparent outline-none text-base text-achrams-text-secondary italic "
                   disabled
                 />
               </div>
@@ -590,7 +592,7 @@ export default function BookingScreen({
                 onUnmount={() => (pickupSearchBoxRef.current = null)}
                 onPlacesChanged={handlePickupPlaceChanged}
               >
-                <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border">
+                <div className=" left-0 flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border h-14 w-full">
                   <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
                   <input
                     ref={pickupInputRef}
@@ -640,7 +642,7 @@ export default function BookingScreen({
             )}
 
             {pickupOpen && !showFetchingUI && isGoogleMapsLoaded && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 max-h-64 overflow-y-auto">
+              <div className="absolute top-full w-full mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 max-h-64 overflow-y-auto">
                 <button
                   onClick={handleUseCurrentLocation}
                   className="w-full px-4 py-3 flex items-center gap-3 hover:bg-achrams-bg-secondary text-left"
@@ -655,7 +657,7 @@ export default function BookingScreen({
           </div>
 
           {/* Destination */}
-          <div className="relative">
+          <div className="relative w-full">
             {!isGoogleMapsLoaded ? (
               <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border">
                 <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
@@ -680,7 +682,7 @@ export default function BookingScreen({
                 }}
                 onPlacesChanged={handlePlaceChanged} // Handle place selection
               >
-                <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border">
+                <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border h-14">
                   <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
                   <input
                     type="text"
@@ -755,6 +757,8 @@ export default function BookingScreen({
             : "Enter destinations"}
         </button>
       </div>
+
+      {!isAuthenticated &&(
       <div className="w-full flex justify-end mb-4">
         {" "}
         {/* Example: Top-right aligned */}
@@ -765,6 +769,7 @@ export default function BookingScreen({
           Have an account? Log in
         </button>
       </div>
+        )}
 
       <ACHRAMFooter />
     </div>

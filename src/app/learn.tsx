@@ -1,3 +1,73 @@
+//functions residing in page.tsx
+
+const handleResendOtp = async (data: { name: string; phone: string; email: string; password: string }): Promise<number> => {
+    console.log("Resending OTP for email:", data.email);
+
+    try {
+      const nameParts = data.name.trim().split(/\s+/);
+      const firstName = nameParts[0] || 'User';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      const response = await apiClient.post('/auth/passenger/onboard/initiate', {
+        email: data.email,
+        phone_number: data.phone, // Use the phone from the stored signup data
+        first_name: firstName,    // Use the parsed name from the stored signup data
+        last_name: lastName,
+        password: data.password,       // Use the password stored during signup
+      });
+
+      console.log("Resend OTP Response:", response);
+
+      if (response.status === "success" && response.data?.countdown) {
+        // Return the new countdown received from the API
+        console.log("New OTP sent, new countdown:", response.data.countdown);
+        return response.data.countdown;
+      } else {
+        // Handle potential API error responses that still have status 200
+        const errorMessage = response.message || 'Failed to resend OTP. Please try again.';
+        throw new Error(errorMessage);
+      }
+    } catch (err: any) {
+      console.error("Resend OTP Error:", err);
+      let errorMessage = 'An unexpected error occurred while resending OTP.';
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      // Re-throw the error so the OTPModal can catch it and display it
+      throw new Error(errorMessage);
+    }
+  };
+
+
+
+
+
+   <OTPModal
+              isOpen={showOTP}
+              // NEW: Pass the stored countdown value
+              initialOtpCountdown={otpCountdown}
+              initialSignupData ={{...passengerData, password: signupPasswordForOtp}}
+              onComplete={() => {
+                setScreen("dashboard");
+                setShowOTP(false);
+                setSignupPasswordForOtp('')
+              }}
+              onClose={() => {
+                setShowOTP(false)
+                setSignupPasswordForOtp('')
+              }
+  
+              }
+              onResendOtp={handleResendOtp} // Pass the stored password
+          signupData={signupDataForOtp || passengerData} // Pass the stored data, fallback if needed
+            />
+
+
+//OTPModal definition
+
+
 // src/components/app/modals/OTPModal.tsx
 import { useState, useEffect, useRef } from 'react';
 import { X, Check, MailCheck, Loader } from 'lucide-react'; // Added MailCheck, Loader icons
@@ -105,19 +175,16 @@ export default function OTPModal({
     setLoading(true);
     setApiError(''); // Clear previous errors
     try {
-      const nameParts = initialSignupData.name.trim().split(/\s+/);
+      const nameParts = signupData.name.trim().split(/\s+/);
       const firstName = nameParts[0] || 'User';
       const lastName = nameParts.slice(1).join(' ') || '';
 
-      console.log('Otp signupData declared in local state of otp modal from the initialSignupData prop: ', signupData)
-      console.log('initial signup data passed down to otp modal', initialSignupData)
-
       const response = await apiClient.post('/auth/passenger/onboard/confirm', {
-        email: initialSignupData.email, // Use data from stored signupData
-        phone_number: initialSignupData.phone, // Use data from stored signupData
+        email: signupData.email, // Use data from stored signupData
+        phone_number: signupData.phone, // Use data from stored signupData
         first_name: firstName, // Use data from stored signupData
         last_name: lastName, // Use data from stored signupData
-        password: initialSignupData.password, // Use data from stored signupData
+        password: signupData.password, // Use data from stored signupData
         otp: otpCode, // Add the user-inputted OTP
       });
 
@@ -175,7 +242,6 @@ export default function OTPModal({
 
     // Check if OTP is completely filled (6 digits now)
     if (newOtp.every((d) => d !== '') && newOtp.join('').length === 6) {
-      console.log('newotp, ', newOtp)
       submitOtp(newOtp.join(''));
     }
   };
@@ -195,7 +261,7 @@ export default function OTPModal({
     try {
         console.log("Attempting to resend OTP for email:", signupData.email);
         // Call the parent function which handles the API call to initiate, passing the stored signupData
-        const newCountdown = await onResendOtp(initialSignupData);
+        const newCountdown = await onResendOtp(signupData);
 
         if (typeof newCountdown === 'number' && newCountdown > 0) {
             // Reset the countdown state with the new value
@@ -330,108 +396,4 @@ export default function OTPModal({
 }
 
 
-// // src/components/app/modals/OTPModal.tsx
-// import { useState, useEffect, useRef } from 'react';
-// import { X, Check, MailCheck } from 'lucide-react'; // Added MailCheck icon
-
-// export default function OTPModal({
-//   isOpen,
-//   email,
-//   onComplete,
-//   onClose,
-// }: {
-//   isOpen: boolean;
-//   email: string;
-//   onComplete: () => void;
-//   onClose: () => void;
-// }) {
-//   const [otp, setOtp] = useState(['', '', '', '', '']);
-//   const [verified, setVerified] = useState(false);
-//   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-//   useEffect(() => {
-//     if (isOpen) {
-//       setOtp(['', '', '', '', '']);
-//       setVerified(false); // Reset verified state when opening
-//     }
-//   }, [isOpen]);
-
-//   const handleOtpChange = (index: number, value: string) => {
-//     if (!/^\d*$/.test(value) || value.length > 1) return;
-//     const newOtp = [...otp];
-//     newOtp[index] = value;
-//     setOtp(newOtp);
-
-//     if (value && index < 4) {
-//       inputRefs.current[index + 1]?.focus();
-//     }
-
-//     if (newOtp.every((d) => d !== '') && newOtp.join('').length === 5) {
-//       setTimeout(() => {
-//         setVerified(true);
-//         setTimeout(() => {
-//           onComplete();
-//         }, 1000);
-//       }, 800);
-//     }
-//   };
-
-//   if (!isOpen) return null;
-
-//   if (verified) {
-//     return (
-//       // Verified state modal
-//       <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50">
-//         <div className="bg-white  w-full max-w-sm mx-auto rounded-t-3xl p-6 animate-slideUp text-center border-t border-achrams-border">
-//           <div className="w-16 h-16 bg-achrams-bg-secondary rounded-full flex items-center justify-center mx-auto mb-4 border border-achrams-border">
-//             <Check className="w-8 h-8 text-achrams-primary-solid" />
-//           </div>
-//           <h3 className="text-xl font-bold mb-2 text-achrams-text-primary">Email verified!</h3>
-//           <p className="text-achrams-text-secondary">Setting up your account...</p>
-//         </div>
-//       </div>
-//     );
-//   }
-
-//   return (
-//     // Input state modal
-//     <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50">
-//       <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp border-t border-achrams-border">
-//         <div className="flex justify-between items-center mb-2">
-//           <h3 className="text-xl font-bold text-achrams-text-primary text-center  mx-auto" >Verify your email</h3>
-//           <button
-//             onClick={onClose}
-//             className="text-achrams-text-secondary hover:text-achrams-text-primary transition-colors"
-//           >
-//             <X className="w-6 h-6" />
-//           </button>
-//         </div>
-//         <p className="text-achrams-text-secondary mb-8 mx-auto w-fit">Enter the 5-digit code sent to <span className="font-medium text-achrams-text-primary">{email}</span></p>
-//         <div className="flex gap-3 justify-center mb-8">
-//           {otp.map((_, idx) => (
-//             <input
-//               key={idx}
-//               ref={(el) => (inputRefs.current[idx] = el)}
-//               type="text"
-//               inputMode="numeric" // Better for mobile numeric keyboards
-//               maxLength={1}
-//               value={otp[idx]}
-//               onChange={(e) => handleOtpChange(idx, e.target.value)}
-//               // Apply ACHRAMS styling to input
-//               className="w-14 h-14 text-center text-2xl font-bold bg-achrams-bg-secondary border-2 border-achrams-border rounded-xl outline-none text-achrams-text-primary focus:border-achrams-primary-solid focus:ring-1 focus:ring-achrams-primary-solid"
-//             />
-//           ))}
-//         </div>
-//         <button className="w-full text-center text-achrams-text-secondary font-medium hover:text-achrams-text-primary transition-colors">
-//           Resend code
-//         </button>
-//         <button
-//           onClick={onClose}
-//           className="w-full mt-3 text-sm text-achrams-text-secondary font-medium hover:text-achrams-text-primary transition-colors"
-//         >
-//           Cancel
-//         </button>
-//       </div>
-//     </div>
-//   );
-// }
+  

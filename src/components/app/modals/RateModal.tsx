@@ -15,6 +15,8 @@ interface RateModalProps {
   // NEW: Props to receive trip ID and guest ID for the API call
   tripId: string | null;
   guestId: string | null;
+  bookAsGuest: boolean;
+  isAuthenticated: boolean;
 }
 
 export default function RateModal({
@@ -26,6 +28,8 @@ export default function RateModal({
   // NEW: Destructure the trip and guest ID props
   tripId,
   guestId,
+  bookAsGuest,
+  isAuthenticated,
 }: RateModalProps) {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -36,7 +40,7 @@ export default function RateModal({
   const submitRating = async () => {
     console.log("Rating: ", rating, "Trip ID: ", tripId, 'Guest ID:', guestId)
 
-    if (rating <= 0 || !tripId || !guestId) {
+    if (rating <= 0 || !tripId || (bookAsGuest && !guestId)) {
       console.error("Cannot submit rating: missing score, tripId, or guestId.");
       setNotification({
         message: 'Missing required information. Cannot submit rating.',
@@ -58,7 +62,22 @@ export default function RateModal({
       // NEW: Call the API using apiClient
       // Endpoint: POST /trips/{tripId}/rate
       // Requires X-Guest-Id header, so pass guestId as the fourth argument (isGuest=true is inferred by presence of guestId)
-      const response = await apiClient.post(`/trips/${guestId}/rate`, ratingRequestBody, undefined, guestId);
+      let response;
+      if(!bookAsGuest && isAuthenticated){
+        response = await apiClient.post(
+                  `/trips/${tripId}/rate`,
+                  ratingRequestBody,
+                  undefined,
+                  undefined,
+                  true
+                );
+
+      } else{
+
+        response = await apiClient.post(`/trips/${guestId}/rate`, ratingRequestBody, undefined, guestId);
+
+      }
+
 
       if (response.status === 'success') {
         console.log("Trip rated successfully:", response);

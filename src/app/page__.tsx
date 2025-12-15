@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import BookingScreen from "@/components/app/screens/BookingScreen";
 import AssigningScreen from "@/components/app/screens/AssigningScreen";
@@ -34,8 +34,10 @@ import LoginModal from "@/components/app/modals/LoginModal";
 import Enable2FAModal from "@/components/app/modals/Enable2FAModal";
 import Disable2FAModal from "@/components/app/modals/Disable2FAModal";
 import UpdateProfileModal from "@/components/app/modals/UpdateProfileModal";
+
 import Image from "next/image";
 import { apiClient } from "@/lib/api";
+
 import TripUpdateNotification from "@/components/app/ui/TripUpdateNotification";
 import BottomNavBar from "@/components/app/ui/BottomNavBar";
 import { findNearestAirport, KNOWN_AIRPORTS } from "@/lib/airports";
@@ -85,29 +87,45 @@ type PassengerData = {
   email: string;
 };
 
-const readTripContextFromURL = () => {
-  if (typeof window === "undefined") return { tripId: null, guestId: null };
-  const params = new URLSearchParams(window.location.search);
-  return {
-    tripId: params.get("trip_id"),
-    guestId: params.get("guest_id"),
-  };
+interface PersistedState {
+  screen: ScreenState;
+  pickup: string;
+  destination: string;
+  fareEstimate: number | null;
+  driver: any | null;
+  tripProgress: number;
+  pickupCoords: [number, number] | null;
+  destinationCoords: [number, number] | null;
+  verificationCode: string | null;
+  activeTripId: string | null;
+  guestId: string | null;
+}
+
+const saveAppState = (state: PersistedState) => {
+  if (typeof window !== "undefined" && window.sessionStorage) {
+    try {
+      sessionStorage.setItem("achrams_app_state", JSON.stringify(state));
+      console.log("App state saved to sessionStorage");
+    } catch (e) {
+      console.error("Failed to save app state to sessionStorage", e);
+    }
+  }
 };
 
-const writeToURL = (tripId: string, guestId: string) => {
-  if (typeof window === "undefined") return;
-  const newUrl = new URL(window.location.href);
-  newUrl.searchParams.set("trip_id", tripId);
-  newUrl.searchParams.set("guest_id", guestId);
-  window.history.replaceState(null, "", newUrl.toString());
-};
-
-const clearURLTripParams = () => {
-  if (typeof window === "undefined") return;
-  const newUrl = new URL(window.location.href);
-  newUrl.searchParams.delete("trip_id");
-  newUrl.searchParams.delete("guest_id");
-  window.history.replaceState(null, "", newUrl.toString());
+const loadAppState = (): PersistedState | null => {
+  if (typeof window !== "undefined" && window.sessionStorage) {
+    try {
+      const savedStateStr = sessionStorage.getItem("achrams_app_state");
+      if (savedStateStr) {
+        const savedState = JSON.parse(savedStateStr) as PersistedState;
+        console.log("App state loaded from sessionStorage", savedState);
+        return savedState;
+      }
+    } catch (e) {
+      console.error("Failed to load app state from sessionStorage", e);
+    }
+  }
+  return null;
 };
 
 export default function ACHRAMApp() {
@@ -126,6 +144,10 @@ export default function ACHRAMApp() {
   const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(
     null
   );
+  const [driverLocation, setDriverLocation] = useState<[number, number] | null>(
+    null
+  );
+
   const [pickupCodename, setPickupCodename] = useState<string | undefined>(
     undefined
   );
@@ -145,24 +167,22 @@ export default function ACHRAMApp() {
   const [pollingIntervalId, setPollingIntervalId] =
     useState<NodeJS.Timeout | null>(null);
 
-
   const activeTripIdRef = useRef(activeTripId);
   const screenRef = useRef(screen);
-
+  const pollingIntervalIdRef = useRef(pollingIntervalId);
 
   useEffect(() => {
     activeTripIdRef.current = activeTripId;
+  }, [activeTripId]);
+
+  useEffect(() => {
     screenRef.current = screen;
-  }, [activeTripId, screen]);
+  }, [screen]);
 
- const pollingIntervalIdRef = useRef(pollingIntervalId);
-
- useEffect(() => {
+  useEffect(() => {
     pollingIntervalIdRef.current = pollingIntervalId;
   }, [pollingIntervalId]);
 
-
-  
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [is2FAEnabled, setIs2FAEnabled] = useState<boolean>(false);
   const [showPassengerDetails, setShowPassengerDetails] = useState(false);
@@ -170,6 +190,14 @@ export default function ACHRAMApp() {
   const [showPanic, setShowPanic] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
   const [showOTP, setShowOTP] = useState(false);
+  const [otpCountdown, setOtpCountdown] = useState(0);
+  const [signupDataForOtp, setSignupDataForOtp] = useState<PassengerData | null>(null);
+  const [signupPasswordForOtp, setSignupPasswordForOtp] = useState<string>('');
+  const [initialOtpCountdown, setInitialOtpCountdown] = useState<number>(0);
+
+
+
+  
   const [showProfile, setShowProfile] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
   const [showRate, setShowRate] = useState(false);
@@ -201,40 +229,134 @@ export default function ACHRAMApp() {
 
   const [pickupId, setPickupId] = useState<string | null>(null);
 
-  
 
-const mapTripStatusToScreen = useCallback((status: TripStatusValue): ScreenState => {
-    switch (status) {
-      case "searching": return "assigning";
-      case "driver_assigned":
-      case "accepted": return "driver-assigned";
-      case "active": return "trip-progress";
-      case "completed": return "trip-complete";
-      case "cancelled":
-      case "driver not found": return "booking";
-      default: return "booking";
+
+
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedState = loadAppState();
+      let didLoadFromStorage = false;
+      if (savedState) {
+        try {
+          setScreen(savedState.screen);
+          setPickup(savedState.pickup || " ");
+          setDestination(savedState.destination || " ");
+          setFareEstimate(savedState.fareEstimate || null);
+          setTripProgress(savedState.tripProgress || 0);
+          setPickupCoords(savedState.pickupCoords || null);
+          setDestinationCoords(savedState.destinationCoords);
+          setVerificationCode(savedState.verificationCode || null);
+          setActiveTripId(savedState.activeTripId || null);
+          setGuestId(savedState.guestId || null);
+          didLoadFromStorage = true;
+        } catch (e) {
+          console.error("Failed to load app state from sessionStorage:", e);
+        }
+      }
+
+      const loadedScreen = didLoadFromStorage
+        ? savedState?.screen || null
+        : null;
+
+      setHasHydrated(true);
     }
   }, []);
+  const initialLoadedScreenRef = useRef<ScreenState | null>(null);
 
-
-const syncTripToState = useCallback((trip: any) => {
-    setPickup(trip.pickup_address || "");
-    setDestination(trip.destination_address || "");
-    setFareEstimate(trip.amount?.amount ? Number(trip.amount.amount) : null);
-    setPickupCoords(trip.pickup_location || null);
-    setDestinationCoords(trip.destination_location || null);
-    setVerificationCode(trip.verification_code || null);
-    setDriver(trip.driver || null);
-    setActiveTripId(trip.id);
-
-    if (trip.guest?.id && !isAuthenticated) {
-      setGuestId(trip.guest.id);
-      // Write to URL for deep-linkability
-      writeToURL(trip.id, trip.guest.id);
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
     }
-  }, [isAuthenticated]);
 
+    console.log(
+      "Checking if connection needs restart. Current screen:",
+      screen,
+      "Current activeTripId:",
+      activeTripId,
+      "Current guestId:",
+      guestId
+    );
 
+    console.log(
+      "Checking if connection needs restart. Current screen:",
+      screen,
+      "Current activeTripId:",
+      activeTripId,
+      "Current guestId:",
+      guestId
+    );
+
+    const screensRequiringConnection: ScreenState[] = [
+      "assigning",
+      "driver-assigned",
+      "trip-progress",
+    ];
+    if (screensRequiringConnection.includes(screen)) {
+      if (activeTripId && guestId) {
+        console.log(
+          `Screen ${screen} requires connection. Attempting to restart WebSocket with guestId: ${guestId}, tripId: ${activeTripId}`
+        );
+        startWebSocketConnection(guestId, activeTripId);
+      } else {
+        console.warn(
+          `Screen ${screen} requires connection, but activeTripId (${activeTripId}) or guestId (${guestId}) is missing. Cannot restart connection.`
+        );
+      }
+    } else {
+      console.log(
+        `Screen ${screen} does not require connection. Ensuring WebSocket and polling are stopped.`
+      );
+      stopWebSocketConnection();
+      stopPollingTripStatus();
+    }
+
+    const savedState = loadAppState();
+    const wasStateLoaded = !!savedState;
+    const loadedScreen = wasStateLoaded ? savedState.screen : null;
+
+    console.log(
+      "Hydration and Auth check complete. isAuthenticated:",
+      isAuthenticated
+    );
+    console.log("Was state loaded from storage?", wasStateLoaded);
+    console.log("Loaded screen was:", loadedScreen);
+
+    const sessionScreens: ScreenState[] = [
+      "assigning",
+      "driver-assigned",
+      "trip-progress",
+      "trip-complete",
+    ];
+
+    const guestScreens: ScreenState[] = ["booking"];
+
+    if (wasStateLoaded && loadedScreen) {
+      console.log(
+        `State was loaded from storage with screen: ${loadedScreen}. Preserving loaded state.`
+      );
+      return;
+    }
+
+    if (isAuthLoading) {
+      console.log(
+        "Authentication is still loading, keeping screen as null or showing a loader."
+      );
+      return () => {};
+    }
+
+    if (isAuthenticated) {
+      console.log(
+        "No state loaded, user is authenticated, setting screen to 'dashboard'."
+      );
+      setScreen("dashboard");
+    } else {
+      console.log(
+        "No state loaded, user is not authenticated, setting screen to 'booking'."
+      );
+      setScreen("booking");
+    }
+  }, [hasHydrated, isAuthenticated, isAuthLoading]);
 
   useEffect(() => {
     if (hasHydrated && token) {
@@ -257,9 +379,6 @@ const syncTripToState = useCallback((trip: any) => {
       fetchUserProfile();
     }
   }, [hasHydrated, token]);
-  
-  
-  
   useEffect(() => {
     if (screen === "trip-complete") {
       if (token) {
@@ -271,6 +390,8 @@ const syncTripToState = useCallback((trip: any) => {
       }
     }
   }, [screen, token]);
+
+
   const [passengerData, setPassengerData] = useState<PassengerData>({
     name: "",
     phone: "",
@@ -310,22 +431,50 @@ const syncTripToState = useCallback((trip: any) => {
         clearTimeout(timer2);
       };
     }
-    if (screen === "trip-progress") {
-      const timer = setInterval(() => {
-        setTripProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(timer);
-            return 100;
-          }
-          return prev + 2;
-        });
-      }, 1000);
-      return () => clearInterval(timer);
-    }
+    // if (screen === "trip-progress") {
+    //   const timer = setInterval(() => {
+    //     setTripProgress((prev) => {
+    //       if (prev >= 100) {
+    //         clearInterval(timer);
+    //         return 100;
+    //       }
+    //       return prev + 2;
+    //     });
+    //   }, 1000);
+    //   return () => clearInterval(timer);
+    // }
   }, [screen, driver]);
-  
-  
-  
+  useEffect(() => {
+    if (hasHydrated && screen !== null) {
+      const stateToSave: PersistedState = {
+        screen,
+        pickup,
+        destination,
+        fareEstimate,
+        driver,
+        tripProgress,
+        pickupCoords,
+        destinationCoords,
+        verificationCode,
+        activeTripId,
+        guestId,
+      };
+      saveAppState(stateToSave);
+    }
+  }, [
+    screen,
+    pickup,
+    destination,
+    fareEstimate,
+    driver,
+    tripProgress,
+    pickupCoords,
+    destinationCoords,
+    verificationCode,
+    activeTripId,
+    guestId,
+    hasHydrated,
+  ]);
 
   const handleRegistrationSuccess = (email: string) => {
     setScreen("dashboard");
@@ -337,6 +486,7 @@ const syncTripToState = useCallback((trip: any) => {
       "login successful, Authcontext should update. Screen will update via useEffect"
     );
     showNotification("Welcome Back!", "success");
+    // setScreen('dashboard')
   };
 
   const handleLogoutSuccess = () => {
@@ -374,147 +524,6 @@ const syncTripToState = useCallback((trip: any) => {
     }
   };
 
-const isConnectingRef = useRef(false);
-
-const startWebSocketConnection = useCallback((guestIdParam?: string, tripId: string = activeTripIdRef.current!) => {
-    stopWebSocketConnection();
-    stopPollingTripStatus();
-
-    const wsUrl = isAuthenticated
-      ? `wss://api.achrams.com.ng/ws/v1/app?trip_id=${tripId}`
-      : `wss://api.achrams.com.ng/ws/v1/app?guest_id=${guestIdParam}`;
-
-    console.log(`Connecting WebSocket: ${wsUrl}`);
-    const rws = new ReconnectingWebSocket(wsUrl, [], {
-      connectionTimeout: 10000,
-      maxRetries: 10,
-      maxReconnectionDelay: 10000,
-    });
-
-    rws.onopen = () => {
-      console.log("WebSocket opened");
-    };
-
-    rws.onmessage = (event) => {
-      try {
-        const { event: eventType, data: trip } = JSON.parse(event.data);
-        if (["trip:assigned", "trip:status:update"].includes(eventType)) {
-          syncTripToState(trip);
-          const nextScreen = mapTripStatusToScreen(trip.status.value);
-          setScreen(nextScreen);
-          if (["completed", "cancelled", "driver not found"].includes(trip.status.value)) {
-            stopWebSocketConnection();
-            stopPollingTripStatus();
-          }
-        }
-      } catch (e) {
-        console.error("WS parse error", e);
-      }
-    };
-
-    rws.onclose = () => {
-      console.log("WebSocket closed");
-
-
-      const currentScreen = screenRef.current;
-      const currentTripId = activeTripIdRef.current;
-      const isTerminalScreen = ["trip-complete", "booking", "dashboard"].includes(currentScreen!);
-      const isPolling = pollingIntervalIdRef.current !== null;
-
-      if (!isTerminalScreen && currentTripId && !isPolling) {
-        startPollingTripStatus(currentTripId);
-      }
-    };
-
-    setWebSocketConnection(rws);
-  }, [isAuthenticated, syncTripToState, mapTripStatusToScreen]);
-
-  
-  const stopWebSocketConnection = useCallback(() => {
-    if (webSocketConnection) {
-      webSocketConnection.close();
-      setWebSocketConnection(null);
-    }
-  }, [webSocketConnection]);
-
-
-
-  const fetchTripStatus = useCallback(async (tripId: string) => {
-    if (!tripId) return;
-    try {
-      const res = isAuthenticated
-        ? await apiClient.get(`/trips/${tripId}`, undefined, false, undefined, true)
-        : await apiClient.get(`/trips/${guestId}`, undefined, true, guestId);
-      if (res.status === "success" && res.data) {
-        const trip = res.data;
-        syncTripToState(trip);
-        const nextScreen = mapTripStatusToScreen(trip.status.value);
-        setScreen(nextScreen);
-        if (["completed", "cancelled", "driver not found"].includes(trip.status.value)) {
-          stopPollingTripStatus();
-        }
-      }
-    } catch (e) {
-      console.error("Poll error", e);
-    }
-  }, [guestId, isAuthenticated, syncTripToState, mapTripStatusToScreen]);
-
-  const startPollingTripStatus = useCallback((tripId: string) => {
-    stopPollingTripStatus();
-    const id = setInterval(() => fetchTripStatus(tripId), 5000);
-    setPollingIntervalId(id);
-  }, [fetchTripStatus]);
-
-  const stopPollingTripStatus = useCallback(() => {
-    if (pollingIntervalId) {
-      clearInterval(pollingIntervalId);
-      setPollingIntervalId(null);
-    }
-  }, [pollingIntervalId]);
-
-
-useEffect(() => {
-  const screensNeedingRealtime = ["assigning", "driver-assigned", "trip-progress"];
-  const shouldConnect = 
-    activeTripId && 
-    guestId && // for guests
-    screensNeedingRealtime.includes(screen!) &&
-    !isConnectingRef.current &&
-    webSocketStatus !== "open";
-
-  if (!shouldConnect) {
-    if (screen === "booking" || screen === "dashboard") {
-      clearURLTripParams();
-      setActiveTripId(null);
-      setGuestId(null);
-    }
-    stopWebSocketConnection();
-    stopPollingTripStatus();
-    return;
-  }
-
-  isConnectingRef.current = true;
-  if (isAuthenticated) {
-    startWebSocketConnection(undefined, activeTripId!);
-  } else {
-    startWebSocketConnection(guestId!, activeTripId!);
-  }
-
-  return () => {
-    isConnectingRef.current = false;
-  };
-}, [screen, activeTripId, guestId, isAuthenticated, webSocketStatus]);
-
-
-
-
-
-
-
-
-
-
-
   const formatPhoneNumber = (input: string): string => {
     const digitsOnly = input.replace(/\D/g, "");
 
@@ -536,8 +545,6 @@ useEffect(() => {
 
     return digitsOnly;
   };
-
-
 
   const handleRequestRide = async () => {
     if (!passengerData.name || !passengerData.phone || !passengerData.email) {
@@ -730,9 +737,6 @@ useEffect(() => {
     }
   };
 
-
-  
-
   const { isLoaded: isGoogleMapsLoaded, loadError: googleMapsLoadError } =
     useJsApiLoader({
       id: "google-map-script",
@@ -758,63 +762,293 @@ useEffect(() => {
     );
   };
 
-  
+  const startWebSocketConnection = (guestId: string, tripId: string) => {
+    if (webSocketConnection) {
+      console.log("Closing existing WebSocket connection.");
+      webSocketConnection.close();
+    }
 
+    const wsUrl = `wss://api.achrams.com.ng/ws/v1/app?guest_id=${guestId}`;
+    console.log(`Attempting to connect to WebSocket: ${wsUrl}`);
+
+    const rws = new ReconnectingWebSocket(wsUrl, [], {
+      connectionTimeout: 10000,
+      maxRetries: 10,
+      maxReconnectionDelay: 10000,
+    });
+
+    rws.onopen = () => {
+      console.log("WebSocket connection opened.");
+      setWebSocketStatus("open");
+      stopPollingTripStatus();
+    };
+
+    rws.onmessage = (event) => {
+      try {
+        const messageData: WebSocketMessage = JSON.parse(event.data);
+        console.log("Received WebSocket message in page.tsx:", messageData);
+
+        const { event: eventType, data: tripData } = messageData;
+
+        if (
+          eventType === "trip:assigned" ||
+          eventType === "trip:status:update"
+        ) {
+          if (tripData.status.value === "driver not found") {
+            console.log(
+              "Driver not found via WebSocket (page.tsx), updating UI."
+            );
+            stopWebSocketConnection();
+            stopPollingTripStatus();
+            setTripRequestStatus("no-driver");
+            setTripRequestError(`No drivers available for your trip.`);
+            return;
+          }
+
+          if (
+            (tripData.status.value === "accepted" ||
+              tripData.status.value === "driver_assigned") &&
+            tripData.driver
+          ) {
+            console.log(
+              `${tripData.status.label} via WebSocket (page.tsx), updating UI with driver.`
+            );
+            setDriver(tripData.driver);
+            console.log("Active Trip Id: ", activeTripId);
+            setScreen("driver-assigned");
+            stopPollingTripStatus();
+            console.log("stopPollingTripStatus was just called");
+          } else if (tripData.status.value === "active") {
+            console.log(
+              `Trip started (status: ${tripData.status.label}) via WebSocket (page.tsx), transitioning to trip-progress.`
+            );
+            setScreen("trip-progress");
+          } else if (
+            tripData.status.value === "cancelled" ||
+            tripData.status.value === "completed"
+          ) {
+            console.log(
+              `Trip ${tripData.id} is now ${tripData.status.value} via WebSocket (page.tsx).`
+            );
+            stopWebSocketConnection();
+            stopPollingTripStatus();
+            setDriver(null);
+            setTripProgress(0);
+            setVerificationCode(null);
+            if (tripData.status.value === "completed") {
+              setScreen("trip-complete");
+              showNotification("Trip completed successfully", "info");
+            } else if (tripData.status.value === "cancelled") {
+              showNotification("Trip was cancelled successfully", "info");
+              setScreen("booking");
+            }
+          } else {
+            console.log(
+              `Received trip status update via WebSocket (page.tsx): ${tripData.status.value}`
+            );
+          }
+        }
+
+        if (eventType === "trip:location:driver") {
+          const coords = tripData?.map_data?.location?.coordinates; // [lng, lat]
+          if (Array.isArray(coords) && coords.length === 2) {
+            setDriver((prevDriver: any) => {
+              if (!prevDriver) return null;
+              return {
+                ...prevDriver,
+                location: coords,
+              };
+            });
+            console.log("Driver location updated via WebSocket:", coords);
+          } else {
+            console.warn("Invalid driver location data received:", payload);
+          }
+          return;
+        } else {
+          console.log(
+            `Received other WebSocket event (page.tsx): ${eventType}`
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Error parsing WebSocket message in page.tsx:",
+          error,
+          event.data
+        );
+      }
+    };
+
+    rws.onclose = (event) => {
+      console.log("WebSocket connection closed:", event.code, event.reason);
+
+      const currentTripId = activeTripIdRef.current;
+      const currentScreen = screenRef.current;
+      const currentPollingId = pollingIntervalIdRef.current;
+      setWebSocketStatus("closed");
+      if (
+        currentTripId &&
+        ![
+          "driver-assigned",
+          "completed",
+          "cancelled",
+          "driver not found",
+        ].includes(currentScreen) &&
+        !currentPollingId
+      ) {
+        console.log(
+          `WebSocket closed unexpectedly while screen is '${currentScreen}', starting polling for trip ${currentTripId} as fallback.`
+        );
+        // startPollingTripStatus(guestId);
+      } else {
+        console.log(
+          `WebSocket closed, but not starting polling. Trip ID: ${currentTripId}, Screen: ${currentScreen}, Polling Active: ${!!currentPollingId}`
+        );
+        if (
+          [
+            "driver-assigned",
+            "completed",
+            "cancelled",
+            "driver not found",
+          ].includes(currentScreen)
+        ) {
+          console.log(
+            "Screen indicates final state or driver-assigned (post-cancellation), ensuring polling is stopped."
+          );
+          stopPollingTripStatus();
+        }
+      }
+    };
+
+    rws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
+
+    setWebSocketConnection(rws);
+    setWebSocketStatus("connecting");
+  };
+
+  const stopWebSocketConnection = () => {
+    if (webSocketConnection) {
+      stopPollingTripStatus();
+      console.log("Manually stopping WebSocket connection.");
+      webSocketConnection.close();
+      setWebSocketConnection(null);
+      setWebSocketStatus("closed");
+    }
+  };
+
+  const fetchTripStatus = async (tripId: string) => {
+    if (!tripId || !guestId) {
+      console.warn("fetchTripStatus called without a tripId or guestId");
+      return;
+    }
+    try {
+      console.log(
+        `Polling trip status for ID: ${tripId} using guestId: ${guestId}`
+      );
+      const response = await apiClient.get(
+        `/trips/${tripId}`,
+        undefined,
+        true,
+        guestId
+      );
+      if (response.status === "success" && response.data) {
+        const trip = response.data;
+        console.log(
+          `Polled trip status: ${trip.status.value}, has driver: !!${trip.driver}`
+        );
+
+        if (trip.status.value === "active") {
+          setScreen("trip-progress");
+        }
+
+        if (trip.status.value === "driver not found") {
+          console.log(
+            `Trip ${tripId} is now ${trip.status.value} via polling, stopping polling.`
+          );
+          stopPollingTripStatus();
+          stopWebSocketConnection();
+          setTripRequestStatus("no-driver");
+          return;
+        }
+
+        if (
+          (trip.status.value === "accepted" ||
+            trip.status.value === "driver_assigned") &&
+          trip.driver
+        ) {
+          console.log("Driver assigned via polling, updating UI.");
+          setDriver(trip.driver);
+          setScreen("driver-assigned");
+          stopPollingTripStatus();
+          stopWebSocketConnection();
+          return;
+        } else if (
+          trip.status.value === "cancelled" ||
+          trip.status.value === "completed"
+        ) {
+          console.log(
+            `Trip ${tripId} is now ${trip.status.value} via polling, stopping polling.`
+          );
+          if (trip.status.value === "completed") {
+            showNotification("Trip Completed", "info");
+          }
+          if (trip.status.value === "cancelled") {
+            showNotification("Trip was cancelled", "error");
+          }
+
+          setTripRequestStatus(null);
+          stopPollingTripStatus();
+          stopWebSocketConnection();
+          setScreen("booking");
+          return;
+        } else {
+          console.log(
+            `Trip ${tripId} is still ${trip.status.value} via polling.`
+          );
+        }
+      } else {
+        console.error(
+          "Polling API responded with non-success status or missing ",
+          response
+        );
+      }
+    } catch (err) {
+      console.error("Error polling trip status:", err);
+    }
+  };
+
+  const startPollingTripStatus = (tripId: string) => {
+    if (pollingIntervalId) {
+      clearInterval(pollingIntervalId);
+    }
+
+    console.log(
+      `Starting polling for trip ${tripId} every 5 seconds (fallback).`
+    );
+    const interval = setInterval(() => {
+      fetchTripStatus(tripId);
+    }, 5000);
+    setPollingIntervalId(interval);
+  };
+
+  const stopPollingTripStatus = () => {
+    if (pollingIntervalId) {
+      console.log(
+        `Stopping trip status polling. with interval ID: ${pollingIntervalId}`
+      );
+      clearInterval(pollingIntervalId);
+      setPollingIntervalId(null);
+    }
+  };
 
   useEffect(() => {
     return () => {
+      console.log("Cleaning up WebSocket and polling intervals on unmount.");
       stopWebSocketConnection();
       stopPollingTripStatus();
     };
-  }, [stopWebSocketConnection, stopPollingTripStatus]);
-
-  useEffect(()=>{
-    setHasHydrated(true);
-  }, [])
-
-
-useEffect(() => {
-    if (!hasHydrated) return;
-
-    const { tripId, guestId: urlGuestId } = readTripContextFromURL();
-    const validTripContext = tripId && (isAuthenticated || urlGuestId);
-
-    if (validTripContext) {
-      // Resume trip from backend
-      (async () => {
-        try {
-          const res = isAuthenticated
-            ? await apiClient.get(`/trips/${tripId}`, undefined, false, undefined, true)
-            : await apiClient.get(`/trips/${urlGuestId}`, undefined, true, urlGuestId!);
-          if (res.status === "success" && res.data) {
-            syncTripToState(res.data);
-            const nextScreen = mapTripStatusToScreen(res.data.status.value);
-            setScreen(nextScreen);
-            setGuestId(urlGuestId!);
-            if (!isAuthenticated) {
-              startWebSocketConnection(urlGuestId!, tripId);
-            } else {
-              startWebSocketConnection(undefined, tripId);
-            }
-            return;
-          }
-        } catch (err) {
-          console.error("Failed to restore trip", err);
-        }
-        // Fallback: clear URL and reset
-        clearURLTripParams();
-      })();
-    } else {
-      // Fresh start
-      setScreen(isAuthenticated ? "dashboard" : "booking");
-    }
-  }, [hasHydrated, isAuthenticated]);
-
-
-  
-
-
-
+  }, []);
 
   const handleTripStart = () => {
     setScreen("trip-progress");
@@ -905,6 +1139,7 @@ useEffect(() => {
         setPickupCoords(null);
         setDestinationCoords(null);
         setVerificationCode(null);
+        setDriverLocation(null);
 
         setScreen("booking");
       } else {
@@ -947,6 +1182,65 @@ useEffect(() => {
     }
   };
 
+  const handleSignupInitiateSuccess = (data: {name: string;
+  email: string;
+  phone: string;
+  password: string;}, countdown: number) =>{
+    const {name, email, phone, password} = data;
+
+    const signupData = {name, email, phone}
+                  setSignupDataForOtp(signupData);
+                  setPassengerData({name, phone, email})
+                  console.log("setting passenger data:", {name, email, phone})
+    setSignupPasswordForOtp(password);
+    setInitialOtpCountdown(countdown);
+    setShowSignup(false); // Close signup modal
+    setShowOTP(true);  
+  
+  }
+
+
+  const handleResendOtp = async (data: { name: string; phone: string; email: string; password: string }): Promise<number> => {
+    console.log("Resending OTP for email:", data.email);
+
+    try {
+      const nameParts = data.name.trim().split(/\s+/);
+      const firstName = nameParts[0] || 'User';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      const response = await apiClient.post('/auth/passenger/onboard/initiate', {
+        email: data.email,
+        phone_number: data.phone, // Use the phone from the stored signup data
+        first_name: firstName,    // Use the parsed name from the stored signup data
+        last_name: lastName,
+        password: data.password,       // Use the password stored during signup
+      });
+
+      console.log("Resend OTP Response:", response);
+
+      if (response.status === "success" && response.data?.countdown) {
+        // Return the new countdown received from the API
+        console.log("New OTP sent, new countdown:", response.data.countdown);
+        showNotification("New OTP sent, new countdown", "info")
+        return response.data.countdown;
+      } else {
+        // Handle potential API error responses that still have status 200
+        const errorMessage = response.message || 'Failed to resend OTP. Please try again.';
+        throw new Error(errorMessage);
+      }
+    } catch (err: any) {
+      console.error("Resend OTP Error:", err);
+      let errorMessage = 'An unexpected error occurred while resending OTP.';
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      // Re-throw the error so the OTPModal can catch it and display it
+      throw new Error(errorMessage);
+    }
+  };
+
   const handleCancelConfirmed = (
     reason: string,
     location?: [number, number],
@@ -954,10 +1248,6 @@ useEffect(() => {
   ) => {
     cancelTrip(reason);
   };
-
-
-
-
 
   if (!hasHydrated || isAuthLoading) {
     return (
@@ -1065,6 +1355,7 @@ useEffect(() => {
           setGuestId(null);
           stopPollingTripStatus();
           stopWebSocketConnection();
+          // setDriverLiveLocation(null);
           if (!token) {
             setScreen("dashboard");
           } else {
@@ -1220,7 +1511,8 @@ useEffect(() => {
               isOpen={showSignup}
               passengerData={passengerData}
               onClose={() => setShowSignup(false)}
-              onVerifyEmail={() => setShowOTP(true)}
+              // NEW: Store the countdown received from SignupPromptModal
+              onVerifyEmail={handleSignupInitiateSuccess}
               onRegistrationSuccess={handleRegistrationSuccess}
               onOpenLoginModal={() => setShowLogin(true)}
               onSignup={() => {
@@ -1238,15 +1530,23 @@ useEffect(() => {
 
           <OTPModal
             isOpen={showOTP}
-            email={passengerData.email}
+            // NEW: Pass the stored countdown value
+            initialOtpCountdown={initialOtpCountdown}
+            initialSignupData ={{...passengerData, password: signupPasswordForOtp}}
             onComplete={() => {
-              setTimeout(() => {
-                setScreen("dashboard");
-                setShowOTP(false);
-                setShowSignup(false);
-              }, 1000);
+              setScreen("dashboard");
+              setShowOTP(false);
+              setSignupPasswordForOtp('')
             }}
-            onClose={() => setShowOTP(false)}
+            onClose={() => {
+              console.log('onclose button was clicked')
+              setShowOTP(false)
+              setSignupPasswordForOtp('')
+            }
+
+            }
+            onResendOtp={handleResendOtp} // Pass the stored password
+    
           />
 
           <ProfileModal

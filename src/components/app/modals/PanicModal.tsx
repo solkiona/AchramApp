@@ -23,6 +23,8 @@ interface PanicModalProps {
   currentLocationAddress: string;
   currentLocationCoords: [number, number];
   tripId: string;
+  isAuthenticated: boolean;
+  bookAsGuest: boolean;
 }
 
 export default function PanicModal({
@@ -32,6 +34,8 @@ export default function PanicModal({
   currentLocationAddress,
   currentLocationCoords,
   tripId,
+  isAuthenticated,
+  bookAsGuest,
 }: PanicModalProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -58,11 +62,44 @@ export default function PanicModal({
     setSubmitError(null);
 
     try {
-      const response = await apiClient.post('/trip-alerts', {
-        alert_type: selected,
-        address: currentLocationAddress,
-        location: [currentLocationCoords[0], currentLocationCoords[1]],
-      }, undefined, guestId);
+
+      let response;
+            if (!bookAsGuest && isAuthenticated) {
+              console.log("Raising panic alert as an authenticated user");
+
+              console.log({
+                  alert_type: selected,
+                  address: currentLocationAddress,
+                  location: [currentLocationCoords[0], currentLocationCoords[1]],
+                  trip: tripId,
+                },)
+              response = await apiClient.post(
+                "/trip-alerts",
+                {
+                  alert_type: selected,
+                  address: currentLocationAddress,
+                  location: [currentLocationCoords[0], currentLocationCoords[1]],
+                  trip: tripId,
+                },
+                undefined,
+                undefined,
+                true
+              );
+            } else {
+              console.log('guest Id for alert', guestId)
+              
+              response = await apiClient.post('/trip-alerts', {
+              alert_type: selected,
+              address: currentLocationAddress,
+              location: [currentLocationCoords[0], currentLocationCoords[1]],
+            }, undefined, guestId);
+            }
+
+            console.log("panic modal data",  {
+                  alert_type: selected,
+                  address: currentLocationAddress,
+                  location: [currentLocationCoords[0], currentLocationCoords[1]],
+                })
 
       if (response.status === 'success') {
         setSent(true);

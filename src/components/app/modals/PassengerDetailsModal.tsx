@@ -2,6 +2,7 @@
 import { X, Package, Users, Accessibility } from 'lucide-react'; // Added Wheelchair icon
 import { useState } from 'react';
 
+
 interface PassengerDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -10,8 +11,10 @@ interface PassengerDetailsModalProps {
   requirements: { luggage: boolean; wheelchair: boolean; elderly: boolean };
   setRequirements: (req: any) => void;
   onRequestRide: () => void;
-
+  isAuthenticated: boolean;
+  setBookAsGuest: (val: boolean) => void;
   isLoading? : boolean;
+  bookAsGuest: boolean;
 
 }
 
@@ -24,10 +27,18 @@ export default function PassengerDetailsModal({
   setRequirements,
   onRequestRide,
   isLoading,
+  isAuthenticated,
+  setBookAsGuest,
+  bookAsGuest,
 }: PassengerDetailsModalProps) {
   const [showRequirements, setShowRequirements] = useState(false);
 
   if (!isOpen) return null;
+  const isGuestFormIncomplete =
+  bookAsGuest &&
+  (!passengerData.name ||
+   !passengerData.phone ||
+   !passengerData.email);
 
   return (
     // Fixed background: use bg-achrams-bg-primary with opacity
@@ -44,6 +55,27 @@ export default function PassengerDetailsModal({
             <X className="w-6 h-6" />
           </button>
         </div>
+
+        {isAuthenticated && (
+
+
+      <div className="flex items-center gap-3 mb-4">
+        <input
+          type="checkbox"
+          checked={bookAsGuest}
+          onChange={(e) => {
+            console.log("bookAsGuest state: ", bookAsGuest)
+            setBookAsGuest(e.target.checked)}}
+          className="w-5 h-5 text-achrams-primary-solid rounded focus:ring-achrams-primary-solid focus:ring-offset-0"
+        />
+        <span className="text-achrams-text-primary">Book as Guest</span>
+      </div>
+
+        )}
+
+
+        {(bookAsGuest || !isAuthenticated) && (
+
         <div className="space-y-4 mb-6">
           <input
             type="text"
@@ -70,6 +102,9 @@ export default function PassengerDetailsModal({
             className="w-full px-4 py-4 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border"
           />
         </div>
+
+        )}
+
         <button
           onClick={() => setShowRequirements(!showRequirements)}
           // Apply ACHRAMS styling to button
@@ -116,10 +151,10 @@ export default function PassengerDetailsModal({
         )}
         <button
           onClick={onRequestRide}
-          disabled={!passengerData.name || !passengerData.phone || !passengerData.email}
+          disabled={isGuestFormIncomplete }
           // Apply ACHRAMS gradient button styling
           className={`w-full py-4 rounded-xl font-semibold mt-6 transition-all ${
-            passengerData.name && passengerData.phone && passengerData.email
+            !isGuestFormIncomplete
               ? 'bg-achrams-gradient-primary text-achrams-text-light hover:opacity-90 active:scale-[0.98]' // Enabled state
               : 'bg-achrams-secondary-solid text-achrams-text-light opacity-75 cursor-not-allowed' // Disabled state
           }`}

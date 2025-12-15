@@ -81,6 +81,11 @@ body {
   }
 }
 
+/* .pac-container {
+  width: var(--pickup-width) !important;
+  left: var(--pickup-left) !important;
+} */
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }

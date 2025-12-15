@@ -37,6 +37,7 @@ export default function TripProgressScreen({
   isGoogleMapsLoaded,
   googleMapsLoadError,
 }: TripProgressScreenProps) {
+  
   const driverLocation = driver?.location || null;
 
   const [directions, setDirections] =
@@ -103,7 +104,7 @@ export default function TripProgressScreen({
 
   return (
     <div className="h-screen bg-achrams-bg-primary flex flex-col">
-      {driver ? (
+      {driver && (
         <>
           <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4 flex items-center justify-between">
             <h1 className="text-xl font-bold">Trip in progress</h1>
@@ -257,10 +258,6 @@ export default function TripProgressScreen({
           </div>
           <ACHRAMFooter />
         </>
-      ) : (
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-achrams-text-secondary">Updating trip status...</p>
-        </div>
       )}
     </div>
   );
