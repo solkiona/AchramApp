@@ -211,6 +211,14 @@ export default function ACHRAMApp() {
   } | null>(null);
   const [pickupId, setPickupId] = useState<string | null>(null);
 
+  const [passengerLiveLocation, setPassengerLiveLocation] = useState<[number, number] | null>(null);
+
+
+  const [airportPickupArea, setAirportPickupArea] = useState<any>(null);
+
+
+
+
   // New state for initialization status
   const [initComplete, setInitComplete] = useState(false);
 
@@ -253,6 +261,46 @@ export default function ACHRAMApp() {
 
     setScreen("booking"); // ✅ Show booking screen
   };
+
+
+useEffect(() => {
+  if ((screen !== 'driver-assigned') && (screen !== 'trip-progress')) return;
+
+  let watchId: number;
+
+  const startWatchingLocation = () => {
+    if (navigator.geolocation) {
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const { longitude, latitude } = position.coords;
+          setPassengerLiveLocation([longitude, latitude]);
+          console.log('Passenger location updated:', [longitude, latitude]);
+        },
+        (error) => {
+          console.error('Error watching passenger location:', error);
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 5000,
+          timeout: 10000,
+        }
+      );
+    }
+  };
+
+  startWatchingLocation();
+
+  return () => {
+    if (watchId) {
+      navigator.geolocation.clearWatch(watchId);
+    }
+  };
+}, [screen]);
+
+
+
+
+
 
 
   const initializeAppState = useCallback(async () => {
@@ -314,6 +362,9 @@ export default function ACHRAMApp() {
         console.log("Found stored active trip ID for authenticated user:", savedState.activeTripId);
         setActiveTripId(savedState.activeTripId);
 
+        setDriver(savedState.driver);
+        console.log("Driver object", driver)
+
         try {
           // Determine the correct API call based on the saved booking mode (bookAsGuest flag)
           let response;
@@ -349,9 +400,16 @@ export default function ACHRAMApp() {
           }
 
           if (response.status === "success" && response.data) {
+
+
             const trip = response.data;
             console.log("Fetched trip status for user (booked as guest?", !!savedState.bookAsGuest, "):", trip);
             
+            if(trip?.map_data?.airport?.pickup_area){
+              
+              setAirportPickupArea(trip.map_data.airport.pickup_area);
+            }
+          
             // Set up trip state based on fetched data (common for both modes)
             setDriver(trip.driver || null);
             setPickup(trip.pickup_address || "");
@@ -440,6 +498,9 @@ export default function ACHRAMApp() {
       // Check if the guest has an active trip in progress using guestId endpoint
       if (savedState.guestId) {
         console.log("Attempting to verify guest trip status for guest ID:", savedState.guestId);
+        setDriver(savedState.driver);
+
+
         try {
           // Use the guest-specific endpoint: /trips/{guestId}
           const response = await apiClient.get(
@@ -454,6 +515,13 @@ export default function ACHRAMApp() {
             console.log('Guest trip status fetch was successful: ', response.data);
 
             // Update activeTripId from the fetched trip data (in case it changed or was set during booking)
+
+
+             if(trip?.map_data?.airport?.pickup_area){
+              
+              setAirportPickupArea(trip.map_data.airport.pickup_area);
+            }
+
             setActiveTripId(trip.id);
             // Ensure guestId is set from the saved state
             setGuestId(savedState.guestId);
@@ -535,324 +603,7 @@ export default function ACHRAMApp() {
 
 }, [hasHydrated, isAuthLoading, isAuthenticated, token]); // Dependency array
 
-  // Function to initialize the app state after hydration
-  // const initializeAppState = useCallback(async () => {
-  //   // Wait for both hydration AND auth status loading to complete
-  //   if (!hasHydrated || isAuthLoading) {
-  //     console.log(
-  //       "initializeAppState: Waiting for hydration or auth loading to complete."
-  //     );
-  //     return;
-  //   }
-
-  //   console.log("Initializing app state after hydration and auth check...");
-
-  //   // Load persisted state
-  //   const savedState = loadAppState();
-
-  //   const savedTripData = sessionStorage.getItem("tripData");
-  //   if (savedTripData) {
-  //     const parsedTripData = JSON.parse(savedTripData);
-  //     console.log("Restored tripData from sessionStorage:", parsedTripData);
-
-  //     // Restore tripData into state
-  //     setPickup(parsedTripData.pickup_address);
-  //     setDestination(parsedTripData.destination_address);
-  //     setFareEstimate(parseFloat(parsedTripData.amount.amount));
-  //     setPickupCoords(parsedTripData.pickup_location);
-  //     setDestinationCoords(parsedTripData.destination_location);
-  //     setRequirements({
-  //       luggage: parsedTripData.has_extra_luggage,
-  //       wheelchair: parsedTripData.has_wheel_chair_access,
-  //       elderly: parsedTripData.has_extra_leg_room,
-  //     });
-  //     setPassengerData({
-  //       name: parsedTripData.guest_name,
-  //       phone: parsedTripData.guest_phone,
-  //       email: parsedTripData.guest_email,
-  //     });
-
-  //     // If the user was on the "assigning" screen, restore the screen state
-  //     if (savedState && savedState.screen === "assigning") {
-  //       setScreen("assigning");
-  //       setTripRequestStatus("loading");
-
-  //       // Start WebSocket or polling based on the trip status
-  //       if (isAuthenticated && savedState.activeTripId) {
-  //         console.log(
-  //           "Resuming WebSocket connection for authenticated user..."
-  //         );
-  //         startWebSocketConnectionForAuthUser(savedState.activeTripId);
-  //       } else if (savedState.guestId && savedState.activeTripId) {
-  //         console.log("Resuming WebSocket connection for guest user...");
-  //         startWebSocketConnection(savedState.guestId, savedState.activeTripId);
-  //       } else {
-  //         console.warn(
-  //           "No active trip ID or guest ID found, cannot resume WebSocket."
-  //         );
-  //       }
-  //     }
-  //   }
-
-  //   if (isAuthenticated) {
-  //     // Authenticated user flow
-  //     console.log(
-  //       "User is authenticated, checking for stored active trip ID..."
-  //     );
-
-  //     // Check if there's a stored active trip ID for the authenticated user
-  //     // NOTE: For authenticated users, ideally, the backend session tracks active trips,
-  //     // but we can still check frontend storage if it was set during a previous authenticated session.
-  //     // However, clearing storage on login/logout is often preferred for auth users.
-  //     // Let's assume for now that if an authenticated user refreshes mid-trip,
-  //     // the activeTripId might be in storage (though this requires careful coordination during login).
-  //     // For simplicity and security, let's assume the backend state (via cookie) is the source of truth,
-  //     // and we don't store trip IDs for auth users persistently unless explicitly needed for resume.
-  //     // If the user was mid-trip and refreshed, the backend session should ideally indicate this.
-  //     // For now, let's stick to checking storage, but acknowledge it might be cleared on login in AuthContext.
-  //     // The key is that `isAuthenticated` is true here, so we use the authenticated API endpoint.
-
-  //     // Let's check if storage *was* loaded *and* contained an activeTripId
-  //     if (savedState && savedState.activeTripId) {
-  //       console.log(
-  //         "Found stored active trip ID for authenticated user:",
-  //         savedState.activeTripId
-  //       );
-  //       setActiveTripId(savedState.activeTripId); // Restore the active trip ID from storage
-  //       setBookAsGuest(savedState.bookAsGuest || false);
-
-  //       try {
-  //         // Fetch the status of the specific trip ID using the authenticated endpoint
-  //         const response = await apiClient.get(
-  //           `/trips/${savedState.activeTripId}`, // Use the specific tripId
-  //           undefined, // token (not directly needed, cookie handles auth)
-  //           false, // isGuest = false
-  //           undefined, // guestId (not needed for auth)
-  //           true // isAuthRequest = true (CRITICAL: enables cookie)
-  //         );
-
-  //         if (response.status === "success" && response.data) {
-  //           const trip = response.data;
-  //           console.log("Fetched trip status for authenticated user:", trip);
-
-  //           // Set up trip state based on fetched data
-  //           setDriver(trip.driver || null);
-  //           setPickup(trip.pickup_address || "");
-  //           setDestination(trip.destination_address || "");
-  //           setFareEstimate(
-  //             trip.amount?.amount ? parseFloat(trip.amount.amount) : null
-  //           );
-  //           setPickupCoords(trip.pickup_location || null);
-  //           setDestinationCoords(trip.destination_location || null);
-  //           setVerificationCode(trip.verification_code || null);
-  //           setTripProgress(trip.progress || 0); // Ensure tripProgress is updated
-
-  //           // Determine screen based on fetched trip status
-  //           if (
-  //             ["searching", "driver_assigned", "accepted"].includes(
-  //               trip.status.value
-  //             )
-  //           ) {
-  //             setScreen("assigning");
-  //             // Start WebSocket for authenticated user using the specific tripId
-  //             startWebSocketConnectionForAuthUser(savedState.activeTripId);
-  //           } else if (trip.status.value === "active") {
-  //             setScreen("trip-progress");
-  //           } else if (trip.status.value === "completed") {
-  //             setScreen("trip-complete");
-  //             //  preserveBookingContext()
-  //           } else if (trip.status.value === "cancelled") {
-  //             // Trip was cancelled, clear the stored ID and go to booking/dashboard
-  //             console.log(
-  //               "Stored trip was cancelled, clearing ID and going to dashboard."
-  //             );
-  //             setActiveTripId(null);
-  //             // Optionally clear storage if this trip completion means session end for this trip
-
-  //             sessionStorage.removeItem("tripData");
-
-  //             if (typeof window !== "undefined" && window.sessionStorage) {
-  //               const stateToKeep = { ...savedState, activeTripId: null }; // Keep other state but clear trip ID
-  //               saveAppState(stateToKeep);
-  //             }
-  //             console.log("setting screen to dashboard one");
-  //             setScreen("dashboard");
-  //           } else {
-  //             // Unknown or unexpected status, maybe go to dashboard
-  //             console.warn(
-  //               "Unexpected trip status for authenticated user:",
-  //               trip.status
-  //             );
-  //             console.log("setting screen to dashboard two");
-
-  //             setScreen("dashboard");
-  //           }
-  //         } else {
-  //           // Trip not found or error response
-  //           console.error(
-  //             "Error or trip not found when fetching authenticated user's trip:",
-  //             response
-  //           );
-  //           // Clear the stored trip ID as it's no longer valid
-  //           setActiveTripId(null);
-  //           sessionStorage.removeItem("tripData");
-  //           // Optionally clear storage if this trip completion means session end for this trip
-  //           if (typeof window !== "undefined" && window.sessionStorage) {
-  //             const stateToKeep = { ...savedState, activeTripId: null }; // Keep other state but clear trip ID
-  //             saveAppState(stateToKeep);
-  //           }
-  //           console.log("setting screen to dashboard three");
-  //           setScreen("dashboard");
-  //         }
-  //       } catch (error) {
-  //         console.error(
-  //           "Error fetching authenticated user's trip status:",
-  //           error
-  //         );
-  //         // Clear the stored trip ID as it might be invalid
-  //         setActiveTripId(null);
-  //         sessionStorage.removeItem("tripData");
-  //         // Optionally clear storage if this trip completion means session end for this trip
-  //         if (typeof window !== "undefined" && window.sessionStorage) {
-  //           const stateToKeep = { ...savedState, activeTripId: null }; // Keep other state but clear trip ID
-  //           saveAppState(stateToKeep);
-  //         }
-  //         console.log("setting screen to dashboard four");
-  //         setScreen("dashboard");
-  //       }
-  //     } else {
-  //       // No stored active trip ID for authenticated user, go to dashboard
-  //       console.log(
-  //         "No stored active trip ID for authenticated user, going to dashboard..."
-  //       );
-  //       setScreen("dashboard");
-  //     }
-  //     // Clear guest ID for authenticated users (shouldn't be set, but just in case)
-  //     setGuestId(null);
-  //   } else {
-  //     // Guest user flow (remains as previously corrected)
-  //     console.log("User is not authenticated, restoring guest session...");
-  //     console.log("guest id from session", savedState?.guestId);
-
-  //     if (savedState) {
-  //       console.log("Navigating to saved screen state ", savedState.screen);
-
-  //       console.log("savedstate pickupaddress", savedState.pickup);
-  //       // Restore guest session data
-  //       //setScreen(savedState.screen);
-  //       // setPickup(savedState.pickup || "");
-  //       // setDestination(savedState.destination || "");
-  //       // setFareEstimate(savedState.fareEstimate || null);
-  //       // setTripProgress(savedState.tripProgress || 0);
-  //       // setPickupCoords(savedState.pickupCoords || null);
-  //       // setDestinationCoords(savedState.destinationCoords || null);
-  //       // setVerificationCode(savedState.verificationCode || null);
-
-  //       // setActiveTripId(savedState.activeTripId || null);
-  //       // setGuestId(savedState.guestId || null);
-
-  //       // Check if the guest has an active trip in progress using guestId endpoint
-  //       if (savedState.guestId) {
-  //         console.log("A guest id exits", savedState.guestId);
-  //         try {
-  //           // Use the guest-specific endpoint: /trips/{guestId}
-  //           const response = await apiClient.get(
-  //             `/trips/${savedState.guestId}`, // Use guestId for guest status check
-  //             undefined, // token (not needed for guest flow)
-  //             true, // isGuest = true
-  //             savedState.guestId // guestId
-  //           );
-
-  //           if (response.status === "success" && response.data) {
-  //             const trip = response.data;
-  //             // Update activeTripId from the fetched trip data (in case it changed)
-  //             setActiveTripId(trip.id);
-  //             // Start WebSocket for guest user using guestId
-  //             startWebSocketConnection(savedState.guestId, trip.id);
-
-  //             console.log(
-  //               "Guest Data retrieved to verify why I am getting a reference error",
-  //               response.data
-  //             );
-
-  //             setGuestId(savedState.guestId);
-  //             setDriver(trip.driver || null);
-  //             setPickup(trip.pickup_address || "");
-  //             setDestination(trip.destination_address || "");
-  //             setFareEstimate(
-  //               trip.amount?.amount ? parseFloat(trip.amount.amount) : null
-  //             );
-  //             setPickupCoords(trip.pickup_location || null);
-  //             setDestinationCoords(trip.destination_location || null);
-  //             setVerificationCode(trip.verification_code || null);
-  //             setTripProgress(trip.progress || 0); // Ensure
-  //             console.log("Active trip Id reset", trip.id, activeTripId);
-  //             console.log("Pickup address now ", pickup);
-  //             console.log("pickup location", pickupCoords);
-
-  //             console.log("Trip status fetch was sucessful: ", response.data);
-
-  //             if (trip.status.value === "searching") {
-  //               setScreen("assigning");
-  //             } else if (trip.status.value === "driver not found") {
-  //               console.log("setting screen to assigning");
-
-  //               stopWebSocketConnection();
-  //               stopPollingTripStatus();
-  //               setTripRequestStatus("no-driver");
-  //               setTripRequestError(`No drivers available for your trip.`);
-  //               // setScreen("assigning");
-
-  //               preserveBookingContext();
-  //             } else if (trip.status.value === "accepted") {
-  //               //setDriver(trip.driver);
-  //               console.log("Active Trip Id: ", activeTripId);
-  //               setScreen("driver-assigned");
-  //               // stopPollingTripStatus();
-  //               console.log("stopPollingTripStatus was just called");
-  //             } else if (trip.status.value === "active") {
-  //               console.log(
-  //                 "trip status is active setting screen to trip-progress, active trip id is: ",
-  //                 activeTripId
-  //               );
-  //               //setDriver(trip.driver);
-  //               setScreen("trip-progress");
-  //             } else if (trip.status.value === "completed") {
-  //               setScreen("trip-complete");
-  //               // preserveBookingContext();
-  //             } else if (trip.status.value === "cancelled") {
-  //               // Clear storage and go back to booking
-  //               preserveBookingContext();
-  //             } else {
-  //               // Unknown status, go to dashboard
-  //               console.log("setting screen to dashboard five");
-  //               setScreen("dashboard");
-  //             }
-  //           } else {
-  //             // Trip not found or error, clear storage and go to booking
-  //             console.log("Trip not found for guest, going to booking");
-  //             setScreen("booking");
-  //             preserveBookingContext();
-  //           }
-  //         } catch (error) {
-  //           console.error("Error verifying guest trip status:", error);
-  //           setScreen("booking");
-  //           preserveBookingContext();
-  //         }
-  //       } else {
-  //         // No active trip ID or guest ID in storage, go to booking
-  //         console.log("No stored guest trip data, going to booking");
-  //         setScreen("booking");
-  //       }
-  //     } else {
-  //       // No saved state, go to booking
-  //       console.log("No saved state found, going to booking");
-  //       setScreen("booking");
-  //     }
-  //   }
-
-  //   setInitComplete(true);
-  // }, [hasHydrated, isAuthLoading, isAuthenticated, token]); // Add isAuthLoading to dependency
+  
 
   // Initialize app state after hydration AND auth loading is complete
   useEffect(() => {
@@ -861,12 +612,7 @@ export default function ACHRAMApp() {
     initializeAppState();
   }, [initializeAppState]); // Depend only on the function itself
 
-  // // Initialize app state after hydration
-  // useEffect(() => {
-  //   if (hasHydrated && !initComplete) {
-  //     initializeAppState();
-  //   }
-  // }, [hasHydrated, initComplete, initializeAppState]);
+ 
 
   // Hydration effect
   useEffect(() => {
@@ -934,24 +680,141 @@ export default function ACHRAMApp() {
     }, 5000);
   };
 
+  const [driverDistance, setDriverDistance] = useState<string | null>(null);
+  const [driverDuration, setDriverDuration] = useState<string | null>(null);
+  const [isDriverAtPickupArea, setIsDriverAtPickupArea] = useState<boolean>(false);
+  const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null);
+
+  const driverDurationRef = useRef<number | null>(null);
+  const driverDistanceRef = useRef<number | null>(null);
+  // NEW: Ref to track if driver has arrived (to show notification only once)
+  const isDriverAtPickupAreaRef = useRef<boolean>(false);
+
+  
+
   useEffect(() => {
-    if (screen === "driver-assigned" && driver) {
-      showNotification("Driver assigned successfully!", "success");
-      const timer1 = setTimeout(
-        () => showNotification("Driver is 7 mins from pickup location", "info"),
-        3000
-      );
-      const timer2 = setTimeout(
-        () =>
-          showNotification("Driver has arrived at pickup location", "success"),
-        10000
-      );
-      return () => {
-        clearTimeout(timer1);
-        clearTimeout(timer2);
-      };
+    // Only run if screen is driver-assigned, driver location is available, and pickup is known
+    if (screen !== "driver-assigned" || !driver?.location || !pickupCoords || !window.google?.maps) {
+        // Reset state if conditions are not met
+        setDriverDistance(null);
+        setDriverDuration(null);
+        setIsDriverAtPickupArea(false);
+        return;
     }
-  }, [screen, driver]);
+
+    const [driverLng, driverLat] = driver.location; // [lng, lat] from WebSocket
+    const [pickupLng, pickupLat] = pickupCoords; // [lng, lat] from state
+
+    // Check if driver is within the pickup area polygon
+    if (airportPickupArea?.geometry?.coordinates) {
+        const polygonCoords = airportPickupArea.geometry.coordinates[0]; // Assuming simple polygon
+        const polygon = new google.maps.Polygon({ paths: polygonCoords.map((coord: number[]) => ({ lat: coord[1], lng: coord[0] })) });
+        const driverLatLng = new google.maps.LatLng(driverLat, driverLng); // [lat, lng] for Google Maps
+        const isInside = google.maps.geometry.poly.containsLocation(driverLatLng, polygon);
+        setIsDriverAtPickupArea(isInside);
+
+        if (isInside) {
+            // Driver is inside the polygon, show arrival notification once
+            // Use a ref to ensure notification is only shown once per arrival
+            if (!isDriverAtPickupAreaRef.current) { // Assume isDriverAtPickupAreaRef is a ref tracking the previous state
+                showNotification("Driver has arrived at the pickup area!", "success");
+                isDriverAtPickupAreaRef.current = true; // Update the ref
+                // Potentially transition screen or stop further distance checks
+                // setScreen("trip-progress"); // Uncomment if auto-transition is desired upon arrival
+            }
+            return; // Stop further processing if arrived
+        } else {
+            isDriverAtPickupAreaRef.current = false; // Reset ref if driver leaves
+        }
+    }
+
+    // Calculate directions if not arrived yet
+    if (!isDriverAtPickupArea) {
+        if (!directionsServiceRef.current) {
+            directionsServiceRef.current = new google.maps.DirectionsService();
+        }
+
+        const request: google.maps.DirectionsRequest = {
+            origin: new google.maps.LatLng(driverLat, driverLng), // Driver's current location [lat, lng]
+            destination: new google.maps.LatLng(pickupLat, pickupLng), // Pickup location [lat, lng]
+            travelMode: google.maps.TravelMode.DRIVING,
+        };
+
+        directionsServiceRef.current.route(request, (result, status) => {
+            if (status === google.maps.DirectionsStatus.OK && result && result.routes.length > 0) {
+                const route = result.routes[0];
+                const leg = route.legs[0]; // Assuming single leg
+
+                const newDistance = leg.distance?.text || "Unknown";
+                const newDuration = leg.duration?.text || "Unknown";
+
+                // NEW: Throttle/Debounce notifications based on significant changes
+                // Example: Only notify if duration changes by more than 1 minute or distance by more than 0.5km
+                const durationThreshold = 60; // 1 minute in seconds
+                const distanceThreshold = 500; // 0.5 km in meters
+
+                const durationValue = leg.duration?.value || 0;
+                const distanceValue = leg.distance?.value || 0;
+
+                // Compare with previous values if they exist
+                if (driverDurationRef.current !== null && driverDistanceRef.current !== null) {
+                    const prevDurationValue = driverDurationRef.current; // Assume this is stored in seconds
+                    const prevDistanceValue = driverDistanceRef.current; // Assume this is stored in meters
+
+                    const durationChange = Math.abs(durationValue - prevDurationValue);
+                    const distanceChange = Math.abs(distanceValue - prevDistanceValue);
+
+                    if (durationChange >= durationThreshold || distanceChange >= distanceThreshold) {
+                        // Determine notification type based on remaining time/distance
+                        let notificationType: "info" | "success" | "warning" | "error" = "info";
+                        let message = `Driver is ${newDistance} away, ETA ${newDuration}`;
+
+                        if (durationValue < 120) { // Less than 2 mins
+                            notificationType = "success";
+                            message = "Driver is very close!";
+                        } else if (durationValue < 300) { // Less than 5 mins
+                            notificationType = "info";
+                            message = `Driver is ${newDistance} away, ETA ${newDuration}`;
+                        } else if (durationValue > 600) { // More than 10 mins
+                            notificationType = "warning";
+                            message = `Driver is ${newDistance} away, ETA ${newDuration}. This is longer than usual.`;
+                        }
+
+                        showNotification(message, notificationType);
+                    }
+                } else {
+                    // Initial update or no previous data, always show
+                    let notificationType: "info" | "success" | "warning" | "error" = "info";
+                    let message = `Driver is ${newDistance} away, ETA ${newDuration}`;
+                    if (durationValue < 120) {
+                        notificationType = "success";
+                        message = "Driver is very close!";
+                    }
+                    showNotification(message, notificationType);
+                }
+
+                // Update state and refs with new values
+                setDriverDistance(newDistance);
+                setDriverDuration(newDuration);
+                driverDurationRef.current = durationValue; // Store value for comparison
+                driverDistanceRef.current = distanceValue; // Store value for comparison
+
+            } else {
+                console.warn("Directions request failed:", status, result);
+                setDriverDistance("Unknown");
+                setDriverDuration("Unknown");
+                // Optionally show an error notification
+                // showNotification("Could not calculate distance to pickup.", "error");
+            }
+        });
+    }
+
+  }, [screen, driver?.location, pickupCoords, airportPickupArea, isDriverAtPickupArea]); // Dependency array
+
+
+
+
+
 
   // Save app state whenever it changes (only after hydration)
   useEffect(() => {
@@ -1232,6 +1095,11 @@ export default function ACHRAMApp() {
           console.log("Trip data received:", trip);
           console.log("Guest ID received:", extractedGuestId);
 
+           if(trip?.map_data?.airport?.pickup_area){
+              
+              setAirportPickupArea(trip.map_data.airport.pickup_area);
+            }
+
           setVerificationCode(trip.verification_code || "");
           setActiveTripId(trip.id);
           setGuestId(extractedGuestId);
@@ -1296,7 +1164,7 @@ export default function ACHRAMApp() {
     useJsApiLoader({
       id: "google-map-script",
       googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-      libraries: ["places"],
+      libraries: ["places", "geometry"],
     });
 
   if (googleMapsLoadError) {
@@ -1347,6 +1215,12 @@ export default function ACHRAMApp() {
         const messageData: WebSocketMessage = JSON.parse(event.data);
         console.log("Received WebSocket message in page.tsx:", messageData);
         const { event: eventType, data: tripData } = messageData;
+        
+         if(tripData?.map_data?.airport?.pickup_area){
+              
+              setAirportPickupArea(tripData.map_data.airport.pickup_area);
+          }
+
 
         if (
           eventType === "trip:assigned" ||
@@ -1514,6 +1388,12 @@ export default function ACHRAMApp() {
         console.log("Received WebSocket message in page.tsx:", messageData);
         const { event: eventType, data: tripData } = messageData;
 
+
+         if(tripData?.map_data?.airport?.pickup_area){
+              
+              setAirportPickupArea(tripData.map_data.airport.pickup_area);
+          }
+
         if (
           eventType === "trip:assigned" ||
           eventType === "trip:status:update"
@@ -1675,7 +1555,7 @@ export default function ACHRAMApp() {
       console.log(`Polling trip status for ID: ${tripId}`);
 
       let response;
-      if (isAuthenticated && token) {
+      if (!bookAsGuest && isAuthenticated) {
         // Authenticated user - use trip endpoint
         response = await apiClient.get(
           `/trips/${tripId}`,
@@ -1706,6 +1586,24 @@ export default function ACHRAMApp() {
         console.log(
           `Polled trip status: ${trip.status.value}, has driver: !!${trip.driver}`
         );
+
+
+            if(trip?.map_data?.airport?.pickup_area){
+              
+              setAirportPickupArea(trip.map_data.airport.pickup_area);
+            }
+
+            setDriver(trip.driver || null);
+            setPickup(trip.pickup_address || "");
+            
+            console.log("Setting Pickup address: ", pickup,destinationCoords, verificationCode, trip.pickup_address)
+            setDestination(trip.destination_address || "");
+            setFareEstimate(trip.amount?.amount ? parseFloat(trip.amount.amount) : null);
+            setPickupCoords(trip.map_data.pickup_location.geometry.coordinates || null);
+            console.log("Pickup coords", pickupCoords)
+            setDestinationCoords(trip.map_data.destination_location.geometry.coordinates|| null);
+            setVerificationCode(trip.verification_code || null);
+            setTripProgress(trip.progress || 0);
 
         const terminalStates = ["driver not found", "cancelled", "completed"];
 
@@ -1739,7 +1637,7 @@ export default function ACHRAMApp() {
           console.log("✅ Driver assigned via polling. STOPPING POLLING.");
           stopPollingTripStatus();
           //stopWebSocketConnection();
-          setDriver(trip.driver);
+          // setDriver(trip.driver);
           setScreen("driver-assigned");
           return; // ⚠️ CRITICAL: Exit immediately
         }
@@ -2100,6 +1998,7 @@ export default function ACHRAMApp() {
         isGoogleMapsLoaded={isGoogleMapsLoaded}
         googleMapsLoadError={googleMapsLoadError}
         guestId={guestId}
+        airportPickupArea={airportPickupArea}
         
       />
     );
@@ -2260,6 +2159,9 @@ export default function ACHRAMApp() {
               pickupCoords={pickupCoords}
               destination={destination}
               destinationCoords={destinationCoords}
+              driverLocation={driver?.location || null}
+              passengerLocation={passengerLiveLocation}
+              airportPickupArea={airportPickupArea}
               isGoogleMapsLoaded={isGoogleMapsLoaded}
               googleMapsLoadError={googleMapsLoadError}
             />

@@ -64,7 +64,10 @@ export default function PassengerDetailsModal({
           type="checkbox"
           checked={bookAsGuest}
           onChange={(e) => {
-            console.log("bookAsGuest state: ", bookAsGuest)
+            console.log("bookAsGuest old state: ", bookAsGuest)
+            console.log(
+              "bookAsGuest New State: ", e.target.checked
+            )
             setBookAsGuest(e.target.checked)}}
           className="w-5 h-5 text-achrams-primary-solid rounded focus:ring-achrams-primary-solid focus:ring-offset-0"
         />

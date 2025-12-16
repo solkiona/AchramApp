@@ -260,7 +260,7 @@ export default function OTPModal({
   return (
     // Input state modal
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50">
-      <div className="bg-white w-full rounded-t-3xl p-6 animate-slideUp border-t border-achrams-border">
+      <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl p-6 animate-slideUp border-t border-achrams-border">
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-xl font-bold text-achrams-text-primary text-center  mx-auto" >Verify your email</h3>
           <button

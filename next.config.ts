@@ -6,7 +6,9 @@ const nextConfig: NextConfig = {
     domains: [
       'localhost', 
       'app.achrams.com.ng',
-      'api.achrams.com.ng'
+      'api.achrams.com.ng',
+      'ride.achrams.com.ng',
+      'book.achrams.com.ng',
     ],
   },
   typescript: {
