@@ -27,21 +27,21 @@ import Image from "next/image";
 interface DashboardProps {
   onBookNewTrip: () => void;
   passengerData: { name: string; phone: string; email: string };
-  // walletBalance: number; 
-  activeTrip?: { 
-    id: string; 
-    status: string; 
-    driver?: Driver; 
-    destination: string 
-  }; 
+  // walletBalance: number;
+  activeTrip?: {
+    id: string;
+    status: string;
+    driver?: Driver;
+    destination: string;
+  };
   onShowProfile: () => void;
-  onShowTripHistory: () => void; 
-  onShowWallet: () => void; 
-  onShowSettings: () => void; 
+  onShowTripHistory: () => void;
+  onShowWallet: () => void;
+  onShowSettings: () => void;
   onShowActiveTrip: () => void;
   accountData: any;
 }
-export default function DashboardScreen({ 
+export default function DashboardScreen({
   onBookNewTrip,
   passengerData,
   // walletBallance,
@@ -51,9 +51,7 @@ export default function DashboardScreen({
   onShowSettings,
   onShowActiveTrip,
   accountData,
- 
-
- }: DashboardProps) {
+}: DashboardProps) {
   const [weather] = useState({
     temp: 28,
     condition: "sunny",
@@ -65,14 +63,19 @@ export default function DashboardScreen({
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  const firstName = accountData?.first_name || accountData?.name?.split(" ")[0] || "Passenger";
-const initials = accountData?.initials || `${accountData?.first_name?.charAt(0) || ''}${accountData?.last_name?.charAt(0) || ''}`.toUpperCase();
+  const firstName =
+    accountData?.first_name || accountData?.name?.split(" ")[0] || "Passenger";
+  const initials =
+    accountData?.initials ||
+    `${accountData?.first_name?.charAt(0) || ""}${
+      accountData?.last_name?.charAt(0) || ""
+    }`.toUpperCase();
   const profilePhoto = accountData?.profile_photo;
 
-  const walletBalanceFromData = accountData?.profile?.wallet?.balance?.amount ?? 0;
- 
-  const displayWalletBalance = walletBalance ?? walletBalanceFromData; // Prefer the prop if available
+  const walletBalanceFromData =
+    accountData?.profile?.wallet?.balance?.amount ?? 0;
 
+  const displayWalletBalance = walletBalance ?? walletBalanceFromData; // Prefer the prop if available
 
   const recentTrip = {
     id: "recent_1",
@@ -109,7 +112,6 @@ const initials = accountData?.initials || `${accountData?.first_name?.charAt(0) 
                   fill
                   className="w-full h-full rounded-full object-cover"
                 />
-        
               ) : (
                 // Fallback to initials if no photo
                 initials
@@ -154,8 +156,8 @@ const initials = accountData?.initials || `${accountData?.first_name?.charAt(0) 
           </div>
 
           {/* Active Trip Card (Conditional) */}
-          {activeTrip && (
-            <button className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-3xl p-5 mb-5 shadow-sm border border-amber-200 transition-all hover:bg-green-50 active:scale-95 cursor-pointer"
+          {/* {activeTrip && (
+            <button className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-3xl p-5 mb-5 shadow-sm border border-amber-200 transition-all hover:bg-green-50 active:scale-95 cursor-pointer "
             onClick={onShowActiveTrip}
             >
               <div className="flex items-center justify-between mb-4">
@@ -181,6 +183,45 @@ const initials = accountData?.initials || `${accountData?.first_name?.charAt(0) 
                   </p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-400" />
+              </div>
+            </button>
+          )} */}
+
+          {activeTrip && (
+            // ✅ Added `w-full` to ensure it takes full width of its container (with padding from parent `px-6`)
+            // ✅ Removed fixed width/height that might cause stretching if content is less
+            <button
+              className="w-full bg-gradient-to-r from-amber-50 to-orange-50 rounded-3xl p-5 mb-5 shadow-sm border border-amber-200 transition-all hover:bg-green-50 active:scale-95 cursor-pointer"
+              onClick={onShowActiveTrip}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-amber-600" />
+                  <h3 className="font-bold text-gray-900">Active Trip</h3>
+                </div>
+                <span className="text-xs bg-amber-100 text-amber-800 px-3 py-1.5 rounded-full font-semibold">
+                  {activeTrip.status}
+                </span>
+              </div>
+              <div className="flex items-center gap-4">
+                {/*  Kept fixed size for the avatar circle */}
+                <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-md">
+                  {activeTrip.driver?.name?.charAt(0) || "D"}
+                </div>
+                {/*  Added `min-w-0` and `flex-1` to allow flexible shrinking of the middle content */}
+                <div className="flex-1 min-w-0">
+                  {/*  Added `truncate` to handle potentially long driver names */}
+                  <p className="text-sm font-semibold text-gray-900 truncate">
+                    {activeTrip.driver?.name || "Driver Assigned"}
+                  </p>
+
+                  <p className="text-xs text-gray-600 truncate flex items-center gap-1 mt-0.5 min-w-0">
+                    <MapPin className="w-3 h-3 flex-shrink-0" />
+                    {activeTrip.destination}
+                  </p>
+                </div>
+
+                <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
               </div>
             </button>
           )}

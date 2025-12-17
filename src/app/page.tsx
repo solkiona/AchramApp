@@ -318,7 +318,9 @@ export default function ACHRAMApp() {
             ? "In Progress"
             : screen === "driver-assigned"
             ? "Driver Assigned"
-            : "Unknown",
+            : screen === "assigning"
+            ? "Assigning"
+            : "Active",
         driver: driver,
         destination: destination,
       };
