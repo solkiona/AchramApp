@@ -28,6 +28,8 @@ interface TripProgressScreenProps {
   isGoogleMapsLoaded: boolean;
   googleMapsLoadError?: any;
   airportPickupArea?: any;
+  screenPaddingClass: string;
+  isAuthenticated: boolean;
 }
 
 // Clean map styles - subtle enhancement
@@ -70,6 +72,8 @@ export default function TripProgressScreen({
   isGoogleMapsLoaded,
   googleMapsLoadError,
   airportPickupArea,
+  screenPaddingClass,
+  isAuthenticated,
 }: TripProgressScreenProps) {
   const driverLocation = driver?.location || null;
   const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
@@ -172,7 +176,7 @@ export default function TripProgressScreen({
   }
 
   return (
-    <div className="h-screen bg-achrams-bg-primary flex flex-col">
+    <div className="flex-1 bg-achrams-bg-primary flex flex-col">
       {driver && (
         <>
           {/* Header with brand colors - subtle enhancement */}
@@ -374,7 +378,7 @@ export default function TripProgressScreen({
           </div>
 
           {/* Driver Info Card - Enhanced with subtle touches */}
-          <div className="bg-achrams-bg-primary px-6 py-5 border-t border-achrams-border shadow-lg">
+          <div className={`bg-achrams-bg-primary px-6 py-5 border-t border-achrams-border shadow-lg ${isAuthenticated ? 'mb-10': ''}`}>
             <div className="flex items-center gap-4">
               <div className="relative">
                 <div className="w-16 h-16 bg-gradient-to-br from-achrams-primary-solid to-achrams-secondary-solid rounded-2xl flex items-center justify-center text-achrams-text-light text-xl font-bold shadow-md ring-4 ring-achrams-primary-solid/10">

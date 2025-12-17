@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import BookingScreen from "@/components/app/screens/BookingScreen";
 import AssigningScreen from "@/components/app/screens/AssigningScreen";
@@ -37,6 +37,8 @@ import BottomNavBar from "@/components/app/ui/BottomNavBar";
 import { findNearestAirport, KNOWN_AIRPORTS } from "@/lib/airports";
 import ReconnectingWebSocket from "reconnecting-websocket";
 import { useJsApiLoader } from "@react-google-maps/api";
+import TripHistoryModal from "@/components/app/modals/TripHistoryModal";
+import TripDetailsModal from "@/components/app/modals/TripDetailModal";
 
 type TripStatusValue =
   | "searching"
@@ -127,6 +129,7 @@ export default function ACHRAMApp() {
   const { token, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [hasHydrated, setHasHydrated] = useState(false);
   const [screen, setScreen] = useState<ScreenState | null>(null);
+  const [accountData, setAccountData] = useState<any>(null);
   const [pickup, setPickup] = useState<string>("");
   const [destination, setDestination] = useState<string>("");
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
@@ -174,6 +177,8 @@ export default function ACHRAMApp() {
     pollingIntervalRef.current = pollingIntervalId;
   }, [pollingIntervalId]);
 
+  const screenPaddingClass = isAuthenticated ? "pb-24" : "pb-20";
+
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [is2FAEnabled, setIs2FAEnabled] = useState<boolean>(false);
   const [showPassengerDetails, setShowPassengerDetails] = useState(false);
@@ -211,13 +216,18 @@ export default function ACHRAMApp() {
   } | null>(null);
   const [pickupId, setPickupId] = useState<string | null>(null);
 
-  const [passengerLiveLocation, setPassengerLiveLocation] = useState<[number, number] | null>(null);
-
+  const [passengerLiveLocation, setPassengerLiveLocation] = useState<
+    [number, number] | null
+  >(null);
 
   const [airportPickupArea, setAirportPickupArea] = useState<any>(null);
 
+  const [previousScreen, setPreviousScreen] = useState<ScreenState | null>(
+    null
+  );
 
-
+  // NEW: Add a flag to indicate we are navigating to dashboard with an active trip
+  const [isNavigatingToDashboard, setIsNavigatingToDashboard] = useState(false);
 
   // New state for initialization status
   const [initComplete, setInitComplete] = useState(false);
@@ -243,9 +253,12 @@ export default function ACHRAMApp() {
     setVerificationCode(null);
     setTripProgress(0);
     setFareEstimate(null);
+    setDestination("");
 
     if (typeof window !== "undefined" && window.sessionStorage) {
       const currentState = loadAppState();
+      sessionStorage.removeItem("tripData");
+
       if (currentState) {
         saveAppState({
           ...currentState,
@@ -262,288 +275,380 @@ export default function ACHRAMApp() {
     setScreen("booking"); // ✅ Show booking screen
   };
 
+  useEffect(() => {
+    if (screen !== "driver-assigned" && screen !== "trip-progress") return;
 
-useEffect(() => {
-  if ((screen !== 'driver-assigned') && (screen !== 'trip-progress')) return;
+    let watchId: number;
 
-  let watchId: number;
+    const startWatchingLocation = () => {
+      if (navigator.geolocation) {
+        watchId = navigator.geolocation.watchPosition(
+          (position) => {
+            const { longitude, latitude } = position.coords;
+            setPassengerLiveLocation([longitude, latitude]);
+            console.log("Passenger location updated:", [longitude, latitude]);
+          },
+          (error) => {
+            console.error("Error watching passenger location:", error);
+          },
+          {
+            enableHighAccuracy: true,
+            maximumAge: 5000,
+            timeout: 10000,
+          }
+        );
+      }
+    };
 
-  const startWatchingLocation = () => {
-    if (navigator.geolocation) {
-      watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const { longitude, latitude } = position.coords;
-          setPassengerLiveLocation([longitude, latitude]);
-          console.log('Passenger location updated:', [longitude, latitude]);
-        },
-        (error) => {
-          console.error('Error watching passenger location:', error);
-        },
-        {
-          enableHighAccuracy: true,
-          maximumAge: 5000,
-          timeout: 10000,
-        }
-      );
+    startWatchingLocation();
+
+    return () => {
+      if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [screen]);
+
+  const activeTripForDashboard = useMemo(() => {
+    if (activeTripId && driver) {
+      return {
+        id: activeTripId,
+        status:
+          screen === "trip-progress"
+            ? "In Progress"
+            : screen === "driver-assigned"
+            ? "Driver Assigned"
+            : "Unknown",
+        driver: driver,
+        destination: destination,
+      };
     }
-  };
 
-  startWatchingLocation();
-
-  return () => {
-    if (watchId) {
-      navigator.geolocation.clearWatch(watchId);
-    }
-  };
-}, [screen]);
-
-
-
-
-
-
+    return null;
+  }, [activeTripId, driver, screen, destination]);
 
   const initializeAppState = useCallback(async () => {
-  if (!hasHydrated || isAuthLoading) {
-    console.log("initializeAppState: Waiting for hydration or auth loading to complete.");
-    return;
-  }
-
-  console.log("Initializing app state after hydration and auth check...");
-
-  // Load persisted state (includes screen, trip data, guestId, activeTripId, bookAsGuest flag)
-  const savedState = loadAppState();
-
-  // Load persisted trip data (pickup, destination, passenger details, requirements)
-  const savedTripDataStr = sessionStorage.getItem("tripData");
-  let savedTripData = null;
-  if (savedTripDataStr) {
-    try {
-      savedTripData = JSON.parse(savedTripDataStr);
-      console.log("Restored tripData from sessionStorage:", savedTripData);
-    } catch (e) {
-      console.error("Failed to parse tripData from sessionStorage:", e);
-      // Optionally clear corrupted data
-      sessionStorage.removeItem("tripData");
+    if (!hasHydrated || isAuthLoading) {
+      console.log(
+        "initializeAppState: Waiting for hydration or auth loading to complete."
+      );
+      return;
     }
-  }
 
-  // --- Restore State from savedTripData (if available) ---
-  if (savedTripData) {
-    setPickup(savedTripData.pickup_address || "");
-    setDestination(savedTripData.destination_address || "");
-    setFareEstimate(parseFloat(savedTripData.amount?.amount) || null);
-    setPickupCoords(savedTripData.pickup_location || null);
-    setDestinationCoords(savedTripData.destination_location || null);
-    setRequirements({
-      luggage: savedTripData.has_extra_luggage || false,
-      wheelchair: savedTripData.has_wheel_chair_access || false,
-      elderly: savedTripData.has_extra_leg_room || false,
-    });
-    // Only restore passenger data if it's present in the saved data (relevant for guest/booking-as-guest)
-    if (savedTripData.guest_name || savedTripData.guest_email || savedTripData.guest_phone) {
-      setPassengerData({
-        name: savedTripData.guest_name || passengerData.name, // Fallback to existing state
-        phone: savedTripData.guest_phone || passengerData.phone,
-        email: savedTripData.guest_email || passengerData.email,
+    console.log("Initializing app state after hydration and auth check...");
+
+    // Load persisted state (includes screen, trip data, guestId, activeTripId, bookAsGuest flag)
+    const savedState = loadAppState();
+
+    // Load persisted trip data (pickup, destination, passenger details, requirements)
+    const savedTripDataStr = sessionStorage.getItem("tripData");
+    let savedTripData = null;
+    if (savedTripDataStr) {
+      try {
+        savedTripData = JSON.parse(savedTripDataStr);
+        console.log("Restored tripData from sessionStorage:", savedTripData);
+      } catch (e) {
+        console.error("Failed to parse tripData from sessionStorage:", e);
+        // Optionally clear corrupted data
+        sessionStorage.removeItem("tripData");
+      }
+    }
+
+    // --- Restore State from savedTripData (if available) ---
+    if (savedTripData) {
+      setPickup(savedTripData.pickup_address || "");
+      setDestination(savedTripData.destination_address || "");
+      setFareEstimate(parseFloat(savedTripData.amount?.amount) || null);
+      setPickupCoords(savedTripData.pickup_location || null);
+      setDestinationCoords(savedTripData.destination_location || null);
+      setRequirements({
+        luggage: savedTripData.has_extra_luggage || false,
+        wheelchair: savedTripData.has_wheel_chair_access || false,
+        elderly: savedTripData.has_extra_leg_room || false,
       });
+      // Only restore passenger data if it's present in the saved data (relevant for guest/booking-as-guest)
+      if (
+        savedTripData.guest_name ||
+        savedTripData.guest_email ||
+        savedTripData.guest_phone
+      ) {
+        setPassengerData({
+          name: savedTripData.guest_name || passengerData.name, // Fallback to existing state
+          phone: savedTripData.guest_phone || passengerData.phone,
+          email: savedTripData.guest_email || passengerData.email,
+        });
+      }
     }
-  }
 
-  // --- Determine Booking Mode and Restore Session --- 
-  if (savedState) {
-    // Restore the booking mode flag from the saved state
-    setBookAsGuest(savedState.bookAsGuest || false);
+    // --- Determine Booking Mode and Restore Session ---
+    if (savedState) {
+      // Restore the booking mode flag from the saved state
+      setBookAsGuest(savedState.bookAsGuest || false);
 
-    // Scenario 1: Authenticated User with Active Trip
-    if (isAuthenticated) {
-      console.log("User is authenticated, checking for stored active trip ID...");
-      if (savedState.activeTripId) {
-        console.log("Found stored active trip ID for authenticated user:", savedState.activeTripId);
-        setActiveTripId(savedState.activeTripId);
+      // Scenario 1: Authenticated User with Active Trip
+      if (isAuthenticated) {
+        console.log(
+          "User is authenticated, checking for stored active trip ID..."
+        );
+        if (savedState.activeTripId) {
+          console.log(
+            "Found stored active trip ID for authenticated user:",
+            savedState.activeTripId
+          );
+          setActiveTripId(savedState.activeTripId);
 
-        setDriver(savedState.driver);
-        console.log("Driver object", driver)
+          setDriver(savedState.driver);
+          console.log("Driver object", driver);
 
-        try {
-          // Determine the correct API call based on the saved booking mode (bookAsGuest flag)
-          let response;
-          if (savedState.bookAsGuest) {
-            console.log("Initializing as authenticated user who booked as guest. Fetching trip via guest endpoint with guestId:", savedState.guestId);
+          try {
+            // Determine the correct API call based on the saved booking mode (bookAsGuest flag)
+            let response;
+            if (savedState.bookAsGuest) {
+              console.log(
+                "Initializing as authenticated user who booked as guest. Fetching trip via guest endpoint with guestId:",
+                savedState.guestId
+              );
 
-            setGuestId(savedState.guestId || null);
+              setGuestId(savedState.guestId || null);
 
-             // Ensure guest ID is cleared for authenticated users (unless they booked as guest)
-            if (!savedState.guestId) {
-              throw new Error("bookAsGuest is true but guestId is missing from saved state.");
+              // Ensure guest ID is cleared for authenticated users (unless they booked as guest)
+              if (!savedState.guestId) {
+                throw new Error(
+                  "bookAsGuest is true but guestId is missing from saved state."
+                );
+              }
+              // Use guest endpoint with guestId, but isGuest=true flag
+              response = await apiClient.get(
+                `/trips/${savedState.guestId}`, // Use guestId to identify the trip session
+                undefined, // token (not directly used for guest calls, cookie handles auth if needed, but guestId takes precedence here)
+                true, // isGuest = true (CRITICAL: Uses X-Guest-Id header)
+                savedState.guestId // guestId (CRITICAL: Passed as the guest identifier)
+              );
+            } else {
+              setGuestId(null);
+
+              console.log(
+                "Initializing as authenticated user who booked normally. Fetching trip via auth endpoint with tripId:",
+                savedState.activeTripId
+              );
+              // Use authenticated endpoint with tripId, isAuthRequest=true flag
+              response = await apiClient.get(
+                `/trips/${savedState.activeTripId}`, // Use the specific tripId
+                undefined, // token (not directly needed, cookie handles auth)
+                false, // isGuest = false
+                undefined, // guestId (not needed for auth)
+                true // isAuthRequest = true (CRITICAL: enables cookie)
+              );
             }
-            // Use guest endpoint with guestId, but isGuest=true flag
-            response = await apiClient.get(
-              `/trips/${savedState.guestId}`, // Use guestId to identify the trip session
-              undefined, // token (not directly used for guest calls, cookie handles auth if needed, but guestId takes precedence here)
-              true,      // isGuest = true (CRITICAL: Uses X-Guest-Id header)
-              savedState.guestId // guestId (CRITICAL: Passed as the guest identifier)
-            );
-          } else {
 
-            setGuestId(null)
+            if (response.status === "success" && response.data) {
+              const trip = response.data;
+              console.log(
+                "Fetched trip status for user (booked as guest?",
+                !!savedState.bookAsGuest,
+                "):",
+                trip
+              );
 
-            console.log("Initializing as authenticated user who booked normally. Fetching trip via auth endpoint with tripId:", savedState.activeTripId);
-            // Use authenticated endpoint with tripId, isAuthRequest=true flag
-            response = await apiClient.get(
-              `/trips/${savedState.activeTripId}`, // Use the specific tripId
-              undefined,      // token (not directly needed, cookie handles auth)
-              false,          // isGuest = false
-              undefined,      // guestId (not needed for auth)
-              true            // isAuthRequest = true (CRITICAL: enables cookie)
-            );
-          }
-
-          if (response.status === "success" && response.data) {
-
-
-            const trip = response.data;
-            console.log("Fetched trip status for user (booked as guest?", !!savedState.bookAsGuest, "):", trip);
-            
-            if(trip?.map_data?.airport?.pickup_area){
-              
-              setAirportPickupArea(trip.map_data.airport.pickup_area);
-            }
-          
-            // Set up trip state based on fetched data (common for both modes)
-            setDriver(trip.driver || null);
-            setPickup(trip.pickup_address || "");
-            
-            console.log("Setting Pickup address: ", pickup,destinationCoords, verificationCode, trip.pickup_address)
-            setDestination(trip.destination_address || "");
-            setFareEstimate(trip.amount?.amount ? parseFloat(trip.amount.amount) : null);
-            setPickupCoords(trip.map_data.pickup_location.geometry.coordinates || null);
-            console.log("Pickup coords", pickupCoords)
-            setDestinationCoords(trip.map_data.destination_location.geometry.coordinates|| null);
-            setVerificationCode(trip.verification_code || null);
-            setTripProgress(trip.progress || 0);
-
-            // Determine screen based on fetched trip status (common logic)
-
-
-             if (savedState.bookAsGuest && savedState.guestId && savedState.activeTripId) {
-                 console.log("Resuming WebSocket for authenticated user who booked as guest.");
-                 startWebSocketConnection(savedState.guestId, savedState.activeTripId); // Use guest connection logic
-              } else if (savedState.activeTripId) { // For normal auth booking
-                 console.log("Resuming WebSocket for authenticated user who booked normally.");
-                 startWebSocketConnectionForAuthUser(savedState.activeTripId); // Use auth connection logic
+              if (trip?.map_data?.airport?.pickup_area) {
+                setAirportPickupArea(trip.map_data.airport.pickup_area);
               }
 
-            if (["searching"].includes(trip.status.value)) {
-              setScreen("assigning");
-              // Start WebSocket based on the booking mode stored in savedState
-             
-            }  else if (trip.status.value === "accepted"){
-              console.log("Resuming WebSocket for authenticated user who booked normally.");
-              // startWebSocketConnectionForAuthUser(savedState.activeTripId);
-              setScreen("driver-assigned");
-            }
-            else if (trip.status.value === "driver not found"){
-              console.log('Setting screen to assigning due to driver not found.');
+              // Set up trip state based on fetched data (common for both modes)
+              setDriver(trip.driver || null);
+              setPickup(trip.pickup_address || "");
+
+              console.log(
+                "Setting Pickup address: ",
+                pickup,
+                destinationCoords,
+                verificationCode,
+                trip.pickup_address
+              );
+              setDestination(trip.destination_address || "");
+              setFareEstimate(
+                trip.amount?.amount ? parseFloat(trip.amount.amount) : null
+              );
+              setPickupCoords(
+                trip.map_data.pickup_location.geometry.coordinates || null
+              );
+              console.log("Pickup coords", pickupCoords);
+              setDestinationCoords(
+                trip.map_data.destination_location.geometry.coordinates || null
+              );
+              setVerificationCode(trip.verification_code || null);
+              setTripProgress(trip.progress || 0);
+
+              // Determine screen based on fetched trip status (common logic)
+
+              if (
+                savedState.bookAsGuest &&
+                savedState.guestId &&
+                savedState.activeTripId
+              ) {
+                console.log(
+                  "Resuming WebSocket for authenticated user who booked as guest."
+                );
+                startWebSocketConnection(
+                  savedState.guestId,
+                  savedState.activeTripId
+                ); // Use guest connection logic
+              } else if (savedState.activeTripId) {
+                // For normal auth booking
+                console.log(
+                  "Resuming WebSocket for authenticated user who booked normally."
+                );
+                startWebSocketConnectionForAuthUser(savedState.activeTripId); // Use auth connection logic
+              }
+
+              if (["searching"].includes(trip.status.value)) {
+                setScreen("assigning");
+                // Start WebSocket based on the booking mode stored in savedState
+              } else if (trip.status.value === "accepted") {
+                console.log(
+                  "Resuming WebSocket for authenticated user who booked normally."
+                );
+                // startWebSocketConnectionForAuthUser(savedState.activeTripId);
+                setScreen("driver-assigned");
+              } else if (trip.status.value === "driver not found") {
+                console.log(
+                  "Setting screen to assigning due to driver not found."
+                );
                 setScreen("assigning"); // Or maybe "booking"? Depends on UX
                 stopWebSocketConnection();
                 stopPollingTripStatus();
                 setTripRequestStatus("no-driver");
                 setTripRequestError(`No drivers available for your trip.`);
-            }
-            else if (trip.status.value === "active") {
-              // console.log("Resuming WebSocket for authenticated user who booked normally.");
-              // startWebSocketConnectionForAuthUser(savedState.activeTripId);
-              setScreen("trip-progress");
-            } else if (trip.status.value === "completed") {
-              setScreen("trip-complete");
-            } else if (trip.status.value === "cancelled") {
-              console.log("Stored trip was cancelled, clearing ID and going to dashboard.");
-              setActiveTripId(null);
-              if (typeof window !== "undefined" && window.sessionStorage) {
+              } else if (trip.status.value === "active") {
+                // console.log("Resuming WebSocket for authenticated user who booked normally.");
+                // startWebSocketConnectionForAuthUser(savedState.activeTripId);
+                setScreen("trip-progress");
+              } else if (trip.status.value === "completed") {
+                setScreen("trip-complete");
+              } else if (trip.status.value === "cancelled") {
+                console.log(
+                  "Stored trip was cancelled, clearing ID and going to dashboard."
+                );
+
+                setActiveTripId(null);
+                preserveBookingContext();
+
+                if (typeof window !== "undefined" && window.sessionStorage) {
                   // Clear trip-specific data
                   sessionStorage.removeItem("tripData");
                   // Optionally clear general app state if trip completion means session end
                   // saveAppState({ ...savedState, activeTripId: null, guestId: null, screen: "dashboard" });
+                }
+                setScreen("dashboard");
+              } else {
+                console.warn(
+                  "Unexpected trip status for user (booked as guest?",
+                  !!savedState.bookAsGuest,
+                  "):",
+                  trip.status
+                );
+                setScreen("dashboard"); // Default fallback
               }
-              setScreen("dashboard");
             } else {
-              console.warn("Unexpected trip status for user (booked as guest?", !!savedState.bookAsGuest, "):", trip.status);
-              setScreen("dashboard"); // Default fallback
+              console.error(
+                "Error or trip not found when fetching user's trip (booked as guest?",
+                !!savedState.bookAsGuest,
+                "):",
+                response
+              );
+              // Clear the stored trip ID as it's no longer valid
+              setActiveTripId(null);
+              sessionStorage.removeItem("tripData");
+              setScreen("dashboard");
             }
-          } else {
-            console.error("Error or trip not found when fetching user's trip (booked as guest?", !!savedState.bookAsGuest, "):", response);
-            // Clear the stored trip ID as it's no longer valid
+          } catch (error) {
+            console.error(
+              "Error fetching user's trip status (booked as guest?",
+              !!savedState.bookAsGuest,
+              "):",
+              error
+            );
             setActiveTripId(null);
             sessionStorage.removeItem("tripData");
             setScreen("dashboard");
           }
-        } catch (error) {
-          console.error("Error fetching user's trip status (booked as guest?", !!savedState.bookAsGuest, "):", error);
-          setActiveTripId(null);
-          sessionStorage.removeItem("tripData");
+        } else {
+          // No stored active trip ID for authenticated user, go to dashboard
+          console.log(
+            "No stored active trip ID for authenticated user, going to dashboard..."
+          );
           setScreen("dashboard");
         }
       } else {
-        // No stored active trip ID for authenticated user, go to dashboard
-        console.log("No stored active trip ID for authenticated user, going to dashboard...");
-        setScreen("dashboard");
-      }
-     
+        // Scenario 2 & 3: Guest User (including authenticated user who booked as guest)
+        console.log(
+          "User is not authenticated OR was booking as guest, restoring guest session..."
+        );
+        console.log("Guest ID from session:", savedState.guestId);
 
-    } else { // Scenario 2 & 3: Guest User (including authenticated user who booked as guest)
-      console.log("User is not authenticated OR was booking as guest, restoring guest session...");
-      console.log('Guest ID from session:', savedState.guestId);
-
-      // Check if the guest has an active trip in progress using guestId endpoint
-      if (savedState.guestId) {
-        console.log("Attempting to verify guest trip status for guest ID:", savedState.guestId);
-        setDriver(savedState.driver);
-
-
-        try {
-          // Use the guest-specific endpoint: /trips/{guestId}
-          const response = await apiClient.get(
-            `/trips/${savedState.guestId}`, // Use guestId for guest status check
-            undefined, // token (not needed for guest flow)
-            true,      // isGuest = true (CRITICAL: Uses X-Guest-Id header)
-            savedState.guestId // guestId (CRITICAL: Passed as the guest identifier)
+        // Check if the guest has an active trip in progress using guestId endpoint
+        if (savedState.guestId) {
+          console.log(
+            "Attempting to verify guest trip status for guest ID:",
+            savedState.guestId
           );
+          setDriver(savedState.driver);
 
-          if (response.status === "success" && response.data) {
-            const trip = response.data;
-            console.log('Guest trip status fetch was successful: ', response.data);
+          try {
+            // Use the guest-specific endpoint: /trips/{guestId}
+            const response = await apiClient.get(
+              `/trips/${savedState.guestId}`, // Use guestId for guest status check
+              undefined, // token (not needed for guest flow)
+              true, // isGuest = true (CRITICAL: Uses X-Guest-Id header)
+              savedState.guestId // guestId (CRITICAL: Passed as the guest identifier)
+            );
 
-            // Update activeTripId from the fetched trip data (in case it changed or was set during booking)
+            if (response.status === "success" && response.data) {
+              const trip = response.data;
+              console.log(
+                "Guest trip status fetch was successful: ",
+                response.data
+              );
 
+              // Update activeTripId from the fetched trip data (in case it changed or was set during booking)
 
-             if(trip?.map_data?.airport?.pickup_area){
-              
-              setAirportPickupArea(trip.map_data.airport.pickup_area);
-            }
+              if (trip?.map_data?.airport?.pickup_area) {
+                setAirportPickupArea(trip.map_data.airport.pickup_area);
+              }
 
-            setActiveTripId(trip.id);
-            // Ensure guestId is set from the saved state
-            setGuestId(savedState.guestId);
+              setActiveTripId(trip.id);
+              // Ensure guestId is set from the saved state
+              setGuestId(savedState.guestId);
 
-            // Set up trip state based on fetched data (common for guest modes)
-            setDriver(trip.driver || null);
-            setPickup(trip.pickup_address || "");
-            setDestination(trip.destination_address || "");
-            setFareEstimate(trip.amount?.amount ? parseFloat(trip.amount.amount) : null);
-            console.log('setting pickupcoords from refresh request', trip.pickup_location)
-            setPickupCoords(trip.map_data.pickup_location.geometry.coordinates || null);
-            console.log("Pickup coords", pickupCoords)
-            setDestinationCoords(trip.map_data.destination_location.geometry.coordinates|| null);
-            setVerificationCode(trip.verification_code || null);
-            setTripProgress(trip.progress || 0);
+              // Set up trip state based on fetched data (common for guest modes)
+              setDriver(trip.driver || null);
+              setPickup(trip.pickup_address || "");
+              setDestination(trip.destination_address || "");
+              setFareEstimate(
+                trip.amount?.amount ? parseFloat(trip.amount.amount) : null
+              );
+              console.log(
+                "setting pickupcoords from refresh request",
+                trip.pickup_location
+              );
+              setPickupCoords(
+                trip.map_data.pickup_location.geometry.coordinates || null
+              );
+              console.log("Pickup coords", pickupCoords);
+              setDestinationCoords(
+                trip.map_data.destination_location.geometry.coordinates || null
+              );
+              setVerificationCode(trip.verification_code || null);
+              setTripProgress(trip.progress || 0);
 
-            // Determine screen based on fetched trip status (common logic for guest modes)
-             if (trip.status.value === "searching") {
+              // Determine screen based on fetched trip status (common logic for guest modes)
+              if (trip.status.value === "searching") {
                 setScreen("assigning");
                 startWebSocketConnection(savedState.guestId, trip.id); // Start guest WebSocket
               } else if (trip.status.value === "driver not found") {
-                console.log('Setting screen to assigning due to driver not found.');
+                console.log(
+                  "Setting screen to assigning due to driver not found."
+                );
                 setScreen("assigning"); // Or maybe "booking"? Depends on UX
                 stopWebSocketConnection();
                 stopPollingTripStatus();
@@ -551,7 +656,9 @@ useEffect(() => {
                 setTripRequestError(`No drivers available for your trip.`);
                 // Consider preserving booking context if needed
                 // preserveBookingContext();
-              } else if (["accepted", "driver_assigned"].includes(trip.status.value)) {
+              } else if (
+                ["accepted", "driver_assigned"].includes(trip.status.value)
+              ) {
                 setScreen("driver-assigned");
                 startWebSocketConnection(savedState.guestId, trip.id); // Start guest WebSocket
               } else if (trip.status.value === "active") {
@@ -565,45 +672,48 @@ useEffect(() => {
                 preserveBookingContext(); // This function should clear trip IDs and guest ID
               } else {
                 // Unknown status, go to dashboard
-                console.log("Setting screen to dashboard due to unknown trip status.");
+                console.log(
+                  "Setting screen to dashboard due to unknown trip status."
+                );
                 setScreen("dashboard");
               }
-          } else {
-            // Trip not found or error for guest
-            console.log("Trip not found or error for guest ID, going to booking. Response:", response);
+            } else {
+              // Trip not found or error for guest
+              console.log(
+                "Trip not found or error for guest ID, going to booking. Response:",
+                response
+              );
+              setScreen("booking");
+              preserveBookingContext(); // Clear trip IDs and guest ID
+            }
+          } catch (error) {
+            console.error("Error verifying guest trip status:", error);
             setScreen("booking");
             preserveBookingContext(); // Clear trip IDs and guest ID
           }
-        } catch (error) {
-          console.error("Error verifying guest trip status:", error);
+        } else {
+          // No active trip ID or guest ID in storage for guest mode
+          console.log("No stored guest trip data, going to booking");
           setScreen("booking");
-          preserveBookingContext(); // Clear trip IDs and guest ID
         }
+      }
+    } else {
+      // Scenario 4: No saved state at all
+      // No saved state, go to booking or dashboard based on auth status
+      console.log("No saved state found.");
+      if (isAuthenticated) {
+        console.log("user is authenticated, so let us take him to dashboard");
+        setScreen("dashboard");
       } else {
-        // No active trip ID or guest ID in storage for guest mode
-        console.log("No stored guest trip data, going to booking");
         setScreen("booking");
       }
+      // Reset bookAsGuest flag if there's no saved state indicating it was set
+      setBookAsGuest(false);
     }
-  } else { // Scenario 4: No saved state at all
-    // No saved state, go to booking or dashboard based on auth status
-    console.log("No saved state found.");
-    if (isAuthenticated) {
-      console.log("user is authenticated, so let us take him to dashboard")
-      setScreen("dashboard");
-    } else {
-      setScreen("booking");
-    }
-    // Reset bookAsGuest flag if there's no saved state indicating it was set
-    setBookAsGuest(false);
-  }
 
-  // Mark initialization as complete
-  setInitComplete(true);
-
-}, [hasHydrated, isAuthLoading, isAuthenticated, token]); // Dependency array
-
-  
+    // Mark initialization as complete
+    setInitComplete(true);
+  }, [hasHydrated, isAuthLoading, isAuthenticated, token]); // Dependency array
 
   // Initialize app state after hydration AND auth loading is complete
   useEffect(() => {
@@ -611,8 +721,6 @@ useEffect(() => {
     // It will call initializeAppState which checks both flags internally
     initializeAppState();
   }, [initializeAppState]); // Depend only on the function itself
-
- 
 
   // Hydration effect
   useEffect(() => {
@@ -623,32 +731,82 @@ useEffect(() => {
 
   // Fetch user profile when authenticated
   useEffect(() => {
-    if (hasHydrated && token) {
-      const fetchUserProfile = async () => {
+    if (hasHydrated && isAuthenticated) {
+      const fetchAccountData = async () => {
         try {
-          setTimeout(() => {
-            setWalletBalance(5000);
+          console.log("Fetching account data from /auth/passenger/me...");
+          // Use your existing apiClient, ensuring it's configured for authenticated requests
+          const response = await apiClient.get(
+            "/auth/passenger/me",
+            undefined,
+            false,
+            undefined,
+            true
+          );
+
+          console.log("Account data API response:", response); // Debug log
+
+          if (response.status === "success" && response.data) {
+            setAccountData(response.data); // Store the entire data object
+
+            // Derive and set the wallet balance and 2FA status from the response
+            const balanceAmount =
+              response.data.profile?.wallet?.balance?.amount ?? 0;
+            setWalletBalance(balanceAmount);
+
+            const is2FAEnabled = response.data.is_2fa_enabled ?? false;
+            setIs2FAEnabled(is2FAEnabled);
+
+            console.log("Account data fetched and state updated:", {
+              balance: balanceAmount,
+              is2FA: is2FAEnabled,
+              // name: response.data.name
+            });
+          } else {
+            console.error(
+              "API response for account data was not successful:",
+              response
+            );
+            // Optionally set default values or handle error state
+            setWalletBalance(0);
             setIs2FAEnabled(false);
-          }, 500);
+            setCurrentNotification({
+              message: response.message || "Failed to load profile data.",
+              type: "error",
+            });
+            // Potentially logout or navigate to an error state
+          }
         } catch (err) {
-          console.error("Failed to fetch user profile:", err);
+          console.error("Failed to fetch user account data:", err);
+          // Handle error, maybe show notification, potentially logout
+          setWalletBalance(0);
+          setIs2FAEnabled(false);
           setCurrentNotification({
-            message: "Failed to load profile data.",
+            message:
+              "Failed to load profile data. Please check your connection.",
             type: "error",
           });
-          setTimeout(() => setCurrentNotification(null), 5000);
+          // Optionally logout or navigate to an error state
+          // Example: preserveBookingContext(); window.location.href = "/auth/login";
         }
       };
-      fetchUserProfile();
+
+      fetchAccountData();
+    } else if (hasHydrated && !isAuthenticated) {
+      // If user is no longer authenticated, clear the account data
+      console.log("User is not authenticated, clearing account data.");
+      setAccountData(null);
+      setWalletBalance(0);
+      setIs2FAEnabled(false);
     }
-  }, [hasHydrated, token]);
+  }, [hasHydrated, isAuthenticated]);
 
   // Handle trip completion
   useEffect(() => {
     if (screen === "trip-complete") {
       if (isAuthenticated) {
         // Authenticated user completes trip
-        console.log("user is authenticated no need to prompt signup")
+        console.log("user is authenticated no need to prompt signup");
       } else {
         const timer = setTimeout(() => {
           setShowSignup(true);
@@ -682,24 +840,30 @@ useEffect(() => {
 
   const [driverDistance, setDriverDistance] = useState<string | null>(null);
   const [driverDuration, setDriverDuration] = useState<string | null>(null);
-  const [isDriverAtPickupArea, setIsDriverAtPickupArea] = useState<boolean>(false);
-  const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null);
+  const [isDriverAtPickupArea, setIsDriverAtPickupArea] =
+    useState<boolean>(false);
+  const directionsServiceRef = useRef<google.maps.DirectionsService | null>(
+    null
+  );
 
   const driverDurationRef = useRef<number | null>(null);
   const driverDistanceRef = useRef<number | null>(null);
   // NEW: Ref to track if driver has arrived (to show notification only once)
   const isDriverAtPickupAreaRef = useRef<boolean>(false);
 
-  
-
   useEffect(() => {
     // Only run if screen is driver-assigned, driver location is available, and pickup is known
-    if (screen !== "driver-assigned" || !driver?.location || !pickupCoords || !window.google?.maps) {
-        // Reset state if conditions are not met
-        setDriverDistance(null);
-        setDriverDuration(null);
-        setIsDriverAtPickupArea(false);
-        return;
+    if (
+      screen !== "driver-assigned" ||
+      !driver?.location ||
+      !pickupCoords ||
+      !window.google?.maps
+    ) {
+      // Reset state if conditions are not met
+      setDriverDistance(null);
+      setDriverDuration(null);
+      setIsDriverAtPickupArea(false);
+      return;
     }
 
     const [driverLng, driverLat] = driver.location; // [lng, lat] from WebSocket
@@ -707,120 +871,146 @@ useEffect(() => {
 
     // Check if driver is within the pickup area polygon
     if (airportPickupArea?.geometry?.coordinates) {
-        const polygonCoords = airportPickupArea.geometry.coordinates[0]; // Assuming simple polygon
-        const polygon = new google.maps.Polygon({ paths: polygonCoords.map((coord: number[]) => ({ lat: coord[1], lng: coord[0] })) });
-        const driverLatLng = new google.maps.LatLng(driverLat, driverLng); // [lat, lng] for Google Maps
-        const isInside = google.maps.geometry.poly.containsLocation(driverLatLng, polygon);
-        setIsDriverAtPickupArea(isInside);
+      const polygonCoords = airportPickupArea.geometry.coordinates[0]; // Assuming simple polygon
+      const polygon = new google.maps.Polygon({
+        paths: polygonCoords.map((coord: number[]) => ({
+          lat: coord[1],
+          lng: coord[0],
+        })),
+      });
+      const driverLatLng = new google.maps.LatLng(driverLat, driverLng); // [lat, lng] for Google Maps
+      const isInside = google.maps.geometry.poly.containsLocation(
+        driverLatLng,
+        polygon
+      );
+      setIsDriverAtPickupArea(isInside);
 
-        if (isInside) {
-            // Driver is inside the polygon, show arrival notification once
-            // Use a ref to ensure notification is only shown once per arrival
-            if (!isDriverAtPickupAreaRef.current) { // Assume isDriverAtPickupAreaRef is a ref tracking the previous state
-                showNotification("Driver has arrived at the pickup area!", "success");
-                isDriverAtPickupAreaRef.current = true; // Update the ref
-                // Potentially transition screen or stop further distance checks
-                // setScreen("trip-progress"); // Uncomment if auto-transition is desired upon arrival
-            }
-            return; // Stop further processing if arrived
-        } else {
-            isDriverAtPickupAreaRef.current = false; // Reset ref if driver leaves
+      if (isInside) {
+        // Driver is inside the polygon, show arrival notification once
+        // Use a ref to ensure notification is only shown once per arrival
+        if (!isDriverAtPickupAreaRef.current) {
+          // Assume isDriverAtPickupAreaRef is a ref tracking the previous state
+          showNotification("Driver has arrived at the pickup area!", "success");
+          isDriverAtPickupAreaRef.current = true; // Update the ref
+          // Potentially transition screen or stop further distance checks
+          // setScreen("trip-progress"); // Uncomment if auto-transition is desired upon arrival
         }
+        return; // Stop further processing if arrived
+      } else {
+        isDriverAtPickupAreaRef.current = false; // Reset ref if driver leaves
+      }
     }
 
     // Calculate directions if not arrived yet
     if (!isDriverAtPickupArea) {
-        if (!directionsServiceRef.current) {
-            directionsServiceRef.current = new google.maps.DirectionsService();
-        }
+      if (!directionsServiceRef.current) {
+        directionsServiceRef.current = new google.maps.DirectionsService();
+      }
 
-        const request: google.maps.DirectionsRequest = {
-            origin: new google.maps.LatLng(driverLat, driverLng), // Driver's current location [lat, lng]
-            destination: new google.maps.LatLng(pickupLat, pickupLng), // Pickup location [lat, lng]
-            travelMode: google.maps.TravelMode.DRIVING,
-        };
+      const request: google.maps.DirectionsRequest = {
+        origin: new google.maps.LatLng(driverLat, driverLng), // Driver's current location [lat, lng]
+        destination: new google.maps.LatLng(pickupLat, pickupLng), // Pickup location [lat, lng]
+        travelMode: google.maps.TravelMode.DRIVING,
+      };
 
-        directionsServiceRef.current.route(request, (result, status) => {
-            if (status === google.maps.DirectionsStatus.OK && result && result.routes.length > 0) {
-                const route = result.routes[0];
-                const leg = route.legs[0]; // Assuming single leg
+      directionsServiceRef.current.route(request, (result, status) => {
+        if (
+          status === google.maps.DirectionsStatus.OK &&
+          result &&
+          result.routes.length > 0
+        ) {
+          const route = result.routes[0];
+          const leg = route.legs[0]; // Assuming single leg
 
-                const newDistance = leg.distance?.text || "Unknown";
-                const newDuration = leg.duration?.text || "Unknown";
+          const newDistance = leg.distance?.text || "Unknown";
+          const newDuration = leg.duration?.text || "Unknown";
 
-                // NEW: Throttle/Debounce notifications based on significant changes
-                // Example: Only notify if duration changes by more than 1 minute or distance by more than 0.5km
-                const durationThreshold = 60; // 1 minute in seconds
-                const distanceThreshold = 500; // 0.5 km in meters
+          // NEW: Throttle/Debounce notifications based on significant changes
+          // Example: Only notify if duration changes by more than 1 minute or distance by more than 0.5km
+          const durationThreshold = 60; // 1 minute in seconds
+          const distanceThreshold = 500; // 0.5 km in meters
 
-                const durationValue = leg.duration?.value || 0;
-                const distanceValue = leg.distance?.value || 0;
+          const durationValue = leg.duration?.value || 0;
+          const distanceValue = leg.distance?.value || 0;
 
-                // Compare with previous values if they exist
-                if (driverDurationRef.current !== null && driverDistanceRef.current !== null) {
-                    const prevDurationValue = driverDurationRef.current; // Assume this is stored in seconds
-                    const prevDistanceValue = driverDistanceRef.current; // Assume this is stored in meters
+          // Compare with previous values if they exist
+          if (
+            driverDurationRef.current !== null &&
+            driverDistanceRef.current !== null
+          ) {
+            const prevDurationValue = driverDurationRef.current; // Assume this is stored in seconds
+            const prevDistanceValue = driverDistanceRef.current; // Assume this is stored in meters
 
-                    const durationChange = Math.abs(durationValue - prevDurationValue);
-                    const distanceChange = Math.abs(distanceValue - prevDistanceValue);
+            const durationChange = Math.abs(durationValue - prevDurationValue);
+            const distanceChange = Math.abs(distanceValue - prevDistanceValue);
 
-                    if (durationChange >= durationThreshold || distanceChange >= distanceThreshold) {
-                        // Determine notification type based on remaining time/distance
-                        let notificationType: "info" | "success" | "warning" | "error" = "info";
-                        let message = `Driver is ${newDistance} away, ETA ${newDuration}`;
+            if (
+              durationChange >= durationThreshold ||
+              distanceChange >= distanceThreshold
+            ) {
+              // Determine notification type based on remaining time/distance
+              let notificationType: "info" | "success" | "warning" | "error" =
+                "info";
+              let message = `Driver is ${newDistance} away, ETA ${newDuration}`;
 
-                        if (durationValue < 120) { // Less than 2 mins
-                            notificationType = "success";
-                            message = "Driver is very close!";
-                        } else if (durationValue < 300) { // Less than 5 mins
-                            notificationType = "info";
-                            message = `Driver is ${newDistance} away, ETA ${newDuration}`;
-                        } else if (durationValue > 600) { // More than 10 mins
-                            notificationType = "warning";
-                            message = `Driver is ${newDistance} away, ETA ${newDuration}. This is longer than usual.`;
-                        }
+              if (durationValue < 120) {
+                // Less than 2 mins
+                notificationType = "success";
+                message = "Driver is very close!";
+              } else if (durationValue < 300) {
+                // Less than 5 mins
+                notificationType = "info";
+                message = `Driver is ${newDistance} away, ETA ${newDuration}`;
+              } else if (durationValue > 600) {
+                // More than 10 mins
+                notificationType = "warning";
+                message = `Driver is ${newDistance} away, ETA ${newDuration}. This is longer than usual.`;
+              }
 
-                        showNotification(message, notificationType);
-                    }
-                } else {
-                    // Initial update or no previous data, always show
-                    let notificationType: "info" | "success" | "warning" | "error" = "info";
-                    let message = `Driver is ${newDistance} away, ETA ${newDuration}`;
-                    if (durationValue < 120) {
-                        notificationType = "success";
-                        message = "Driver is very close!";
-                    }
-                    showNotification(message, notificationType);
-                }
-
-                // Update state and refs with new values
-                setDriverDistance(newDistance);
-                setDriverDuration(newDuration);
-                driverDurationRef.current = durationValue; // Store value for comparison
-                driverDistanceRef.current = distanceValue; // Store value for comparison
-
-            } else {
-                console.warn("Directions request failed:", status, result);
-                setDriverDistance("Unknown");
-                setDriverDuration("Unknown");
-                // Optionally show an error notification
-                // showNotification("Could not calculate distance to pickup.", "error");
+              showNotification(message, notificationType);
             }
-        });
+          } else {
+            // Initial update or no previous data, always show
+            let notificationType: "info" | "success" | "warning" | "error" =
+              "info";
+            let message = `Driver is ${newDistance} away, ETA ${newDuration}`;
+            if (durationValue < 120) {
+              notificationType = "success";
+              message = "Driver is very close!";
+            }
+            showNotification(message, notificationType);
+          }
+
+          // Update state and refs with new values
+          setDriverDistance(newDistance);
+          setDriverDuration(newDuration);
+          driverDurationRef.current = durationValue; // Store value for comparison
+          driverDistanceRef.current = distanceValue; // Store value for comparison
+        } else {
+          console.warn("Directions request failed:", status, result);
+          setDriverDistance("Unknown");
+          setDriverDuration("Unknown");
+          // Optionally show an error notification
+          // showNotification("Could not calculate distance to pickup.", "error");
+        }
+      });
     }
-
-  }, [screen, driver?.location, pickupCoords, airportPickupArea, isDriverAtPickupArea]); // Dependency array
-
-
-
-
-
+  }, [
+    screen,
+    driver?.location,
+    pickupCoords,
+    airportPickupArea,
+    isDriverAtPickupArea,
+  ]); // Dependency array
 
   // Save app state whenever it changes (only after hydration)
   useEffect(() => {
     if (hasHydrated && screen !== null) {
+      const screenToSave =
+        isNavigatingToDashboard && previousScreen ? previousScreen : screen;
+
       const stateToSave: PersistedState = {
-        screen,
+        screen: screenToSave,
         pickup,
         destination,
         fareEstimate,
@@ -833,7 +1023,14 @@ useEffect(() => {
         guestId,
         bookAsGuest,
       };
+
+      console.log("Saving app state with screen:", screenToSave); // Debug log
+
       saveAppState(stateToSave);
+
+      if (isNavigatingToDashboard) {
+        setIsNavigatingToDashboard(false);
+      }
     }
   }, [
     screen,
@@ -849,6 +1046,8 @@ useEffect(() => {
     guestId,
     bookAsGuest,
     hasHydrated,
+    isNavigatingToDashboard, // Depend on the navigation flag
+    previousScreen, // Depend on the previous screen
   ]);
 
   const handleRegistrationSuccess = (email: string) => {
@@ -918,8 +1117,6 @@ useEffect(() => {
   };
 
   const handleRequestRide = async () => {
-   
-
     // Check if tripData exists in sessionStorage
     let tripData: any = null;
     if (typeof window !== "undefined" && window.sessionStorage) {
@@ -1095,10 +1292,9 @@ useEffect(() => {
           console.log("Trip data received:", trip);
           console.log("Guest ID received:", extractedGuestId);
 
-           if(trip?.map_data?.airport?.pickup_area){
-              
-              setAirportPickupArea(trip.map_data.airport.pickup_area);
-            }
+          if (trip?.map_data?.airport?.pickup_area) {
+            setAirportPickupArea(trip.map_data.airport.pickup_area);
+          }
 
           setVerificationCode(trip.verification_code || "");
           setActiveTripId(trip.id);
@@ -1215,12 +1411,10 @@ useEffect(() => {
         const messageData: WebSocketMessage = JSON.parse(event.data);
         console.log("Received WebSocket message in page.tsx:", messageData);
         const { event: eventType, data: tripData } = messageData;
-        
-         if(tripData?.map_data?.airport?.pickup_area){
-              
-              setAirportPickupArea(tripData.map_data.airport.pickup_area);
-          }
 
+        if (tripData?.map_data?.airport?.pickup_area) {
+          setAirportPickupArea(tripData.map_data.airport.pickup_area);
+        }
 
         if (
           eventType === "trip:assigned" ||
@@ -1388,11 +1582,9 @@ useEffect(() => {
         console.log("Received WebSocket message in page.tsx:", messageData);
         const { event: eventType, data: tripData } = messageData;
 
-
-         if(tripData?.map_data?.airport?.pickup_area){
-              
-              setAirportPickupArea(tripData.map_data.airport.pickup_area);
-          }
+        if (tripData?.map_data?.airport?.pickup_area) {
+          setAirportPickupArea(tripData.map_data.airport.pickup_area);
+        }
 
         if (
           eventType === "trip:assigned" ||
@@ -1435,7 +1627,7 @@ useEffect(() => {
             );
             stopWebSocketConnection();
             stopPollingTripStatus();
-            
+
             setTripProgress(0);
             setVerificationCode(null);
             if (tripData.status.value === "completed") {
@@ -1587,23 +1779,33 @@ useEffect(() => {
           `Polled trip status: ${trip.status.value}, has driver: !!${trip.driver}`
         );
 
+        if (trip?.map_data?.airport?.pickup_area) {
+          setAirportPickupArea(trip.map_data.airport.pickup_area);
+        }
 
-            if(trip?.map_data?.airport?.pickup_area){
-              
-              setAirportPickupArea(trip.map_data.airport.pickup_area);
-            }
+        setDriver(trip.driver || null);
+        setPickup(trip.pickup_address || "");
 
-            setDriver(trip.driver || null);
-            setPickup(trip.pickup_address || "");
-            
-            console.log("Setting Pickup address: ", pickup,destinationCoords, verificationCode, trip.pickup_address)
-            setDestination(trip.destination_address || "");
-            setFareEstimate(trip.amount?.amount ? parseFloat(trip.amount.amount) : null);
-            setPickupCoords(trip.map_data.pickup_location.geometry.coordinates || null);
-            console.log("Pickup coords", pickupCoords)
-            setDestinationCoords(trip.map_data.destination_location.geometry.coordinates|| null);
-            setVerificationCode(trip.verification_code || null);
-            setTripProgress(trip.progress || 0);
+        console.log(
+          "Setting Pickup address: ",
+          pickup,
+          destinationCoords,
+          verificationCode,
+          trip.pickup_address
+        );
+        setDestination(trip.destination_address || "");
+        setFareEstimate(
+          trip.amount?.amount ? parseFloat(trip.amount.amount) : null
+        );
+        setPickupCoords(
+          trip.map_data.pickup_location.geometry.coordinates || null
+        );
+        console.log("Pickup coords", pickupCoords);
+        setDestinationCoords(
+          trip.map_data.destination_location.geometry.coordinates || null
+        );
+        setVerificationCode(trip.verification_code || null);
+        setTripProgress(trip.progress || 0);
 
         const terminalStates = ["driver not found", "cancelled", "completed"];
 
@@ -1621,6 +1823,7 @@ useEffect(() => {
             showNotification("Trip Completed", "success");
             setScreen("trip-complete");
           } else if (trip.status.value === "cancelled") {
+            preserveBookingContext();
             showNotification("Trip was cancelled", "info");
             setScreen("booking");
           }
@@ -1914,6 +2117,252 @@ useEffect(() => {
     cancelTrip(reason);
   };
 
+  const syncTripStatusInBackground = useCallback(
+    async (tripId: string, wasBookedAsGuest: boolean) => {
+      console.log(
+        "Background sync: Fetching current status for trip ID:",
+        tripId
+      );
+
+      try {
+        let response;
+        const isCurrentlyAuthenticated = isAuthenticated && !bookAsGuest;
+        const isCurrentlyGuest = !isAuthenticated || bookAsGuest;
+
+        // Determine the correct API call based on the booking context (from saved state)
+        // and the *current* authentication state.
+        // If the user logged out, we might not be able to sync anymore.
+        if (isCurrentlyAuthenticated && !wasBookedAsGuest) {
+          console.log(
+            "Background sync: Fetching status via authenticated endpoint."
+          );
+          response = await apiClient.get(
+            `/trips/${tripId}`,
+            undefined,
+            false,
+            undefined,
+            true
+          );
+        } else if (isCurrentlyGuest && guestId && wasBookedAsGuest) {
+          console.log(
+            "Background sync: Fetching status via guest endpoint with guestId:",
+            guestId
+          );
+          response = await apiClient.get(
+            `/trips/${guestId}`,
+            undefined,
+            true,
+            guestId
+          );
+        } else {
+          console.error(
+            "Background sync: Cannot sync status. Authentication context mismatch or missing guestId."
+          );
+          return; // Exit if context is wrong
+        }
+
+        if (response.status === "success" && response.data) {
+          const trip = response.data;
+          console.log(
+            "Background sync: Fetched current trip status:",
+            trip.status.value
+          );
+
+          // Update state based on the *fetched* status, but only if it represents a change
+          // or a final state that requires action (like cancellation/completion).
+
+          // Update driver details if they are now available or changed
+          if (
+            trip.driver &&
+            JSON.stringify(trip.driver) !== JSON.stringify(driver)
+          ) {
+            setDriver(trip.driver);
+          }
+
+          // Update progress if it's an active trip
+          if (
+            trip.status.value === "active" &&
+            trip.progress !== tripProgress
+          ) {
+            setTripProgress(trip.progress || 0);
+          }
+
+          // Update verification code if assigned
+          if (
+            trip.verification_code &&
+            trip.verification_code !== verificationCode
+          ) {
+            setVerificationCode(trip.verification_code);
+          }
+
+          // Check for final or significant status changes that might require navigation
+          // even if the user just resumed. This handles the case where status changed
+          // *while* they were on the dashboard.
+          if (trip.status.value === "completed") {
+            console.log("Background sync: Trip is now completed.");
+            setScreen("trip-complete"); // Navigate to completion screen if status changed
+            // Driver and other state should already be handled by the previous setDriver call
+            stopWebSocketConnection(); // Ensure connection is stopped for completed trip
+            stopPollingTripStatus();
+          } else if (trip.status.value === "cancelled") {
+            console.log("Background sync: Trip was cancelled.");
+            showNotification("Trip was cancelled.", "info");
+            setScreen("booking");
+            preserveBookingContext(); // Clear trip-specific state
+            stopWebSocketConnection();
+            stopPollingTripStatus();
+          } else if (trip.status.value === "driver not found") {
+            console.log("Background sync: Driver not found.");
+            setTripRequestStatus("no-driver");
+            setTripRequestError("No drivers available for your trip.");
+            // Potentially go back to assigning or booking, depending on UX
+            // For now, let's assume the user sees this on the resumed screen or WebSocket handles it
+          }
+          // Note: Statuses like "searching", "driver_assigned", "active" usually just mean
+          // the resumed screen is still correct, and the WebSocket (if restarted) will handle updates.
+        } else {
+          console.error(
+            "Background sync: API call succeeded but response data/status was unexpected:",
+            response
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Background sync: Error fetching current trip status:",
+          error
+        );
+        // An error here doesn't necessarily mean the resumed screen is wrong,
+        // just that we couldn't confirm the status. The WebSocket connection might still be active
+        // and receive updates, or the user might need to refresh if the state seems stale.
+        // We don't navigate away from the resumed screen due to a background sync failure.
+      }
+    },
+    [
+      isAuthenticated,
+      bookAsGuest,
+      guestId,
+      driver,
+      tripProgress,
+      verificationCode,
+      setDriver,
+      setTripProgress,
+      setVerificationCode,
+      setScreen,
+      setTripRequestStatus,
+      setTripRequestError,
+      showNotification,
+      preserveBookingContext,
+      stopWebSocketConnection,
+      stopPollingTripStatus,
+    ]
+  );
+
+  const handleResumeActiveTrip = useCallback(() => {
+    console.log("Attempting to resume active trip with ID:", activeTripId);
+
+    if (!activeTripId) {
+      console.warn("No active trip ID found to resume.");
+      setScreen("booking");
+      return;
+    }
+
+    // Load the *persisted* state from sessionStorage
+    const savedState = loadAppState();
+
+    if (!savedState || savedState.activeTripId !== activeTripId) {
+      console.warn(
+        "No valid persisted state found for the active trip ID, or trip ID mismatch."
+      );
+      setScreen("booking");
+      return;
+    }
+
+    console.log("Found persisted state, saved screen was:", savedState.screen);
+
+    // Determine the screen to resume to based on the *persisted* screen state
+    const savedScreen = previousScreen;
+
+    if (
+      ["assigning", "driver-assigned", "trip-progress"].includes(savedScreen)
+    ) {
+      setScreen(savedScreen);
+
+      // Restore relevant state from the saved state if available
+      setDriver(savedState.driver || null);
+      setTripProgress(savedState.tripProgress || 0);
+      setVerificationCode(savedState.verificationCode || "");
+
+      // Determine authentication context for WebSocket
+      const isCurrentlyAuthenticated = isAuthenticated && !bookAsGuest;
+      const isCurrentlyGuest = !isAuthenticated || bookAsGuest;
+
+      // Attempt to restart WebSocket based on the *saved* screen context
+      if (
+        isCurrentlyAuthenticated &&
+        ["assigning", "driver-assigned", "trip-progress"].includes(savedScreen)
+      ) {
+        console.log(
+          "Resuming WebSocket for authenticated user based on saved screen."
+        );
+        startWebSocketConnectionForAuthUser(activeTripId);
+      } else if (
+        isCurrentlyGuest &&
+        guestId &&
+        ["assigning", "driver-assigned", "trip-progress"].includes(savedScreen)
+      ) {
+        console.log("Resuming WebSocket for guest user based on saved screen.");
+        startWebSocketConnection(guestId, activeTripId);
+      }
+
+      // Initiate background sync to ensure state is fresh
+      syncTripStatusInBackground(activeTripId, savedState.bookAsGuest);
+    } else if (savedScreen === "trip-complete") {
+      setScreen("trip-complete");
+      setDriver(savedState.driver || null);
+      // No need to restart WebSocket for completed trip.
+    } else {
+      console.warn(
+        "Persisted screen state is inconsistent with activeTripId, going to booking."
+      );
+      setScreen("booking");
+    }
+  }, [
+    activeTripId,
+    isAuthenticated,
+    bookAsGuest,
+    guestId,
+    setScreen,
+    setDriver,
+    setTripProgress,
+    setVerificationCode,
+    startWebSocketConnectionForAuthUser,
+    startWebSocketConnection,
+    syncTripStatusInBackground,
+  ]);
+
+  const handleHomeClick = useCallback(() => {
+    if (activeTripId) {
+      // If there's an active trip, we want to navigate to dashboard
+      // but save the *current* screen state first.
+      console.log(
+        "Navigating to dashboard with active trip. Current screen:",
+        screen
+      );
+      setPreviousScreen(screen); // Store the current screen
+      setIsNavigatingToDashboard(true); // Set the flag
+      setScreen("dashboard"); // Now change the screen state
+      // The useEffect above will see the flag and save the 'previousScreen' instead of 'dashboard'
+    } else {
+      // If no active trip, navigate to the booking screen
+      console.log(
+        "Navigating to booking (no active trip). Current screen:",
+        screen
+      );
+      setScreen("dashboard");
+      // The useEffect will save 'booking' as expected
+    }
+  }, [activeTripId, screen, setScreen]);
+
   if (!hasHydrated || isAuthLoading || !initComplete) {
     return (
       <div className="flex items-center justify-center h-screen w-full bg-white animate-fadeIn">
@@ -1967,10 +2416,24 @@ useEffect(() => {
         onShowLogin={() => setShowLogin(true)}
         showNotification={showNotification}
         isAuthenticated={isAuthenticated}
+        onBackToDashboard={
+          isAuthenticated
+            ? () => {
+                preserveBookingContext();
+                setScreen("dashboard");
+              }
+            : undefined
+        }
+        screenPaddingClass={screenPaddingClass}
       />
     );
   } else if (screen === "assigning") {
-    mainContent = <AssigningScreen status={tripRequestStatus} />;
+    mainContent = (
+      <AssigningScreen
+        status={tripRequestStatus}
+        isAuthenticated={isAuthenticated}
+      />
+    );
   } else if (screen === "driver-assigned") {
     mainContent = (
       <DriverAssignedScreen
@@ -1984,6 +2447,8 @@ useEffect(() => {
         onBack={() => setScreen("booking")}
         showNotification={showNotification}
         onCancelTrip={() => setShowCancel(true)}
+        screenPaddingClass={screenPaddingClass}
+        isAuthenticated={isAuthenticated}
       />
     );
   } else if (screen === "trip-progress") {
@@ -1999,7 +2464,8 @@ useEffect(() => {
         googleMapsLoadError={googleMapsLoadError}
         guestId={guestId}
         airportPickupArea={airportPickupArea}
-        
+        screenPaddingClass={screenPaddingClass}
+        isAuthenticated={isAuthenticated}
       />
     );
   } else if (screen === "trip-complete") {
@@ -2010,8 +2476,11 @@ useEffect(() => {
         pickup={pickup}
         destination={destination}
         onRate={() => setShowRate(true)}
+        screenPaddingClass={screenPaddingClass}
+        isAuthenticated={isAuthenticated}
         onDone={() => {
           setResetBookingKey((prev) => prev + 1);
+          preserveBookingContext();
           setPickup("");
           setDestination("");
           setFareEstimate(null);
@@ -2042,6 +2511,7 @@ useEffect(() => {
         walletBalance={walletBalance}
         is2FAEnabled={is2FAEnabled}
         onShowProfile={() => setShowProfile(true)}
+        accountData={accountData}
         onBookNewTrip={() => {
           setScreen("booking");
           setPickup("");
@@ -2053,7 +2523,7 @@ useEffect(() => {
           setTripProgress(0);
           setVerificationCode(null);
         }}
-        onShowTripHistory={() => setShowTripHistory(true)}
+        // onShowTripHistory={() => setShowTripHistory(true)}
         onShowWallet={() => setShowWallet(true)}
         onShowSettings={() => setShowSettings(true)}
         onShowEnable2FA={() => setShowEnable2FA(true)}
@@ -2061,28 +2531,33 @@ useEffect(() => {
         onBookRide={() => setScreen("booking")}
         onProfile={() => setShowProfile(true)}
         onLogout={() => {}}
+        activeTrip={activeTripForDashboard}
+        onShowActiveTrip={handleResumeActiveTrip}
       />
     );
   } else if (showTripHistory) {
+    console.log("show trip history was called");
     mainContent = (
       <TripHistoryScreen
-        onBack={() => setShowTripHistory(false)}
+        isOpen={showTripHistory}
+        onClose={() => setShowTripHistory(false)}
         onSelectTrip={(tripId) => {
           setSelectedTripId(tripId);
           setShowTripHistory(false);
-          setShowTripDetails(true);
         }}
+        showNotification={showNotification}
       />
     );
-  } else if (showTripDetails && selectedTripId) {
+  } else if (selectedTripId) {
     mainContent = (
       <TripDetailsScreen
         tripId={selectedTripId}
         onBack={() => {
-          setShowTripDetails(false);
           setSelectedTripId(null);
+          console.log("Selected trip Id is true");
           setShowTripHistory(true);
         }}
+        showNotification={showNotification}
       />
     );
   } else if (showWallet) {
@@ -2173,7 +2648,7 @@ useEffect(() => {
               setShowPanic(false);
               alert("Safety team notified");
             }}
-            guestId={(isAuthenticated && !bookAsGuest )? null : guestId}
+            guestId={isAuthenticated && !bookAsGuest ? null : guestId}
             currentLocationAddress={pickup}
             currentLocationCoords={pickupCoords || [0, 0]}
             tripId={activeTripId || ""}
@@ -2223,11 +2698,51 @@ useEffect(() => {
           />
           <ProfileModal
             isOpen={showProfile}
-            passengerData={passengerData}
+            accountData={accountData}
             onClose={() => setShowProfile(false)}
-            onLogout={() => {
-              preserveBookingContext();
-              window.location.href = "/auth/login";
+            onLogout={async () => {
+              // Optional: Preserve booking context details (pickup, destination) if desired for guest re-entry
+              // preserveBookingContext(); // Uncomment if you want to keep booking fields filled
+
+              try {
+                console.log("Initiating logout API call...");
+                // Make the API call to the logout endpoint
+                // Ensure the URL is correct (no trailing spaces)
+                const response = await apiClient.post(
+                  "/auth/logout", // Corrected URL
+                  {},
+                  undefined,
+                  undefined,
+                  true // isAuthRequest: Ensures the auth cookie is sent with the request
+                );
+
+                console.log("Logout API response:", response); // Debug log
+
+                if (response.status === "success") {
+                  console.log(
+                    "Logout successful on server, cookie should be cleared."
+                  );
+                  window.location.href = "/";
+                } else {
+                  console.error(
+                    "Logout API responded with non-success status:",
+                    response
+                  );
+                  showNotification(
+                    response.message || "Logout failed. Please try again.",
+                    "error"
+                  );
+                }
+              } catch (err) {
+                console.error(
+                  "An error occurred during the logout API call:",
+                  err
+                );
+                showNotification(
+                  "An error occurred while logging out. Please check your connection.",
+                  "error"
+                );
+              }
             }}
           />
           {/* NEW: Trip Request Status Modal */}
@@ -2241,7 +2756,7 @@ useEffect(() => {
               // Clear tripData from sessionStorage
               if (typeof window !== "undefined" && window.sessionStorage) {
                 console.log("Clearing TripData in session");
-                preserveBookingContext()
+                preserveBookingContext();
                 sessionStorage.removeItem("tripData");
                 console.log("Cleared tripData from sessionStorage.");
               }
@@ -2298,6 +2813,32 @@ useEffect(() => {
               onSuccess={handleProfileUpdated}
             />
           )}
+
+          {showTripHistory && (
+            <TripHistoryModal
+              isOpen={showTripHistory}
+              onClose={() => setShowTripHistory(false)}
+              onSelectTrip={(tripId) => {
+                setSelectedTripId(tripId);
+                // setShowTripHistory(false);
+                setShowTripDetails(true);
+              }}
+              showNotification={showNotification}
+            />
+          )}
+
+          <TripDetailsModal
+            isOpen={showTripDetails} // Pass the state controlling visibility
+            tripId={selectedTripId} // Pass the selected trip ID
+            onClose={() => {
+              setShowTripDetails(false); // Close the details modal
+              setSelectedTripId(null); // Clear the selected ID
+              // Optionally, you could set showTripHistory(true) here if you want
+              // to automatically return to the history list after closing details.
+              setShowTripHistory(true);
+            }}
+            showNotification={showNotification}
+          />
           {/* Future: Uncomment when implemented */}
           <CancelModal
             isOpen={showCancel}
@@ -2313,7 +2854,7 @@ useEffect(() => {
               driverName={driver?.name}
               setNotification={setCurrentNotification}
               tripId={activeTripId}
-              guestId={(isAuthenticated && !bookAsGuest) ? null : guestId}
+              guestId={isAuthenticated && !bookAsGuest ? null : guestId}
               bookAsGuest={bookAsGuest}
               isAuthenticated={isAuthenticated}
             />
@@ -2326,13 +2867,16 @@ useEffect(() => {
         </div>
       </div>
       {/* NEW: Bottom Navigation Bar - Rendered only on dashboard screen */}
-      {screen === "dashboard" && (
+      {isAuthenticated && (
         <BottomNavBar
           onProfileClick={() => setShowProfile(true)}
           walletBalance={walletBalance}
-          onHomeClick={() => setScreen("booking")}
+          onHomeClick={handleHomeClick}
           onWalletClick={() => setShowWallet(true)}
-          onSearchClick={() => setShowTripHistory(true)}
+          onShowTripHistory={() => {
+            setShowTripHistory(true);
+            console.log("show trip history value", showTripHistory);
+          }}
         />
       )}
     </>

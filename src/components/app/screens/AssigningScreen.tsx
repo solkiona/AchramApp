@@ -6,8 +6,9 @@ import ACHRAMFooter from "@/components/app/ui/ACHRAMFooter"
 
 interface RequestStatusProp {
   status: 'loading' | 'accepted' | 'no-driver' | 'error' | null;
+  isAuthenticated: boolean;
 }
-export default function AssigningScreen({status,}: RequestStatusProp) {
+export default function AssigningScreen({status, isAuthenticated}: RequestStatusProp) {
     const isNoDriver = status === "no-driver";
     const error = status === "error";
   //if (status == 'no-driver') // I want to change the spinner to stop spinning 
@@ -34,7 +35,14 @@ export default function AssigningScreen({status,}: RequestStatusProp) {
         {isNoDriver || error ? "Try again shortly" : "Assigning a driver"}
       </p>
     </div>
-    <ACHRAMFooter />
+
+    {
+      !isAuthenticated && (
+
+        <ACHRAMFooter />
+
+      )
+    }
     </div>
   );
 }

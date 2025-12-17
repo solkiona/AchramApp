@@ -1,13 +1,24 @@
 // src/components/app/screens/TripDetailsScreen.tsx
-import { useState, useEffect } from 'react';
-import { MapPin, Clock, Star, Calendar, ChevronLeft, MessageCircle, Phone } from 'lucide-react';
-import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
-import { apiClient } from '@/services/apiClient'; // Assuming you create this service
+import { useEffect, useState } from "react";
+import { Clock, MapPin, Wallet, Star, User, X, Plane } from "lucide-react";
+import { apiClient } from "@/lib/api";
+import { Driver } from "@/types/passenger"; // Assuming this type exists
+import ACHRAMSHeader from "@/components/ui/ACHRAMSHeader";
 
-interface TripDetails {
+// Reuse the Trip type from the modal if it's shared
+interface TripDetailsScreenProps {
+  tripId: string;
+  onBack: () => void;
+  showNotification: (message: string, type: "info" | "success" | "warning" | "error") => void;
+}
+
+// Assuming the same Trip interface from TripHistoryModal
+interface Trip {
   id: string;
   amount: {
     formatted: string;
+    currency: string;
+    amount: number;
   };
   status: {
     label: string;
@@ -16,272 +27,200 @@ interface TripDetails {
   pickup_address: string;
   destination_address: string;
   verification_code: string;
-  rating?: {
-    score: number;
-    comment?: string;
-  } | null;
-  map_data: {
-    pickup_location: {
-      geometry: {
-        coordinates: [number, number]; // [lng, lat]
-      };
-      properties: {
-        name: string;
-        description: string;
-      };
-    };
-    destination_location: {
-      geometry: {
-        coordinates: [number, number]; // [lng, lat]
-      };
-      properties: {
-        name: string;
-        description: string;
-      };
-    };
-  };
-  driver?: {
-    name: string;
-    rating: string; // e.g., "4.9"
-    car_type: string;
-    car_color: string;
-    plate_number: string;
-    profile_photo?: string;
-    phone: string;
-  };
-  created_at: string; // ISO date string
+  rating: number | null;
+  map_data?: any; // Or a more specific type
+  driver?: Driver;
+  created_at?: string;
   // Add other fields as needed
 }
 
-export default function TripDetailsScreen({ tripId, onBack }: { tripId: string; onBack: () => void }) {
-  const [tripDetails, setTripDetails] = useState<TripDetails | null>(null);
+export default function TripDetailsScreen({
+  tripId,
+  onBack,
+  showNotification,
+}: TripDetailsScreenProps) {
+  const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTripDetails = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        // NEW: Call the specific trip API using apiClient
-        // Example: GET /trips/{tripId}
-        const response = await apiClient.get(`/trips/${tripId}`); // Use correct endpoint from Postman doc
+      if (!tripId) return;
 
-        console.log("Trip Details Response:", response); // Debug log
-        if (response.status === 200 && response.data && response.data.data) {
-          setTripDetails(response.data.data);
+      setLoading(true);
+      setError(null);
+      try {
+        console.log("Fetching details for trip ID:", tripId);
+        const response = await apiClient.get(`/trips/${tripId}`, undefined , false, undefined , true);
+        console.log("Trip details API response:", response);
+
+        if (response.status === "success" && response.data) {
+          setTrip(response.data);
         } else {
-          setError('Failed to load trip details.');
+          console.error("API response was not successful for trip details:", response);
+          setError("Failed to fetch trip details.");
+          showNotification("Failed to fetch trip details.", "error");
         }
       } catch (err) {
-        console.error("Trip Details Fetch Error:", err);
-        let errorMessage = 'An unexpected error occurred.';
-        if (err instanceof Error) {
-          errorMessage = err.message;
-        }
-        setError(errorMessage);
+        console.error("Error fetching trip details:", err);
+        setError("An error occurred while fetching trip details.");
+        showNotification("Failed to fetch trip details. Please check your connection.", "error");
       } finally {
         setLoading(false);
       }
     };
 
-    if (tripId) {
-        fetchTripDetails();
-    }
-  }, [tripId]);
-
+    fetchTripDetails();
+  }, [tripId, showNotification]);
 
   if (loading) {
     return (
-      <div className="h-screen bg-achrams-bg-primary flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-achrams-primary-solid border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-achrams-text-secondary">Loading trip details...</p>
+      <div className="h-screen bg-achrams-bg-primary flex flex-col">
+        <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4 flex items-center justify-between">
+          <button onClick={onBack} className="text-achrams-text-light">
+            <X className="w-6 h-6" />
+          </button>
+          <ACHRAMSHeader title="Trip Details" />
+          <div className="w-6"></div> {/* Spacer for alignment */}
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Plane className="w-12 h-12 text-achrams-primary-solid mx-auto mb-4 animate-pulse" />
+            <p className="text-achrams-text-secondary">Loading trip details...</p>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (error || !tripDetails) {
+  if (error || !trip) {
     return (
-      <div className="h-screen bg-achrams-bg-primary flex flex-col items-center justify-center p-6">
-        <p className="text-red-500 text-center mb-6">{error || 'Trip details not found.'}</p>
-        <button
-          onClick={onBack} // Go back on error
-          className="bg-achrams-gradient-primary text-achrams-text-light py-3 px-6 rounded-xl font-semibold"
-        >
-          Back to History
-        </button>
+      <div className="h-screen bg-achrams-bg-primary flex flex-col z-50">
+        <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4 flex items-center justify-between">
+          <button onClick={onBack} className="text-achrams-text-light">
+            <X className="w-6 h-6" />
+          </button>
+          <ACHRAMSHeader title="Trip Details" />
+          <div className="w-6"></div> {/* Spacer for alignment */}
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center px-6">
+            <div className="text-red-500 mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            </div>
+            <p className="text-achrams-text-secondary mb-4">{error || "Trip details not found."}</p>
+            <button
+              onClick={onBack}
+              className="w-full py-3 bg-achrams-primary-solid text-achrams-text-light rounded-xl font-medium hover:opacity-90 active:scale-[0.98] transition-all"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
-
-  // NEW: Extract map coordinates and center
-  const pickupCoords = tripDetails.map_data.pickup_location.geometry.coordinates; // [lng, lat]
-  const destCoords = tripDetails.map_data.destination_location.geometry.coordinates; // [lng, lat]
-  const mapCenter = { lat: pickupCoords[1], lng: pickupCoords[0] }; // { lat: lat, lng: lng }
-
-  // NEW: Load Google Maps API
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script-trip-details',
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-  });
 
   return (
     <div className="h-screen bg-achrams-bg-primary flex flex-col">
       {/* Header */}
-      <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4 flex items-center">
-        <button onClick={onBack} className="mr-4">
-          <ChevronLeft className="w-6 h-6" />
+      <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4 flex items-center justify-between">
+        <button onClick={onBack} className="text-achrams-text-light">
+          <X className="w-6 h-6" />
         </button>
-        <h1 className="text-xl font-bold">Trip Details</h1>
+        <ACHRAMSHeader title="Trip Details" />
+        <div className="w-6"></div> {/* Spacer for alignment */}
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Map Preview (smaller) */}
-        <div className="h-48 relative">
-          {isLoaded ? (
-            <GoogleMap
-              mapContainerStyle={{ width: '100%', height: '100%' }}
-              center={mapCenter}
-              zoom={12}
-              options={{
-                // Disable default UI for a cleaner look in preview
-                mapTypeControl: false,
-                streetViewControl: false,
-                fullscreenControl: false,
-                zoomControl: false,
-              }}
-            >
-              <Marker
-                position={{ lat: pickupCoords[1], lng: pickupCoords[0] }}
-                icon={{ url: 'https://maps.google.com/mapfiles/ms/micons/green-dot.png', scaledSize: new window.google.maps.Size(32, 32) }}
-                title={tripDetails.map_data.pickup_location.properties.name}
-              />
-              <Marker
-                position={{ lat: destCoords[1], lng: destCoords[0] }}
-                icon={{ url: 'https://maps.google.com/mapfiles/ms/micons/red-dot.png', scaledSize: new window.google.maps.Size(32, 32) }}
-                title={tripDetails.map_data.destination_location.properties.name}
-              />
-            </GoogleMap>
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-achrams-bg-secondary">
-              <p className="text-achrams-text-secondary">Loading map...</p>
-            </div>
-          )}
-        </div>
-
-        {/* Trip Info */}
-        <div className="p-6 space-y-6">
-          {/* Date & Status */}
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-achrams-text-secondary" />
-              <span className="text-achrams-text-primary">{new Date(tripDetails.created_at).toLocaleString()}</span>
-            </div>
-            <span className={`text-xs px-3 py-1 rounded-full ${
-              tripDetails.status.value === 'completed' ? 'bg-green-100 text-green-800' :
-              tripDetails.status.value === 'cancelled' ? 'bg-red-100 text-red-800' :
-              'bg-yellow-100 text-yellow-800'
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-y-auto px-6 py-6">
+        {/* Trip Status Card */}
+        <div className="bg-achrams-bg-secondary rounded-xl p-4 mb-6 border border-achrams-border">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-bold text-lg text-achrams-text-primary">Trip Status</h3>
+            <span className={`text-xs px-3 py-1.5 rounded-full font-semibold ${
+              trip.status.value === "completed"
+                ? "bg-emerald-100 text-emerald-800"
+                : "bg-amber-100 text-amber-800" // Assuming cancelled or other
             }`}>
-              {tripDetails.status.label}
+              {trip.status.label}
             </span>
           </div>
+          <p className="text-sm text-achrams-text-secondary">ID: {trip.id}</p>
+        </div>
 
-          {/* Fare */}
-          <div className="bg-achrams-bg-secondary rounded-xl p-4 border border-achrams-border">
-            <div className="flex justify-between items-center">
-              <span className="text-achrams-text-secondary">Total Fare</span>
-              <span className="text-2xl font-bold text-achrams-text-primary">{tripDetails.amount.formatted}</span>
+        {/* Driver Info (if available) */}
+        {trip.driver && (
+          <div className="bg-achrams-bg-secondary rounded-xl p-4 mb-6 border border-achrams-border">
+            <h3 className="font-bold text-lg mb-3 text-achrams-text-primary flex items-center gap-2">
+              <User className="w-5 h-5 text-achrams-text-secondary" />
+              Driver
+            </h3>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-achrams-primary-solid rounded-full flex items-center justify-center text-achrams-text-light font-bold">
+                {trip.driver.name?.charAt(0) || "D"}
+              </div>
+              <div>
+                <p className="font-semibold text-achrams-text-primary">{trip.driver.name}</p>
+                <div className="flex items-center gap-1">
+                  <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
+                  <span className="text-sm text-achrams-text-primary">{trip.driver.rating || "N/A"}</span>
+                </div>
+              </div>
             </div>
           </div>
+        )}
 
-          {/* Verification Code */}
-          {tripDetails.verification_code && (
-            <div className="bg-achrams-bg-secondary rounded-xl p-4 border border-achrams-border">
-              <div className="text-xs text-achrams-text-secondary mb-1">Verification Code</div>
-              <div className="text-xl font-mono font-bold text-achrams-text-primary">{tripDetails.verification_code}</div>
-            </div>
-          )}
-
-          {/* Driver Info (if assigned) */}
-          {tripDetails.driver && (
-            <div className="bg-achrams-bg-secondary rounded-xl p-4 border border-achrams-border">
-              <h3 className="font-semibold mb-3 text-achrams-text-primary">Driver Info</h3>
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-achrams-primary-solid to-achrams-secondary-solid rounded-full flex items-center justify-center text-achrams-text-light text-lg font-bold">
-                  {tripDetails.driver.name.charAt(0)}
-                </div>
-                <div className="flex-1">
-                  <div className="font-bold text-achrams-text-primary">{tripDetails.driver.name}</div>
-                  <div className="flex items-center gap-1 text-sm text-achrams-text-secondary">
-                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    <span>{tripDetails.driver.rating}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-sm">
-                  <span className="text-achrams-text-secondary">Car: </span>
-                  <span className="text-achrams-text-primary">{tripDetails.driver.car_type} • {tripDetails.driver.car_color}</span>
-                </div>
-                <div className="text-sm">
-                  <span className="text-achrams-text-secondary">Plate: </span>
-                  <span className="text-achrams-text-primary">{tripDetails.driver.plate_number}</span>
-                </div>
-              </div>
-              <div className="flex gap-3 mt-4">
-                <button className="flex-1 flex items-center justify-center gap-2 py-3 bg-achrams-bg-primary border border-achrams-border rounded-xl font-medium text-achrams-text-primary hover:bg-achrams-bg-secondary transition-colors">
-                  <MessageCircle className="w-5 h-5" />
-                  Message
-                </button>
-                <button className="flex-1 flex items-center justify-center gap-2 py-3 bg-achrams-bg-primary border border-achrams-border rounded-xl font-medium text-achrams-text-primary hover:bg-achrams-bg-secondary transition-colors">
-                  <Phone className="w-5 h-5" />
-                  Call
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Rating */}
-          {tripDetails.rating && (
-            <div className="bg-achrams-bg-secondary rounded-xl p-4 border border-achrams-border">
-              <h3 className="font-semibold mb-3 text-achrams-text-primary">Your Rating</h3>
-              <div className="flex items-center gap-2 mb-2">
-                {[...Array(5)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`w-6 h-6 ${
-                      i < tripDetails.rating!.score
-                        ? 'fill-yellow-400 text-yellow-400'
-                        : 'text-gray-300'
-                    }`}
-                  />
-                ))}
-                <span className="ml-2 font-medium text-achrams-text-primary">{tripDetails.rating.score}/5</span>
-              </div>
-              {tripDetails.rating.comment && (
-                <p className="text-achrams-text-secondary text-sm italic">"{tripDetails.rating.comment}"</p>
-              )}
-            </div>
-          )}
-
-          {/* Addresses */}
+        {/* Trip Summary */}
+        <div className="bg-achrams-bg-secondary rounded-xl p-4 mb-6 border border-achrams-border">
+          <h3 className="font-bold text-lg mb-3 text-achrams-text-primary">Trip Summary</h3>
           <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="w-2 h-2 bg-achrams-primary-solid rounded-full mt-2 flex-shrink-0"></div>
-              <div className="flex-1">
+            {/* Pickup */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-2 h-2 bg-achrams-primary-solid rounded-full"></div>
                 <div className="text-xs text-achrams-text-secondary mb-1">PICKUP</div>
-                <div className="font-medium text-achrams-text-primary">{tripDetails.pickup_address}</div>
               </div>
+              <div className="font-medium text-achrams-text-primary">{trip.pickup_address}</div>
             </div>
-            <div className="flex items-start gap-3">
-              <div className="w-2 h-2 bg-achrams-primary-solid rounded-full mt-2 flex-shrink-0"></div>
-              <div className="flex-1">
+
+            {/* Destination */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-2 h-2 bg-achrams-primary-solid rounded-full"></div>
                 <div className="text-xs text-achrams-text-secondary mb-1">DESTINATION</div>
-                <div className="font-medium text-achrams-text-primary">{tripDetails.destination_address}</div>
               </div>
+              <div className="font-medium text-achrams-text-primary">{trip.destination_address}</div>
+            </div>
+
+            {/* Verification Code (if relevant for completed trips) */}
+            {trip.verification_code && (
+              <div>
+                <div className="text-xs text-achrams-text-secondary mb-1">VERIFICATION CODE</div>
+                <div className="font-mono font-bold text-achrams-text-primary text-lg">{trip.verification_code}</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Fare & Date */}
+        <div className="bg-achrams-bg-secondary rounded-xl p-4 mb-6 border border-achrams-border">
+          <h3 className="font-bold text-lg mb-3 text-achrams-text-primary">Fare & Date</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-achrams-text-secondary">Total Fare</span>
+              <span className="text-xl font-bold text-achrams-text-primary">
+                {trip.amount.formatted}
+              </span>
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t border-achrams-border">
+              <span className="text-achrams-text-secondary flex items-center gap-1">
+                <Clock className="w-4 h-4" />
+                Date & Time
+              </span>
+              <span className="text-achrams-text-primary">
+                {new Date(trip.created_at || '').toLocaleString() || "N/A"}
+              </span>
             </div>
           </div>
         </div>

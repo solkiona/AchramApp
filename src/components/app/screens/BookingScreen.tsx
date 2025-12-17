@@ -7,6 +7,7 @@ import {
   ChevronDown,
   X,
   Loader,
+  ChevronLeft,
 } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import ACHRAMSHeader from "@/components/ui/ACHRAMSHeader";
@@ -50,8 +51,13 @@ interface BookingScreenProps {
   isGoogleMapsLoaded: boolean;
   googleMapsLoadError?: Error | undefined;
   onShowLogin: (val: boolean) => void;
-  showNotification: (message: string, type: "info" | "success" | "warning" | "error" ) => void;
+  showNotification: (
+    message: string,
+    type: "info" | "success" | "warning" | "error"
+  ) => void;
   isAuthenticated: boolean;
+  onBackToDashboard: () => void;
+  screenPaddingClass: string;
 }
 
 const losCoords: [number, number] = [3.330058, 6.568287];
@@ -104,7 +110,9 @@ export default function BookingScreen({
   googleMapsLoadError,
   showNotification,
   onShowLogin,
-  isAuthenticated
+  isAuthenticated,
+  onBackToDashboard,
+  screenPaddingClass,
 }: BookingScreenProps) {
   const [pickupOpen, setPickupOpen] = useState(false);
   const [destOpen, setDestOpen] = useState(false);
@@ -114,6 +122,7 @@ export default function BookingScreen({
   const [showOutsideServiceModal, setShowOutsideServiceModal] = useState(false);
   const [showLocationSettingsModal, setShowLocationSettingsModal] =
     useState(false);
+
 
   const searchBoxRef = useRef<google.maps.places.SearchBox | null>(null);
   const destinationInputRef = useRef<HTMLInputElement>(null);
@@ -364,7 +373,10 @@ export default function BookingScreen({
                 "Failed to fetch airports for pickup location:",
                 err
               );
-              showNotification("Failed to fetch airports for pickup location. Please try again", "error")
+              showNotification(
+                "Failed to fetch airports for pickup location. Please try again",
+                "error"
+              );
               // 👇 Notify user — see Step 4 for implementation
               onShowLogin(false); // Placeholder — you’ll replace this with real notification
               // Example: showNotification("Failed to find nearby airport. Please try again.", "error");
@@ -509,7 +521,7 @@ export default function BookingScreen({
   }, []);
 
   return (
-    <div className="h-screen bg-achrams-bg-primary flex flex-col">
+    <div className="bg-achrams-bg-primary flex flex-col flex-1">
       <AirportSelectionModal
         isOpen={showAirportSelectionModal}
         onClose={() => setShowAirportSelectionModal(false)}
@@ -526,6 +538,16 @@ export default function BookingScreen({
           <ACHRAMSHeader title="" />
         </div>
       </div>
+
+      {/* {isAuthenticated && onBackToDashboard && (
+              <button
+      onClick={onBackToDashboard}
+      className="flex items-center gap-1 px-3 py-2 rounded-lg bg-achrams-primary-light text-achrams-primary-solid hover:bg-achrams-primary hover:shadow-md transition-all"
+    >
+      <ChevronLeft className="w-5 h-5" />
+      <span className="text-sm font-medium">Back</span>
+    </button>
+            )} */}
 
       {error?.includes("denied") && (
         <div className="bg-blue-600 text-achrams-text-light p-3 flex items-center justify-between">
@@ -566,7 +588,9 @@ export default function BookingScreen({
         </div>
       )}
 
-      <div className="flex-1 px-6 py-8 overflow-y-auto">
+      <div
+        className={`flex-1 px-6 py-8 overflow-y-auto ${screenPaddingClass}`}
+      >
         <h2 className="text-2xl font-semibold tracking-tight text-achrams-text-primary pb-4">
           Book Your Airport Ride
         </h2>
@@ -651,7 +675,6 @@ export default function BookingScreen({
                   <span>Use my current location</span>
                 </button>
                 {/* Optionally: Add "Or type to search" hint */}
-                
               </div>
             )}
           </div>
@@ -740,9 +763,14 @@ export default function BookingScreen({
             </div>
           </div>
         )}
+
+
+
+
+        
       </div>
 
-      <div className="p-6">
+      <div className={` p-6 ${isAuthenticated ? 'mb-24' : ''}`}>
         <button
           onClick={onProceed}
           disabled={!fareEstimate}
@@ -758,20 +786,20 @@ export default function BookingScreen({
         </button>
       </div>
 
-      {!isAuthenticated &&(
-      <div className="w-full flex justify-end mb-4">
-        {" "}
-        {/* Example: Top-right aligned */}
-        <button
-          onClick={onShowLogin} // NEW: Call the prop function passed from page.tsx
-          className="text-sm text-achrams-primary-solid hover:underline transition-colors  mx-auto cursor-pointer"
-        >
-          Have an account? Log in
-        </button>
-      </div>
-        )}
+      {!isAuthenticated && (
+        <div className="w-full flex justify-end mb-4">
+          {" "}
+          {/* Example: Top-right aligned */}
+          <button
+            onClick={onShowLogin} // NEW: Call the prop function passed from page.tsx
+            className="text-sm text-achrams-primary-solid hover:underline transition-colors  mx-auto cursor-pointer"
+          >
+            Have an account? Log in
+          </button>
+        </div>
+      )}
 
-      <ACHRAMFooter />
+      {!isAuthenticated && <ACHRAMFooter />}
     </div>
   );
 }

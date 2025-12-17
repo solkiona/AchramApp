@@ -14,6 +14,8 @@ interface TripCompleteScreenProps {
   destination: string;
   onRate?: () => void;
   onDone: OnDoneHandler;
+  screenPaddingClass: string,
+  isAuthenticated: boolean;
 }
 
 export default function TripCompleteScreen({
@@ -23,14 +25,16 @@ export default function TripCompleteScreen({
   destination,
   onRate,
   onDone,
+  screenPaddingClass,
+  isAuthenticated,
 }: TripCompleteScreenProps) {
   return (
-    <div className="h-screen bg-achrams-bg-primary flex flex-col">
+    <div className="flex-1 bg-achrams-bg-primary flex flex-col">
       <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4">
         <h1 className="text-xl font-bold">Trip completed</h1>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-8">
+      <div className={`flex-1 overflow-y-auto px-6 py-8  ${screenPaddingClass}`}>
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-achrams-bg-secondary rounded-full flex items-center justify-center mx-auto mb-4 border border-achrams-border">
             <Check className="w-10 h-10 text-achrams-primary-solid" />
@@ -122,8 +126,13 @@ export default function TripCompleteScreen({
   Done
 </button>
       </div>
+    {
+      !isAuthenticated && (
 
-      <ACHRAMFooter />
+        <ACHRAMFooter />
+
+      )
+    }
     </div>
   );
 }

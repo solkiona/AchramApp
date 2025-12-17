@@ -30,6 +30,8 @@ interface DriverAssignedScreenProps {
     type: "info" | "success" | "warning" | "error"
   ) => void;
   onCancelTrip: () => void;
+  isAuthenticated: boolean;
+  screenPaddingClass: string;
 }
 
 export default function DriverAssignedScreen({
@@ -43,6 +45,8 @@ export default function DriverAssignedScreen({
   onBack,
   showNotification,
   onCancelTrip,
+  isAuthenticated,
+  screenPaddingClass,
 }: DriverAssignedScreenProps) {
   const [isVerified, setIsVerified] = useState(false);
 
@@ -52,7 +56,7 @@ export default function DriverAssignedScreen({
   }, []);
 
   return (
-    <div className="h-screen bg-achrams-bg-primary flex flex-col relative">
+    <div className="bg-achrams-bg-primary flex flex-col relative flex-1">
       {driver ? (
         <>
           {/* Header */}
@@ -63,7 +67,7 @@ export default function DriverAssignedScreen({
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div className={`flex-1 overflow-y-auto px-6 py-6 ${screenPaddingClass}`}>
             {/* Trip Summary */}
             <div className="bg-achrams-bg-secondary rounded-xl p-4 mb-6 border border-achrams-border">
               <div className="flex items-start gap-3 mb-3">
@@ -183,8 +187,13 @@ export default function DriverAssignedScreen({
               Cancel trip
             </button>
           </div>
+          {
+            !isAuthenticated &&(
 
-          <ACHRAMFooter />
+              <ACHRAMFooter />
+
+            )
+          }
         </>
       ) : (
         <div className="flex-1 flex items-center justify-center">

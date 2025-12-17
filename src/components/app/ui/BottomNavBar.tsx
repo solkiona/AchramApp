@@ -1,5 +1,5 @@
 // src/components/app/ui/BottomNavBar.tsx
-import { House, Search, Wallet, User } from 'lucide-react';
+import { House, Search, Wallet, User, Clock } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation'; // Or your routing library
 
 interface BottomNavBarProps {
@@ -9,6 +9,7 @@ interface BottomNavBarProps {
   onHomeClick?: () => void;
   onSearchClick?: () => void;
   onWalletClick?: () => void;
+  onShowTripHistory?: () => void;
 }
 
 export default function BottomNavBar({
@@ -17,6 +18,7 @@ export default function BottomNavBar({
   onHomeClick,
   onSearchClick,
   onWalletClick,
+  onShowTripHistory,
 }: BottomNavBarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -40,13 +42,14 @@ export default function BottomNavBar({
   };
 
   const handleSearchClick = () => {
-    if (onSearchClick) {
-      onSearchClick();
-    } else {
-      // Navigate to search screen - placeholder path
-      router.push('/search'); // Replace with actual search screen path
-    }
-  };
+      console.log("Trip History button clicked in BottomNavBar. onShowTripHistory prop exists:", !!onShowTripHistory); // Debug log
+      if (onShowTripHistory) {
+        console.log("Calling onShowTripHistory prop from BottomNavBar.");
+        onShowTripHistory(); 
+      } else {
+        console.warn("onShowTripHistory prop was not provided to BottomNavBar.");
+      }
+    };
 
   const handleWalletClick = () => {
     if (onWalletClick) {
@@ -58,13 +61,13 @@ export default function BottomNavBar({
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-achrams-bg-primary border-t border-achrams-border z-40">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-achrams-border z-40">
       <div className="flex justify-around items-center py-3 px-2 mx-auto max-w-sm">
         <button
           onClick={handleHomeClick}
           className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-colors ${
             isActive('/dashboard') ? 'text-achrams-primary-solid' : 'text-achrams-text-secondary'
-          }`}
+          } transition-all hover:bg-green-50 active:scale-95 cursor-pointer`}
         >
           <House className={`w-6 h-6 ${isActive('/dashboard') ? 'fill-current' : ''}`} />
           <span className="text-xs">Home</span>
@@ -73,16 +76,16 @@ export default function BottomNavBar({
           onClick={handleSearchClick}
           className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-colors ${
             isActive('/search') ? 'text-achrams-primary-solid' : 'text-achrams-text-secondary'
-          }`}
+          }  transition-all hover:bg-green-50 active:scale-95 cursor-pointer`}
         >
-          <Search className={`w-6 h-6 ${isActive('/search') ? 'fill-current' : ''}`} />
-          <span className="text-xs">Search</span>
+          <Clock className={`w-6 h-6 ${isActive('/search') ? 'fill-current' : ''}`} />
+          <span className="text-xs">History</span>
         </button>
         <button
           onClick={handleWalletClick}
           className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-colors relative ${
             isActive('/wallet') ? 'text-achrams-primary-solid' : 'text-achrams-text-secondary'
-          }`}
+          }  transition-all hover:bg-green-50 active:scale-95 cursor-pointer`}
         >
           <Wallet className={`w-6 h-6 ${isActive('/wallet') ? 'fill-current' : ''}`} />
           {/* Optional: Wallet balance indicator */}
@@ -97,7 +100,7 @@ export default function BottomNavBar({
           onClick={onProfileClick}
           className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-colors ${
             isActive('/profile') ? 'text-achrams-primary-solid' : 'text-achrams-text-secondary' // Assuming profile page path
-          }`}
+          }  transition-all hover:bg-green-50 active:scale-95 cursor-pointer`}
         >
           <User className={`w-6 h-6 ${isActive('/profile') ? 'fill-current' : ''}`} />
           <span className="text-xs">Profile</span>
@@ -105,4 +108,5 @@ export default function BottomNavBar({
       </div>
     </nav>
   );
+  
 }
