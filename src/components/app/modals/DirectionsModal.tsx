@@ -1,3 +1,4 @@
+
 // src/components/app/modals/DirectionsModal.tsx
 import { X, Navigation, MapPin, Car, User, Route, Clock } from 'lucide-react';
 import { GoogleMap, Marker, Polygon, useJsApiLoader } from '@react-google-maps/api';
@@ -12,7 +13,7 @@ interface DirectionsModalProps {
   destinationCoords?: [number, number] | null;
   driverLocation?: [number, number] | null;
   passengerLocation?: [number, number] | null;
-  airportPickupArea?: any;
+  airportPickupArea?: any; // Consider defining a more specific type if possible
   isGoogleMapsLoaded: boolean;
   googleMapsLoadError?: any;
 }
@@ -103,6 +104,9 @@ export default function DirectionsModal({
   const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
   const [activeMarker, setActiveMarker] = useState<string | null>(null);
 
+  // NEW: Ref to track user interaction with the map
+  const userInteractionRef = useRef(false);
+
   const directionsService = useRef<google.maps.DirectionsService | null>(null);
   const directionsRenderer = useRef<google.maps.DirectionsRenderer | null>(null);
 
@@ -171,8 +175,30 @@ export default function DirectionsModal({
     }
   }, [isGoogleMapsLoaded, pickupCoords, destinationCoords, map]);
 
+  // NEW: Effect to handle user interaction events
   useEffect(() => {
-    if (!map || !isGoogleMapsLoaded) return;
+    if (!map) return;
+
+    const handleMapInteraction = () => {
+      // Set the flag to true when user interacts (pan, zoom, etc.)
+      userInteractionRef.current = true;
+    };
+
+    // Listen for common user interaction events
+    const centerListener = map.addListener('center_changed', handleMapInteraction);
+    const zoomListener = map.addListener('zoom_changed', handleMapInteraction);
+
+    // Cleanup listeners when component unmounts or map changes
+    return () => {
+      if (centerListener) centerListener.remove();
+      if (zoomListener) zoomListener.remove();
+    };
+  }, [map]);
+
+  // UPDATED: Effect to fit bounds, now respecting user interaction
+  useEffect(() => {
+    // Only fit bounds if map is loaded, and user hasn't interacted yet
+    if (!map || !isGoogleMapsLoaded || userInteractionRef.current) return;
 
     const bounds = new google.maps.LatLngBounds();
     let hasPoints = false;
@@ -188,7 +214,7 @@ export default function DirectionsModal({
     }
 
     if (driverLocation) {
-      bounds.extend({ lat: driverLocation[1], lng: driverLocation[0] });
+      bounds.extend({ lat: driverLocation[0], lng: driverLocation[1] });
       hasPoints = true;
     }
 
@@ -211,7 +237,19 @@ export default function DirectionsModal({
     if (hasPoints) {
       map.fitBounds(bounds, { top: 100, right: 50, bottom: 150, left: 50 });
     }
-  }, [map, pickupCoords, destinationCoords, driverLocation, passengerLocation, airportPickupArea, isGoogleMapsLoaded, getPolygonPaths, routePolylinePath]);
+  }, [
+    map,
+    pickupCoords,
+    destinationCoords,
+    driverLocation,
+    passengerLocation,
+    airportPickupArea,
+    isGoogleMapsLoaded,
+    getPolygonPaths,
+    routePolylinePath,
+    // userInteractionRef.current is not a dependency of this specific useEffect
+    // because we only read its *current* value inside, not triggering a re-run.
+  ]);
 
   useEffect(() => {
     if (!isGoogleMapsLoaded || !driverLocation || !airportPickupArea) return;
@@ -220,7 +258,7 @@ export default function DirectionsModal({
     if (polygonPaths.length === 0) return;
 
     const polygon = new google.maps.Polygon({ paths: polygonPaths });
-    const driverPoint = new google.maps.LatLng(driverLocation[1], driverLocation[0]);
+    const driverPoint = new google.maps.LatLng(driverLocation[0], driverLocation[1]);
 
     const isInside = google.maps.geometry.poly.containsLocation(driverPoint, polygon);
     setIsDriverInPickupArea(isInside);
@@ -236,9 +274,6 @@ export default function DirectionsModal({
 
   const onUnmount = useCallback(() => {
     setMap(null);
-    // Reset interaction state when modal closes
-    setHasUserInteracted(false);
-    userInteractionRef.current = false;
     if (directionsRenderer.current) {
       directionsRenderer.current.setMap(null);
       directionsRenderer.current = null;
@@ -280,7 +315,7 @@ export default function DirectionsModal({
               <div>
                 <h2 className="text-lg font-bold">Live Tracking</h2>
                 {isDriverInPickupArea && (
-                  <p className="text-xs text-green-300 flex items-center gap-1 mt-0.5">
+                  <p className="text-xs text-white flex items-center gap-1 mt-0.5">
                     <Car className="w-3 h-3" /> Driver has arrived!
                   </p>
                 )}
@@ -379,7 +414,7 @@ export default function DirectionsModal({
               {/* Driver's Current Location */}
               {driverLocation && (
                 <Marker
-                  position={{ lat: driverLocation[1], lng: driverLocation[0] }}
+                  position={{ lat: driverLocation[0], lng: driverLocation[1] }}
                   icon={getDriverIcon(isDriverInPickupArea)}
                   title="Driver Location"
                   zIndex={999}
