@@ -188,7 +188,7 @@ export default function DirectionsModal({
     }
 
     if (driverLocation) {
-      bounds.extend({ lat: driverLocation[1], lng: driverLocation[0] });
+      bounds.extend({ lat: driverLocation[0], lng: driverLocation[1] });
       hasPoints = true;
     }
 
@@ -220,7 +220,7 @@ export default function DirectionsModal({
     if (polygonPaths.length === 0) return;
 
     const polygon = new google.maps.Polygon({ paths: polygonPaths });
-    const driverPoint = new google.maps.LatLng(driverLocation[1], driverLocation[0]);
+    const driverPoint = new google.maps.LatLng(driverLocation[0], driverLocation[1]);
 
     const isInside = google.maps.geometry.poly.containsLocation(driverPoint, polygon);
     setIsDriverInPickupArea(isInside);
@@ -376,7 +376,7 @@ export default function DirectionsModal({
               {/* Driver's Current Location */}
               {driverLocation && (
                 <Marker
-                  position={{ lat: driverLocation[1], lng: driverLocation[0] }}
+                  position={{ lat: driverLocation[0], lng: driverLocation[1] }}
                   icon={getDriverIcon(isDriverInPickupArea)}
                   title="Driver Location"
                   zIndex={999}

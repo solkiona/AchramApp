@@ -104,7 +104,7 @@ export default function TripProgressScreen({
       return;
     }
 
-    const origin = new google.maps.LatLng(driverLocation[1], driverLocation[0]);
+    const origin = new google.maps.LatLng(driverLocation[0], driverLocation[1]);
     const destination = new google.maps.LatLng(destinationCoords[1], destinationCoords[0]);
 
     if (!directionsService.current) {
@@ -156,7 +156,7 @@ export default function TripProgressScreen({
   }, [driverLocation, destinationCoords, isGoogleMapsLoaded]);
 
   const mapCenter = driverLocation
-    ? { lat: driverLocation[1], lng: driverLocation[0] }
+    ? { lat: driverLocation[0], lng: driverLocation[1] }
     : destinationCoords
     ? { lat: destinationCoords[1], lng: destinationCoords[0] }
     : { lat: 6.5244, lng: 3.3792 };
@@ -288,8 +288,8 @@ export default function TripProgressScreen({
                 {driverLocation && (
                   <Marker
                     position={{
-                      lat: driverLocation[1],
-                      lng: driverLocation[0],
+                      lat: driverLocation[0],
+                      lng: driverLocation[1],
                     }}
                     icon={getDriverIcon()}
                     title={`Driver: ${driver.name}`}
@@ -333,8 +333,8 @@ export default function TripProgressScreen({
                 {selectedMarker === "driver" && driverLocation && driver && (
                   <InfoWindow
                     position={{
-                      lat: driverLocation[1],
-                      lng: driverLocation[0],
+                      lat: driverLocation[0],
+                      lng: driverLocation[1],
                     }}
                     onCloseClick={() => setSelectedMarker(null)}
                   >
