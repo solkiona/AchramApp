@@ -104,8 +104,9 @@ export default function DirectionsModal({
   const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
   const [activeMarker, setActiveMarker] = useState<string | null>(null);
 
-  // NEW: Ref to track user interaction with the map
+  // NEW: Refs to track user interaction and initial fitBounds status
   const userInteractionRef = useRef(false);
+  const initialFitBoundsDoneRef = useRef(false);
 
   const directionsService = useRef<google.maps.DirectionsService | null>(null);
   const directionsRenderer = useRef<google.maps.DirectionsRenderer | null>(null);
@@ -195,10 +196,9 @@ export default function DirectionsModal({
     };
   }, [map]);
 
-  // UPDATED: Effect to fit bounds, now respecting user interaction
+  // NEW: Effect to perform initial fitBounds only once, respecting user interaction
   useEffect(() => {
-    // Only fit bounds if map is loaded, and user hasn't interacted yet
-    if (!map || !isGoogleMapsLoaded || userInteractionRef.current) return;
+    if (!map || !isGoogleMapsLoaded || initialFitBoundsDoneRef.current || userInteractionRef.current) return;
 
     const bounds = new google.maps.LatLngBounds();
     let hasPoints = false;
@@ -236,6 +236,7 @@ export default function DirectionsModal({
 
     if (hasPoints) {
       map.fitBounds(bounds, { top: 100, right: 50, bottom: 150, left: 50 });
+      initialFitBoundsDoneRef.current = true; // Mark that the initial fitBounds has been done
     }
   }, [
     map,
@@ -247,9 +248,11 @@ export default function DirectionsModal({
     isGoogleMapsLoaded,
     getPolygonPaths,
     routePolylinePath,
-    // userInteractionRef.current is not a dependency of this specific useEffect
-    // because we only read its *current* value inside, not triggering a re-run.
+    // userInteractionRef.current and initialFitBoundsDoneRef.current are not deps
+    // because we only read their *current* value inside.
   ]);
+
+  // REMOVED: The old useEffect that constantly tried to fit bounds based on live data
 
   useEffect(() => {
     if (!isGoogleMapsLoaded || !driverLocation || !airportPickupArea) return;
@@ -293,12 +296,16 @@ export default function DirectionsModal({
     );
   }
 
+  // NEW: Determine initial center only if initial fitBounds hasn't happened and user hasn't interacted
   let mapCenter = defaultCenter;
-  if (passengerLocation) {
-    mapCenter = { lat: passengerLocation[1], lng: passengerLocation[0] };
-  } else if (pickupCoords) {
-    mapCenter = { lat: pickupCoords[1], lng: pickupCoords[0] };
+  if (!initialFitBoundsDoneRef.current && !userInteractionRef.current) {
+     if (passengerLocation) {
+        mapCenter = { lat: passengerLocation[1], lng: passengerLocation[0] };
+      } else if (pickupCoords) {
+        mapCenter = { lat: pickupCoords[1], lng: pickupCoords[0] };
+      }
   }
+  // Otherwise, let the map use its current view (controlled by user interaction)
 
   const polygonPaths = getPolygonPaths();
 
@@ -361,8 +368,11 @@ export default function DirectionsModal({
           {isGoogleMapsLoaded ? (
             <GoogleMap
               mapContainerStyle={mapContainerStyle}
-              center={mapCenter}
-              zoom={14}
+              // NEW: Only pass center and zoom if initial fitBounds hasn't happened and user hasn't interacted
+              // This prevents the map from being forced back to the center prop.
+              // The map will manage its own view after initial load/fitBounds/user interaction.
+              center={(!initialFitBoundsDoneRef.current && !userInteractionRef.current) ? mapCenter : undefined}
+              zoom={(!initialFitBoundsDoneRef.current && !userInteractionRef.current) ? 14 : undefined}
               onLoad={onLoad}
               onUnmount={onUnmount}
               options={{
@@ -374,6 +384,10 @@ export default function DirectionsModal({
                 zoomControlOptions: {
                   position: google.maps.ControlPosition.RIGHT_CENTER,
                 },
+                // NEW: Ensure the map is draggable and user-controllable
+                draggable: true,
+                scrollwheel: true, // Allow scroll to zoom if desired
+                disableDefaultUI: false, // Keep zoom controls
               }}
             >
               {/* Passenger's Current Location */}
