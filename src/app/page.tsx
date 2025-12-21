@@ -2364,7 +2364,7 @@ export default function ACHRAMApp() {
     if (activeTripId) {
       // If there's an active trip, we want to navigate to dashboard
       // but save the *current* screen state first.
-      if(!previousScreen){
+      if(previousScreen !== 'dashboard'){
         console.log(
           "Navigating to dashboard with active trip. Current screen:",
           screen
