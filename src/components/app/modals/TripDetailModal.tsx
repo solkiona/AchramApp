@@ -70,7 +70,7 @@ export default function TripDetailsModal({
       } finally {
         setLoading(false);
       }
-    }, [tripId, isOpen, showNotification]
+    }, [tripId, showNotification]
     );
     
 
@@ -86,7 +86,7 @@ export default function TripDetailsModal({
     console.log("Watching these variables to know which one trigeers a rerender, tripId, isOpen, showNotification", tripId, isOpen, !!showNotification)
 
     fetchTripDetails();
-  }, [fetchTripDetails]); // NEW: Depend on isOpen and tripId
+  }, [fetchTripDetails, isOpen]); // NEW: Depend on isOpen and tripId
 
   // NEW: Don't render anything if not open
   if (!isOpen) return null;
