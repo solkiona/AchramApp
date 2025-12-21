@@ -2487,7 +2487,8 @@ export default function ACHRAMApp() {
         setRoutePath={setRoutePath}
         routeInfo={routeInfo}
         setRouteInfo={setRouteInfo}
-        driverLocation={driver?.location || null}
+        driverLocation={driverLocation}
+        setDriverLocation={setDriverLocation}
       />
     );
   } else if (screen === "trip-complete") {

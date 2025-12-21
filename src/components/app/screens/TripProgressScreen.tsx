@@ -36,6 +36,7 @@ interface TripProgressScreenProps {
   setRoutePath: (path: google.maps.LatLngLiteral[]) => void;
   setRouteInfo: (info: { distance: string; duration: string } | null) => void;
   driverLocation: [number, number] | null;
+  setDriverLocation: (val: [number, number] | null) => void;
   
 }
 
@@ -68,6 +69,7 @@ export default function TripProgressScreen({
   routeInfo,
   setRouteInfo,
   driverLocation,
+  setDriverLocation,
 }: TripProgressScreenProps) {
   //const driverLocation = driver?.location || null;
   
@@ -122,6 +124,15 @@ const getDestinationIcon = useCallback(
 
   const polygonPaths = getPolygonPaths();
 
+
+  useEffect(() => {
+  if (driver?.location) {
+    alert('persisting driver location in parent')
+    setDriverLocation(driver.location); // Persist driver location in parent state
+  }
+}, [driver, setDriverLocation]);
+
+
   // ✅ FIX 3: Listen for user interactions and UPDATE STATE
   useEffect(() => {
     if (!map || hasUserInteracted) return;
@@ -133,6 +144,7 @@ const getDestinationIcon = useCallback(
         setHasUserInteracted(true); // ✅ Triggers re-render to stop passing center/zoom props
       }
     };
+
 
     // Listen for common user interaction events
     const centerListener = map.addListener('center_changed', handleMapInteraction);
