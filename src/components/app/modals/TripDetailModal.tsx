@@ -1,12 +1,11 @@
-// src/components/app/modals/TripDetailsModal.tsx (or update TripDetailsScreen.tsx if you prefer)
 
-import { useCallback, useEffect, useState } from "react";
+// src/components/app/modals/TripDetailsModal.tsx
+
+import { useEffect, useState } from "react";
 import { Clock, MapPin, Wallet, Star, User, X, Plane, Loader } from "lucide-react";
 import { apiClient } from "@/lib/api";
-import { Driver } from "@/types/passenger"; // Assuming this type exists
-import ACHRAMSHeader from "@/components/ui/ACHRAMSHeader";
+import { Driver } from "@/types/passenger";
 
-// Assuming the same Trip interface from TripHistoryModal, adjusted for rating
 interface Trip {
   id: string;
   amount: {
@@ -21,93 +20,90 @@ interface Trip {
   pickup_address: string;
   destination_address: string;
   verification_code: string;
-  rating: { score: number; comment: string } | null; // API shows object, not just number
-  map_data?: any; // Or a more specific type
+  rating: { score: number; comment: string } | null;
+  map_data?: any;
   driver?: Driver;
-  created_at: string; // API shows this field
-  // Add other fields as needed
+  created_at: string;
 }
 
 interface TripDetailsModalProps {
-  isOpen: boolean; // NEW: Control visibility
-  tripId: string | null; // NEW: Accept trip ID, handle null
-  onClose: () => void; // NEW: Handler to close the modal
+  isOpen: boolean;
+  tripId: string | null;
+  onClose: () => void;
   showNotification: (message: string, type: "info" | "success" | "warning" | "error") => void;
 }
 
 export default function TripDetailsModal({
   isOpen,
   tripId,
-  onClose, // NEW: Use onClose instead of onBack
+  onClose,
   showNotification,
 }: TripDetailsModalProps) {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-
-  const fetchTripDetails = useCallback(
-
-      async () => {
-      setLoading(true);
+  // ✅ FIX: Simplified effect without useCallback
+  useEffect(() => {
+    // Early return if modal is closed or no tripId
+    if (!isOpen || !tripId) {
+      setTrip(null);
+      setLoading(false);
       setError(null);
+      return;
+    }
+
+    // ✅ Reset state when starting a new fetch
+    setLoading(true);
+    setError(null);
+    // ✅ DON'T clear trip immediately - keeps previous data visible during load
+    // setTrip(null); // ❌ Remove this line
+
+    const fetchTripDetails = async () => {
       try {
         console.log("Fetching details for trip ID:", tripId);
-        const response = await apiClient.get(`/trips/${tripId}`, undefined , false, undefined , true);
+        const response = await apiClient.get(`/trips/${tripId}`, undefined, false, undefined, true);
         console.log("Trip details API response:", response);
 
         if (response.status === "success" && response.data) {
           setTrip(response.data);
+          setError(null);
         } else {
           console.error("API response was not successful for trip details:", response);
           setError("Failed to fetch trip details.");
+          setTrip(null);
           showNotification("Failed to fetch trip details.", "error");
         }
       } catch (err) {
         console.error("Error fetching trip details:", err);
         setError("An error occurred while fetching trip details.");
+        setTrip(null);
         showNotification("Failed to fetch trip details. Please check your connection.", "error");
       } finally {
         setLoading(false);
       }
-    }, [tripId, showNotification]
-    );
-    
-
-  useEffect(() => {
-    // NEW: Only fetch if modal is open and tripId is provided
-    if (!isOpen || !tripId) {
-        setTrip(null); // Clear previous data
-        setLoading(false);
-        setError(null);
-        return;
-    }
-
-    console.log("Watching these variables to know which one trigeers a rerender, tripId, isOpen, showNotification", tripId, isOpen, !!showNotification)
+    };
 
     fetchTripDetails();
-  }, [fetchTripDetails, isOpen]); // NEW: Depend on isOpen and tripId
+  }, [isOpen, tripId, showNotification]); // ✅ Only depend on values that actually change
 
-  // NEW: Don't render anything if not open
   if (!isOpen) return null;
 
-  // NEW: Simplified render logic, no conditional return for loading/error inside main return
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center"> {/* NEW: Overlay container */}
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div
         className="absolute inset-0 bg-black/50"
-        onClick={onClose} // NEW: Close on backdrop click
+        onClick={onClose}
       />
-      {/* Modal Content */}
-      <div className="relative bg-white w-full max-w-md h-[85vh] rounded-t-3xl border-t border-achrams-border shadow-lg overflow-hidden flex flex-col"> {/* NEW: Modal container with height, rounded corners, etc. */}
-
+      
+      <div className="relative bg-white w-full max-w-md h-[85vh] rounded-t-3xl border-t border-achrams-border shadow-lg overflow-hidden flex flex-col">
+        
         {/* Header */}
-        <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4 flex items-center justify-between">
+        <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4 flex items-center justify-between shadow-md">
           <h2 className="text-xl font-bold">Trip Details</h2>
           <button
-            onClick={onClose} // NEW: Close button
-            className="text-achrams-text-light hover:text-achrams-text-secondary"
+            onClick={onClose}
+            className="text-achrams-text-light hover:text-achrams-text-light/80 p-2 hover:bg-white/10 rounded-lg transition-colors"
             aria-label="Close"
           >
             <X className="w-6 h-6" />
@@ -116,62 +112,66 @@ export default function TripDetailsModal({
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto px-6 py-6">
-          {loading ? (
-            <div className="flex-1 flex items-center justify-center">
+          {loading && !trip ? ( // ✅ Only show loading if we don't have data yet
+            <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <Plane className="w-12 h-12 text-achrams-primary-solid mx-auto mb-4 animate-pulse" />
+                <Loader className="w-12 h-12 text-achrams-primary-solid mx-auto mb-4 animate-spin" />
                 <p className="text-achrams-text-secondary">Loading trip details...</p>
               </div>
             </div>
           ) : error || !trip ? (
-            <div className="flex-1 flex items-center justify-center">
+            <div className="flex items-center justify-center h-full">
               <div className="text-center px-6">
-                <div className="text-red-500 mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <X className="w-8 h-8 text-red-500" />
                 </div>
-                <p className="text-achrams-text-secondary mb-4">{error || "Trip details not found."}</p>
+                <h3 className="text-lg font-bold text-achrams-text-primary mb-2">Trip Not Found</h3>
+                <p className="text-achrams-text-secondary mb-6">{error || "Unable to load trip details."}</p>
                 <button
-                  onClick={onClose} // NEW: Go back to history or just close on error
-                  className="w-full py-3 bg-achrams-primary-solid text-achrams-text-light rounded-xl font-medium hover:opacity-90 active:scale-[0.98] transition-all"
+                  onClick={onClose}
+                  className="w-full py-3 bg-achrams-primary-solid text-white rounded-xl font-medium hover:opacity-90 active:scale-[0.98] transition-all"
                 >
                   Close
                 </button>
               </div>
             </div>
           ) : (
-            // NEW: Trip details content (same as before, just inside the modal structure)
-            <>
+            <div className="space-y-4">
               {/* Trip Status Card */}
-              <div className="bg-achrams-bg-secondary rounded-xl p-4 mb-6 border border-achrams-border">
+              <div className="bg-white rounded-xl p-4 border border-achrams-border hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-bold text-lg text-achrams-text-primary">Trip Status</h3>
                   <span className={`text-xs px-3 py-1.5 rounded-full font-semibold ${
                     trip.status.value === "completed"
-                      ? "bg-emerald-100 text-emerald-800"
-                      : "bg-amber-100 text-amber-800" // Assuming cancelled or other
+                      ? "bg-green-100 text-green-700"
+                      : trip.status.value === "cancelled"
+                      ? "bg-gray-100 text-gray-700"
+                      : "bg-amber-100 text-amber-700"
                   }`}>
                     {trip.status.label}
                   </span>
                 </div>
-                <p className="text-sm text-achrams-text-secondary">ID: {trip.id}</p>
+                <p className="text-sm text-achrams-text-secondary">Trip ID: {trip.id}</p>
               </div>
 
-              {/* Driver Info (if available) */}
+              {/* Driver Info */}
               {trip.driver && (
-                <div className="bg-achrams-bg-secondary rounded-xl p-4 mb-6 border border-achrams-border">
+                <div className="bg-white rounded-xl p-4 border border-achrams-border hover:shadow-md transition-shadow">
                   <h3 className="font-bold text-lg mb-3 text-achrams-text-primary flex items-center gap-2">
-                    <User className="w-5 h-5 text-achrams-text-secondary" />
-                    Driver
+                    <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+                      <User className="w-4 h-4 text-indigo-600" />
+                    </div>
+                    Driver Information
                   </h3>
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-achrams-primary-solid rounded-full flex items-center justify-center text-achrams-text-light font-bold">
+                    <div className="w-14 h-14 bg-gradient-to-br from-achrams-primary-solid to-achrams-secondary-solid rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-md">
                       {trip.driver.name?.charAt(0) || "D"}
                     </div>
                     <div>
-                      <p className="font-semibold text-achrams-text-primary">{trip.driver.name}</p>
-                      <div className="flex items-center gap-1">
+                      <p className="font-semibold text-achrams-text-primary text-lg">{trip.driver.name}</p>
+                      <div className="flex items-center gap-1 mt-1">
                         <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
-                        <span className="text-sm text-achrams-text-primary">{trip.driver.rating || "N/A"}</span>
+                        <span className="text-sm font-medium text-achrams-text-primary">{trip.driver.rating || "N/A"}</span>
                       </div>
                     </div>
                   </div>
@@ -179,62 +179,347 @@ export default function TripDetailsModal({
               )}
 
               {/* Trip Summary */}
-              <div className="bg-achrams-bg-secondary rounded-xl p-4 mb-6 border border-achrams-border">
-                <h3 className="font-bold text-lg mb-3 text-achrams-text-primary">Trip Summary</h3>
+              <div className="bg-white rounded-xl p-4 border border-achrams-border hover:shadow-md transition-shadow">
+                <h3 className="font-bold text-lg mb-4 text-achrams-text-primary flex items-center gap-2">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <MapPin className="w-4 h-4 text-blue-600" />
+                  </div>
+                  Route
+                </h3>
                 <div className="space-y-4">
                   {/* Pickup */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-2 h-2 bg-achrams-primary-solid rounded-full"></div>
-                      <div className="text-xs text-achrams-text-secondary mb-1">PICKUP</div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-3 h-3 rounded-full bg-achrams-primary-solid flex-shrink-0 mt-1"></div>
+                    <div>
+                      <div className="text-xs text-achrams-text-secondary mb-1 font-medium">PICKUP</div>
+                      <div className="font-medium text-achrams-text-primary">{trip.pickup_address}</div>
                     </div>
-                    <div className="font-medium text-achrams-text-primary">{trip.pickup_address}</div>
+                  </div>
+
+                  {/* Connection Line */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-0.5 h-6 bg-achrams-border ml-[5px]"></div>
                   </div>
 
                   {/* Destination */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-2 h-2 bg-achrams-primary-solid rounded-full"></div>
-                      <div className="text-xs text-achrams-text-secondary mb-1">DESTINATION</div>
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-xs text-achrams-text-secondary mb-1 font-medium">DESTINATION</div>
+                      <div className="font-medium text-achrams-text-primary">{trip.destination_address}</div>
                     </div>
-                    <div className="font-medium text-achrams-text-primary">{trip.destination_address}</div>
                   </div>
 
-                  {/* Verification Code (if relevant for completed trips) */}
+                  {/* Verification Code */}
                   {trip.verification_code && (
-                    <div>
-                      <div className="text-xs text-achrams-text-secondary mb-1">VERIFICATION CODE</div>
-                      <div className="font-mono font-bold text-achrams-text-primary text-lg">{trip.verification_code}</div>
+                    <div className="pt-3 border-t border-achrams-border">
+                      <div className="text-xs text-achrams-text-secondary mb-1 font-medium">VERIFICATION CODE</div>
+                      <div className="font-mono font-bold text-achrams-primary-solid text-2xl tracking-wider">{trip.verification_code}</div>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Fare & Date */}
-              <div className="bg-achrams-bg-secondary rounded-xl p-4 mb-6 border border-achrams-border">
-                <h3 className="font-bold text-lg mb-3 text-achrams-text-primary">Fare & Date</h3>
+              <div className="bg-white rounded-xl p-4 border border-achrams-border hover:shadow-md transition-shadow">
+                <h3 className="font-bold text-lg mb-4 text-achrams-text-primary flex items-center gap-2">
+                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                    <Wallet className="w-4 h-4 text-green-600" />
+                  </div>
+                  Payment Details
+                </h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-achrams-text-secondary">Total Fare</span>
-                    <span className="text-xl font-bold text-achrams-text-primary">
+                    <span className="text-2xl font-bold text-achrams-primary-solid">
                       {trip.amount.formatted}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center pt-2 border-t border-achrams-border">
-                    <span className="text-achrams-text-secondary flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
+                  <div className="flex justify-between items-center pt-3 border-t border-achrams-border">
+                    <span className="text-achrams-text-secondary flex items-center gap-1.5">
+                      <Clock className="w-4 h-4" />
                       Date & Time
                     </span>
-                    <span className="text-achrams-text-primary">
+                    <span className="text-achrams-text-primary font-medium">
                       {new Date(trip.created_at || '').toLocaleString() || "N/A"}
                     </span>
                   </div>
                 </div>
               </div>
-            </>
+
+              {/* Rating if available */}
+              {trip.rating && (
+                <div className="bg-white rounded-xl p-4 border border-achrams-border hover:shadow-md transition-shadow">
+                  <h3 className="font-bold text-lg mb-3 text-achrams-text-primary flex items-center gap-2">
+                    <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                      <Star className="w-4 h-4 text-yellow-600" />
+                    </div>
+                    Your Rating
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`w-6 h-6 ${
+                          star <= trip.rating!.score
+                            ? "fill-yellow-500 text-yellow-500"
+                            : "text-gray-300"
+                        }`}
+                      />
+                    ))}
+                    <span className="ml-2 font-semibold text-achrams-text-primary">{trip.rating.score}/5</span>
+                  </div>
+                  {trip.rating.comment && (
+                    <p className="mt-3 text-sm text-achrams-text-secondary italic">"{trip.rating.comment}"</p>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
     </div>
   );
 }
+
+
+// // src/components/app/modals/TripDetailsModal.tsx (or update TripDetailsScreen.tsx if you prefer)
+
+// import { useCallback, useEffect, useState } from "react";
+// import { Clock, MapPin, Wallet, Star, User, X, Plane, Loader } from "lucide-react";
+// import { apiClient } from "@/lib/api";
+// import { Driver } from "@/types/passenger"; // Assuming this type exists
+// import ACHRAMSHeader from "@/components/ui/ACHRAMSHeader";
+
+// // Assuming the same Trip interface from TripHistoryModal, adjusted for rating
+// interface Trip {
+//   id: string;
+//   amount: {
+//     formatted: string;
+//     currency: string;
+//     amount: number;
+//   };
+//   status: {
+//     label: string;
+//     value: string;
+//   };
+//   pickup_address: string;
+//   destination_address: string;
+//   verification_code: string;
+//   rating: { score: number; comment: string } | null; // API shows object, not just number
+//   map_data?: any; // Or a more specific type
+//   driver?: Driver;
+//   created_at: string; // API shows this field
+//   // Add other fields as needed
+// }
+
+// interface TripDetailsModalProps {
+//   isOpen: boolean; // NEW: Control visibility
+//   tripId: string | null; // NEW: Accept trip ID, handle null
+//   onClose: () => void; // NEW: Handler to close the modal
+//   showNotification: (message: string, type: "info" | "success" | "warning" | "error") => void;
+// }
+
+// export default function TripDetailsModal({
+//   isOpen,
+//   tripId,
+//   onClose, // NEW: Use onClose instead of onBack
+//   showNotification,
+// }: TripDetailsModalProps) {
+//   const [trip, setTrip] = useState<Trip | null>(null);
+//   const [loading, setLoading] = useState(true);
+//   const [error, setError] = useState<string | null>(null);
+
+
+//   const fetchTripDetails = useCallback(
+
+//       async () => {
+//       setLoading(true);
+//       setError(null);
+//       try {
+//         console.log("Fetching details for trip ID:", tripId);
+//         const response = await apiClient.get(`/trips/${tripId}`, undefined , false, undefined , true);
+//         console.log("Trip details API response:", response);
+
+//         if (response.status === "success" && response.data) {
+//           setTrip(response.data);
+//         } else {
+//           console.error("API response was not successful for trip details:", response);
+//           setError("Failed to fetch trip details.");
+//           showNotification("Failed to fetch trip details.", "error");
+//         }
+//       } catch (err) {
+//         console.error("Error fetching trip details:", err);
+//         setError("An error occurred while fetching trip details.");
+//         showNotification("Failed to fetch trip details. Please check your connection.", "error");
+//       } finally {
+//         setLoading(false);
+//       }
+//     }, [tripId, showNotification]
+//     );
+    
+
+//   useEffect(() => {
+//     // NEW: Only fetch if modal is open and tripId is provided
+//     if (!isOpen || !tripId) {
+//         setTrip(null); // Clear previous data
+//         setLoading(false);
+//         setError(null);
+//         return;
+//     }
+
+//     console.log("Watching these variables to know which one trigeers a rerender, tripId, isOpen, showNotification", tripId, isOpen, !!showNotification)
+
+//     fetchTripDetails();
+//   }, [fetchTripDetails, isOpen]); // NEW: Depend on isOpen and tripId
+
+//   // NEW: Don't render anything if not open
+//   if (!isOpen) return null;
+
+//   // NEW: Simplified render logic, no conditional return for loading/error inside main return
+//   return (
+//     <div className="fixed inset-0 z-50 flex items-end justify-center"> {/* NEW: Overlay container */}
+//       {/* Backdrop */}
+//       <div
+//         className="absolute inset-0 bg-black/50"
+//         onClick={onClose} // NEW: Close on backdrop click
+//       />
+//       {/* Modal Content */}
+//       <div className="relative bg-white w-full max-w-md h-[85vh] rounded-t-3xl border-t border-achrams-border shadow-lg overflow-hidden flex flex-col"> {/* NEW: Modal container with height, rounded corners, etc. */}
+
+//         {/* Header */}
+//         <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4 flex items-center justify-between">
+//           <h2 className="text-xl font-bold">Trip Details</h2>
+//           <button
+//             onClick={onClose} // NEW: Close button
+//             className="text-achrams-text-light hover:text-achrams-text-secondary"
+//             aria-label="Close"
+//           >
+//             <X className="w-6 h-6" />
+//           </button>
+//         </div>
+
+//         {/* Content Area */}
+//         <div className="flex-1 overflow-y-auto px-6 py-6">
+//           {loading ? (
+//             <div className="flex-1 flex items-center justify-center">
+//               <div className="text-center">
+//                 <Plane className="w-12 h-12 text-achrams-primary-solid mx-auto mb-4 animate-pulse" />
+//                 <p className="text-achrams-text-secondary">Loading trip details...</p>
+//               </div>
+//             </div>
+//           ) : error || !trip ? (
+//             <div className="flex-1 flex items-center justify-center">
+//               <div className="text-center px-6">
+//                 <div className="text-red-500 mb-4">
+//                   <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+//                 </div>
+//                 <p className="text-achrams-text-secondary mb-4">{error || "Trip details not found."}</p>
+//                 <button
+//                   onClick={onClose} // NEW: Go back to history or just close on error
+//                   className="w-full py-3 bg-achrams-primary-solid text-achrams-text-light rounded-xl font-medium hover:opacity-90 active:scale-[0.98] transition-all"
+//                 >
+//                   Close
+//                 </button>
+//               </div>
+//             </div>
+//           ) : (
+//             // NEW: Trip details content (same as before, just inside the modal structure)
+//             <>
+//               {/* Trip Status Card */}
+//               <div className="bg-achrams-bg-secondary rounded-xl p-4 mb-6 border border-achrams-border">
+//                 <div className="flex justify-between items-center mb-2">
+//                   <h3 className="font-bold text-lg text-achrams-text-primary">Trip Status</h3>
+//                   <span className={`text-xs px-3 py-1.5 rounded-full font-semibold ${
+//                     trip.status.value === "completed"
+//                       ? "bg-emerald-100 text-emerald-800"
+//                       : "bg-amber-100 text-amber-800" // Assuming cancelled or other
+//                   }`}>
+//                     {trip.status.label}
+//                   </span>
+//                 </div>
+//                 <p className="text-sm text-achrams-text-secondary">ID: {trip.id}</p>
+//               </div>
+
+//               {/* Driver Info (if available) */}
+//               {trip.driver && (
+//                 <div className="bg-achrams-bg-secondary rounded-xl p-4 mb-6 border border-achrams-border">
+//                   <h3 className="font-bold text-lg mb-3 text-achrams-text-primary flex items-center gap-2">
+//                     <User className="w-5 h-5 text-achrams-text-secondary" />
+//                     Driver
+//                   </h3>
+//                   <div className="flex items-center gap-4">
+//                     <div className="w-12 h-12 bg-achrams-primary-solid rounded-full flex items-center justify-center text-achrams-text-light font-bold">
+//                       {trip.driver.name?.charAt(0) || "D"}
+//                     </div>
+//                     <div>
+//                       <p className="font-semibold text-achrams-text-primary">{trip.driver.name}</p>
+//                       <div className="flex items-center gap-1">
+//                         <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
+//                         <span className="text-sm text-achrams-text-primary">{trip.driver.rating || "N/A"}</span>
+//                       </div>
+//                     </div>
+//                   </div>
+//                 </div>
+//               )}
+
+//               {/* Trip Summary */}
+//               <div className="bg-achrams-bg-secondary rounded-xl p-4 mb-6 border border-achrams-border">
+//                 <h3 className="font-bold text-lg mb-3 text-achrams-text-primary">Trip Summary</h3>
+//                 <div className="space-y-4">
+//                   {/* Pickup */}
+//                   <div>
+//                     <div className="flex items-center gap-2 mb-1">
+//                       <div className="w-2 h-2 bg-achrams-primary-solid rounded-full"></div>
+//                       <div className="text-xs text-achrams-text-secondary mb-1">PICKUP</div>
+//                     </div>
+//                     <div className="font-medium text-achrams-text-primary">{trip.pickup_address}</div>
+//                   </div>
+
+//                   {/* Destination */}
+//                   <div>
+//                     <div className="flex items-center gap-2 mb-1">
+//                       <div className="w-2 h-2 bg-achrams-primary-solid rounded-full"></div>
+//                       <div className="text-xs text-achrams-text-secondary mb-1">DESTINATION</div>
+//                     </div>
+//                     <div className="font-medium text-achrams-text-primary">{trip.destination_address}</div>
+//                   </div>
+
+//                   {/* Verification Code (if relevant for completed trips) */}
+//                   {trip.verification_code && (
+//                     <div>
+//                       <div className="text-xs text-achrams-text-secondary mb-1">VERIFICATION CODE</div>
+//                       <div className="font-mono font-bold text-achrams-text-primary text-lg">{trip.verification_code}</div>
+//                     </div>
+//                   )}
+//                 </div>
+//               </div>
+
+//               {/* Fare & Date */}
+//               <div className="bg-achrams-bg-secondary rounded-xl p-4 mb-6 border border-achrams-border">
+//                 <h3 className="font-bold text-lg mb-3 text-achrams-text-primary">Fare & Date</h3>
+//                 <div className="space-y-3">
+//                   <div className="flex justify-between items-center">
+//                     <span className="text-achrams-text-secondary">Total Fare</span>
+//                     <span className="text-xl font-bold text-achrams-text-primary">
+//                       {trip.amount.formatted}
+//                     </span>
+//                   </div>
+//                   <div className="flex justify-between items-center pt-2 border-t border-achrams-border">
+//                     <span className="text-achrams-text-secondary flex items-center gap-1">
+//                       <Clock className="w-3 h-3" />
+//                       Date & Time
+//                     </span>
+//                     <span className="text-achrams-text-primary">
+//                       {new Date(trip.created_at || '').toLocaleString() || "N/A"}
+//                     </span>
+//                   </div>
+//                 </div>
+//               </div>
+//             </>
+//           )}
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
