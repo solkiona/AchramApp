@@ -2523,6 +2523,10 @@ export default function ACHRAMApp() {
         onShowProfile={() => setShowProfile(true)}
         accountData={accountData}
         onBookNewTrip={() => {
+          if(activeTripId) {
+            showNotification('You have an active Trip', "info") 
+            return null;
+          } 
           setScreen("booking");
           setPickup("");
           setDestination("");
