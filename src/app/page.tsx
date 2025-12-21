@@ -2364,11 +2364,15 @@ export default function ACHRAMApp() {
     if (activeTripId) {
       // If there's an active trip, we want to navigate to dashboard
       // but save the *current* screen state first.
-      console.log(
-        "Navigating to dashboard with active trip. Current screen:",
-        screen
-      );
-      setPreviousScreen(screen); // Store the current screen
+      if(!previousScreen){
+        console.log(
+          "Navigating to dashboard with active trip. Current screen:",
+          screen
+        );
+
+        setPreviousScreen(screen); // Store the current screen
+
+      }
       setIsNavigatingToDashboard(true); // Set the flag
       setScreen("dashboard"); // Now change the screen state
       // The useEffect above will see the flag and save the 'previousScreen' instead of 'dashboard'
@@ -2381,7 +2385,7 @@ export default function ACHRAMApp() {
       setScreen("dashboard");
       // The useEffect will save 'booking' as expected
     }
-  }, [activeTripId, screen, setScreen]);
+  }, [activeTripId, screen, previousScreen]);
 
   if (!hasHydrated || isAuthLoading || !initComplete) {
     return (
