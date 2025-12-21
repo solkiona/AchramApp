@@ -103,18 +103,21 @@ export default function TripProgressScreen({
 
     const handleMapInteraction = () => {
       if (!userInteractionRef.current) {
-        console.log('User interacted with map - disabling auto-fit');
+        console.log('User interacted with map - disabling auto-center/zoom');
         userInteractionRef.current = true;
-        setHasUserInteracted(true); // ✅ Triggers re-render to stop fitBounds
+        setHasUserInteracted(true); // ✅ Triggers re-render to stop passing center/zoom props
       }
     };
 
-    const dragListener = map.addListener('dragstart', handleMapInteraction);
+    // Listen for common user interaction events
+    const centerListener = map.addListener('center_changed', handleMapInteraction);
     const zoomListener = map.addListener('zoom_changed', handleMapInteraction);
+    const dragListener = map.addListener('dragstart', handleMapInteraction); // Also consider dragstart
 
     return () => {
-      if (dragListener) dragListener.remove();
+      if (centerListener) centerListener.remove();
       if (zoomListener) zoomListener.remove();
+      if (dragListener) dragListener.remove();
     };
   }, [map, hasUserInteracted]);
 
@@ -205,11 +208,15 @@ export default function TripProgressScreen({
     userInteractionRef.current = false;
   }, []);
 
-  const mapCenter = driverLocation
-    ? { lat: driverLocation[0], lng: driverLocation[1] }
-    : destinationCoords
-    ? { lat: destinationCoords[1], lng: destinationCoords[0] }
-    : { lat: 6.5244, lng: 3.3792 };
+  // ✅ DETERMINE INITIAL CENTER ONLY IF USER HASN'T INTERACTED AND NO INITIAL FIT BOUNDS DONE
+  // We don't use mapCenter directly as a prop anymore, let the map manage its view after interaction
+  const initialMapCenter = !hasUserInteracted ? (
+    driverLocation
+      ? { lat: driverLocation[0], lng: driverLocation[1] }
+      : destinationCoords
+      ? { lat: destinationCoords[1], lng: destinationCoords[0] }
+      : { lat: 6.5244, lng: 3.3792 }
+  ) : undefined; // Use undefined if user interacted
 
   if (googleMapsLoadError) {
     return (
@@ -277,8 +284,9 @@ export default function TripProgressScreen({
             {isGoogleMapsLoaded ? (
               <GoogleMap
                 mapContainerStyle={{ width: "100%", height: "100%" }}
-                center={mapCenter}
-                zoom={14}
+                // ✅ FIX 6: ONLY PASS center/zoom IF USER HASN'T INTERACTED
+                center={hasUserInteracted ? undefined : initialMapCenter}
+                zoom={hasUserInteracted ? undefined : 14}
                 onLoad={onLoad}
                 onUnmount={onUnmount}
                 options={{
@@ -290,6 +298,10 @@ export default function TripProgressScreen({
                   zoomControlOptions: {
                     position: google.maps.ControlPosition.RIGHT_CENTER,
                   },
+                  // Ensure map is controllable by user
+                  draggable: true,
+                  scrollwheel: true,
+                  disableDefaultUI: false,
                 }}
               >
                 {/* ✅ FIX 6: Use Polyline instead of DirectionsRenderer for persistent route */}
