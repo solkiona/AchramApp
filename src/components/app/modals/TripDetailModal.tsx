@@ -78,6 +78,8 @@ export default function TripDetailsModal({
       }
     };
 
+    console.log("Watching these variables to know which one trigeers a rerender, tripId, isOpen, showNotification", tripId, isOpen, !!showNotification)
+
     fetchTripDetails();
   }, [tripId, isOpen, showNotification]); // NEW: Depend on isOpen and tripId
 
@@ -94,6 +96,7 @@ export default function TripDetailsModal({
       />
       {/* Modal Content */}
       <div className="relative bg-white w-full max-w-md h-[85vh] rounded-t-3xl border-t border-achrams-border shadow-lg overflow-hidden flex flex-col"> {/* NEW: Modal container with height, rounded corners, etc. */}
+
         {/* Header */}
         <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4 flex items-center justify-between">
           <h2 className="text-xl font-bold">Trip Details</h2>

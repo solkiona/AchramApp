@@ -314,13 +314,15 @@ export default function ACHRAMApp() {
       return {
         id: activeTripId,
         status:
-          screen === "trip-progress"
+          previousScreen === "trip-progress"
             ? "In Progress"
-            : screen === "driver-assigned"
+            : previousScreen === "driver-assigned"
             ? "Driver Assigned"
-            : screen === "assigning"
+            : previousScreen === "assigning"
             ? "Assigning"
-            : "Active",
+            : previousScreen === "trip-complete" 
+            ? "Completed"
+            : "Unknown",
         driver: driver,
         destination: destination,
       };
