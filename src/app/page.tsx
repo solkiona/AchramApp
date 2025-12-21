@@ -2361,18 +2361,16 @@ export default function ACHRAMApp() {
   ]);
 
   const handleHomeClick = useCallback(() => {
+    if(screen === 'dashboard') return;
+
     if (activeTripId) {
       // If there's an active trip, we want to navigate to dashboard
       // but save the *current* screen state first.
-      if(previousScreen !== 'dashboard'){
-        console.log(
-          "Navigating to dashboard with active trip. Current screen:",
-          screen
-        );
-
-        setPreviousScreen(screen); // Store the current screen
-
-      }
+      console.log(
+        "Navigating to dashboard with active trip. Current screen:",
+        screen
+      );
+      setPreviousScreen(screen); // Store the current screen
       setIsNavigatingToDashboard(true); // Set the flag
       setScreen("dashboard"); // Now change the screen state
       // The useEffect above will see the flag and save the 'previousScreen' instead of 'dashboard'
@@ -2385,7 +2383,7 @@ export default function ACHRAMApp() {
       setScreen("dashboard");
       // The useEffect will save 'booking' as expected
     }
-  }, [activeTripId, screen, previousScreen]);
+  }, [activeTripId, screen]);
 
   if (!hasHydrated || isAuthLoading || !initComplete) {
     return (
