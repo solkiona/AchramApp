@@ -127,7 +127,7 @@ const getDestinationIcon = useCallback(
 
   useEffect(() => {
   if (driver?.location) {
-    alert('persisting driver location in parent')
+    //alert('persisting driver location in parent')
     setDriverLocation(driver.location); // Persist driver location in parent state
   }
 }, [driver, setDriverLocation]);

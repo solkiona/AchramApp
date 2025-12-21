@@ -1491,6 +1491,7 @@ export default function ACHRAMApp() {
         if (eventType === "trip:location:driver") {
           const coords = tripData?.map_data?.location?.coordinates; // [lng, lat]
           if (Array.isArray(coords) && coords.length === 2) {
+            setDriverLocation(coords);
             setDriver((prevDriver: any) => {
               if (!prevDriver) return null;
               return {
@@ -1663,6 +1664,8 @@ export default function ACHRAMApp() {
         if (eventType === "trip:location:driver") {
           const coords = tripData?.map_data?.location?.coordinates; // [lng, lat]
           if (Array.isArray(coords) && coords.length === 2) {
+
+            setDriverLocation(coords);
             setDriver((prevDriver: any) => {
               if (!prevDriver) return null;
               return {
