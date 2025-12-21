@@ -148,6 +148,9 @@ export default function ACHRAMApp() {
   const [destinationCoords, setDestinationCoords] = useState<
     [number, number] | null
   >(null);
+  const [routePath, setRoutePath] = useState<google.maps.LatLngLiteral[]>([]);
+  const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
+
   const [verificationCode, setVerificationCode] = useState<string | null>(null);
   const [guestId, setGuestId] = useState<string | null>(null);
   const [activeTripId, setActiveTripId] = useState<string | null>(null);
@@ -2476,6 +2479,10 @@ export default function ACHRAMApp() {
         airportPickupArea={airportPickupArea}
         screenPaddingClass={screenPaddingClass}
         isAuthenticated={isAuthenticated}
+        routePath={routePath}
+        setRoutePath={setRoutePath}
+        routeInfo={routeInfo}
+        setRouteInfo={setRouteInfo}
       />
     );
   } else if (screen === "trip-complete") {

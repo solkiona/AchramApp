@@ -30,6 +30,12 @@ interface TripProgressScreenProps {
   airportPickupArea?: any;
   screenPaddingClass: string;
   isAuthenticated: boolean;
+  routePath: google.maps.LatLngLiteral[];
+  routeInfo: { distance: string; duration: string } | null;
+  // Optionally, add setters if the screen needs to update them
+  setRoutePath: (path: google.maps.LatLngLiteral[]) => void;
+  setRouteInfo: (info: { distance: string; duration: string } | null) => void;
+  
 }
 
 const mapStyles = [
@@ -56,12 +62,15 @@ export default function TripProgressScreen({
   airportPickupArea,
   screenPaddingClass,
   isAuthenticated,
+  routePath, 
+  setRoutePath,
+  routeInfo,
+  setRouteInfo,
 }: TripProgressScreenProps) {
   const driverLocation = driver?.location || null;
   
   // ✅ FIX 1: Store route path as state (for persistent blue line)
-  const [routePath, setRoutePath] = useState<google.maps.LatLngLiteral[]>([]);
-  const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
+  
   const [selectedMarker, setSelectedMarker] = useState<string | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
 
