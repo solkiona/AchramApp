@@ -85,7 +85,7 @@ export default function TripDetailsModal({
     };
 
     fetchTripDetails();
-  }, [isOpen, tripId, showNotification]); // ✅ Only depend on values that actually change
+  }, [isOpen, tripId]); // ✅ Only depend on values that actually change
 
   if (!isOpen) return null;
 
@@ -119,7 +119,7 @@ export default function TripDetailsModal({
                 <p className="text-achrams-text-secondary">Loading trip details...</p>
               </div>
             </div>
-          ) : error || !trip ? (
+          ) : error ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center px-6">
                 <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
