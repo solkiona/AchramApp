@@ -48,7 +48,7 @@ export default function TripDetailsModal({
     // Early return if modal is closed or no tripId
     if (!isOpen || !tripId) {
       setTrip(null);
-      setLoading(false);
+      setLoading(true);
       setError(null);
       return;
     }
@@ -112,7 +112,7 @@ export default function TripDetailsModal({
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto px-6 py-6">
-          {loading && !trip ? ( // ✅ Only show loading if we don't have data yet
+          {loading ? ( // ✅ Only show loading if we don't have data yet
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
                 <Loader className="w-12 h-12 text-achrams-primary-solid mx-auto mb-4 animate-spin" />
@@ -135,7 +135,7 @@ export default function TripDetailsModal({
                 </button>
               </div>
             </div>
-          ) : (
+          ) : trip ? (
             <div className="space-y-4">
               {/* Trip Status Card */}
               <div className="bg-white rounded-xl p-4 border border-achrams-border hover:shadow-md transition-shadow">
@@ -275,7 +275,7 @@ export default function TripDetailsModal({
                 </div>
               )}
             </div>
-          )}
+          ): null}
         </div>
       </div>
     </div>

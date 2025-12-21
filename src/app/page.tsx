@@ -2387,24 +2387,75 @@ export default function ACHRAMApp() {
 
   if (!hasHydrated || isAuthLoading || !initComplete) {
     return (
-      <div className="flex items-center justify-center h-screen w-full bg-white animate-fadeIn">
-        <div className="relative">
-          {/* Soft pulsing glow */}
-          <div className="absolute inset-0 rounded-2xl bg-achrams-gradient-primary opacity-40 blur-xl animate-pulse"></div>
-          {/* Main Logo Container */}
-          <div className="w-16 h-16 bg-achrams-gradient-primary rounded-2xl flex items-center justify-center shadow-xl animate-scaleIn relative overflow-hidden">
-            {/* Subtle rotating light sweep */}
-            <div className="absolute inset-0 bg-white/20 animate-sweep pointer-events-none"></div>
-            <Image
-              src="/images/logo.png"
-              alt="ACHRAMS Logo"
-              width={30}
-              height={30}
-              className="object-contain animate-popIn"
-            />
-          </div>
+      <div className="fixed inset-0 flex items-center justify-center bg-achrams-bg-primary z-50">
+    {/* Background with subtle gradient animation */}
+    <div className="absolute inset-0 bg-gradient-to-br from-achrams-primary-solid/5 via-achrams-secondary-solid/5 to-achrams-bg-primary"></div>
+    
+    {/* Main Content Container */}
+    <div className="relative z-10 flex flex-col items-center space-y-6">
+      
+      {/* Animated Logo Container */}
+      <div className="relative">
+        {/* Glow Effect */}
+        <div 
+          className="absolute -inset-4 rounded-full bg-achrams-primary-solid/20 blur-lg animate-pulse"
+          style={{
+            animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          }}
+        ></div>
+        
+        {/* Logo Card */}
+        <div className="relative w-20 h-20 bg-gradient-to-br from-achrams-primary-solid to-achrams-secondary-solid rounded-2xl flex items-center justify-center shadow-lg border border-achrams-border/20 overflow-hidden">
+          {/* Animated Gradient Sweep */}
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent_40%,rgba(255,255,255,0.1)_50%,transparent_60%)] animate-sweep"></div>
+          
+          {/* Logo Image */}
+          <Image
+            src="/images/logo.png"
+            alt="ACHRAMS Logo"
+            width={40}
+            height={40}
+            className="object-contain z-10 relative"
+            priority // Good for critical loading assets
+          />
         </div>
       </div>
+
+      {/* Loading Text */}
+      <div className="text-center">
+        {/* <p className="text-achrams-text-secondary text-sm font-medium tracking-wide">
+         ACHRAMS...
+        </p> */}
+        
+        {/* Optional Subtle Progress Indicator */}
+        <div className="mt-3 w-32 h-1 bg-achrams-bg-secondary rounded-full overflow-hidden mx-auto">
+          <div 
+            className="h-full bg-achrams-gradient-primary rounded-full animate-progress"
+            style={{
+              animation: 'loadingBar 1.5s ease-in-out infinite',
+            }}
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    {/* Custom CSS for animations (can be in a global CSS file or Tailwind config) */}
+    <style jsx>{`
+      @keyframes pulse {
+        0%, 100% { opacity: 0.3; transform: scale(1); }
+        50% { opacity: 0.6; transform: scale(1.05); }
+      }
+      @keyframes sweep {
+        0% { transform: translateX(-100%) skewX(-25deg); }
+        100% { transform: translateX(100vw) skewX(-25deg); }
+      }
+      @keyframes loadingBar {
+        0% { width: 0%; }
+        50% { width: 80%; }
+        100% { width: 100%; }
+      }
+    `}</style>
+  </div>
     );
   }
 
