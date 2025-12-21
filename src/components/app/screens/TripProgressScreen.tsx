@@ -2,7 +2,7 @@
 "use client";
 
 import { Shield, Navigation, MapPin, Car, Clock, Route } from "lucide-react";
-import { GoogleMap, Marker, DirectionsRenderer, Polygon } from "@react-google-maps/api";
+import { GoogleMap, Marker, Polyline, Polygon } from "@react-google-maps/api";
 import ACHRAMFooter from "@/components/app/ui/ACHRAMFooter";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { InfoWindow } from "@react-google-maps/api";
@@ -32,7 +32,6 @@ interface TripProgressScreenProps {
   isAuthenticated: boolean;
 }
 
-// Clean map styles - subtle enhancement
 const mapStyles = [
   {
     featureType: "poi.business",
@@ -41,7 +40,6 @@ const mapStyles = [
   }
 ];
 
-// Enhanced driver marker with brand colors - using object literal (no google dependency)
 const getDriverIcon = () => ({
   path: "M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.22.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z",
   fillColor: "#F59E0B",
@@ -52,7 +50,6 @@ const getDriverIcon = () => ({
   anchor: { x: 12, y: 12 } as google.maps.Point,
 });
 
-// Enhanced destination marker - using object literal (no google dependency)
 const getDestinationIcon = () => ({
   path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
   fillColor: "#EF4444",
@@ -76,82 +73,62 @@ export default function TripProgressScreen({
   isAuthenticated,
 }: TripProgressScreenProps) {
   const driverLocation = driver?.location || null;
-  const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
-  const [directionsError, setDirectionsError] = useState<string | null>(null);
+  
+  // ✅ FIX 1: Store route path as state (for persistent blue line)
+  const [routePath, setRoutePath] = useState<google.maps.LatLngLiteral[]>([]);
   const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
   const [selectedMarker, setSelectedMarker] = useState<string | null>(null);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
 
-  // NEW: Ref to track user interaction with the map
+  // ✅ FIX 2: Track user interaction with STATE (not just ref)
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const userInteractionRef = useRef(false);
-  // NEW: Ref to track if initial fitBounds has been done
-  const initialFitBoundsDoneRef = useRef(false);
 
-  const directionsService = useRef<google.maps.DirectionsService | null>(null);
-  const directionsRenderer = useRef<google.maps.DirectionsRenderer | null>(null);
+  const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null);
 
-  const getPolygonPaths = (): google.maps.LatLngLiteral[] => {
+  const getPolygonPaths = useCallback((): google.maps.LatLngLiteral[] => {
     if (!airportPickupArea?.geometry?.coordinates) return [];
     const coordinates = airportPickupArea.geometry.coordinates[0];
     return coordinates.map((coord: number[]) => ({
       lat: coord[1],
       lng: coord[0],
     }));
-  };
+  }, [airportPickupArea]);
 
   const polygonPaths = getPolygonPaths();
 
-  // NEW: Effect to handle user interaction events
+  // ✅ FIX 3: Listen for user interactions and UPDATE STATE
   useEffect(() => {
-    if (!window.google?.maps || !directionsRenderer.current?.getMap()) return;
-
-    const map = directionsRenderer.current.getMap() as google.maps.Map;
+    if (!map || hasUserInteracted) return;
 
     const handleMapInteraction = () => {
-      // Set the flag to true when user interacts (pan, zoom, rotate, etc.)
-      userInteractionRef.current = true;
+      if (!userInteractionRef.current) {
+        console.log('User interacted with map - disabling auto-fit');
+        userInteractionRef.current = true;
+        setHasUserInteracted(true); // ✅ Triggers re-render to stop fitBounds
+      }
     };
 
-    // Listen for common user interaction events
-    const centerListener = map.addListener('center_changed', handleMapInteraction);
+    const dragListener = map.addListener('dragstart', handleMapInteraction);
     const zoomListener = map.addListener('zoom_changed', handleMapInteraction);
-    const headingListener = map.addListener('heading_changed', handleMapInteraction); // NEW: For rotation
-    const tiltListener = map.addListener('tilt_changed', handleMapInteraction); // NEW: For tilt
 
-    // Cleanup listeners when component unmounts or map changes
     return () => {
-      if (centerListener) centerListener.remove();
+      if (dragListener) dragListener.remove();
       if (zoomListener) zoomListener.remove();
-      if (headingListener) headingListener.remove(); // NEW
-      if (tiltListener) tiltListener.remove(); // NEW
     };
-  }, [directionsRenderer.current]); // Depend on the renderer which holds the map reference
+  }, [map, hasUserInteracted]);
 
-
-  // Fetch directions when driver location or destination changes
+  // ✅ FIX 4: Fetch directions and store path permanently
   useEffect(() => {
     if (!isGoogleMapsLoaded || !destinationCoords || !driverLocation || !window.google?.maps) {
-      setDirections(null);
-      setRouteInfo(null);
-      setDirectionsError(null);
       return;
     }
 
     const origin = new google.maps.LatLng(driverLocation[0], driverLocation[1]);
     const destination = new google.maps.LatLng(destinationCoords[1], destinationCoords[0]);
 
-    if (!directionsService.current) {
-      directionsService.current = new google.maps.DirectionsService();
-    }
-    if (!directionsRenderer.current) {
-      directionsRenderer.current = new google.maps.DirectionsRenderer({
-        suppressMarkers: true,
-        suppressInfoWindows: true,
-        polylineOptions: {
-          strokeColor: "#3B82F6",
-          strokeOpacity: 0.8,
-          strokeWeight: 6,
-        },
-      });
+    if (!directionsServiceRef.current) {
+      directionsServiceRef.current = new google.maps.DirectionsService();
     }
 
     const request: google.maps.DirectionsRequest = {
@@ -160,7 +137,7 @@ export default function TripProgressScreen({
       travelMode: google.maps.TravelMode.DRIVING,
     };
 
-    directionsService.current.route(request, (result, status) => {
+    directionsServiceRef.current.route(request, (result, status) => {
       if (status === google.maps.DirectionsStatus.OK && result && result.routes.length > 0) {
         const route = result.routes[0];
         const leg = route.legs[0];
@@ -170,31 +147,31 @@ export default function TripProgressScreen({
           duration: leg.duration?.text || "N/A",
         });
 
-        setDirections(result);
-        if (directionsRenderer.current && window.google?.maps) {
-          directionsRenderer.current.setDirections(result);
-        }
-        setDirectionsError(null);
+        // ✅ Store the route path for persistent rendering
+        const path = route.overview_path.map((point) => ({
+          lat: point.lat(),
+          lng: point.lng(),
+        }));
+        setRoutePath(path);
+        
+        console.log('Route fetched and stored:', path.length, 'points');
       } else {
-        console.warn("Directions request failed:", status, result);
-        setDirections(null);
+        console.warn("Directions request failed:", status);
+        setRoutePath([]);
         setRouteInfo(null);
-        setDirectionsError("Could not load route details");
-        if (directionsRenderer.current) {
-          directionsRenderer.current.setMap(null);
-        }
       }
     });
   }, [driverLocation, destinationCoords, isGoogleMapsLoaded]);
 
-  // NEW: Effect to fit bounds initially, respecting user interaction
+  // ✅ FIX 5: FitBounds ONLY once initially, then never again if user interacted
   useEffect(() => {
-    if (!window.google?.maps || !directionsRenderer.current?.getMap() || initialFitBoundsDoneRef.current || userInteractionRef.current) return;
+    if (!map || !isGoogleMapsLoaded || hasUserInteracted) {
+      return; // ✅ Stop if user has interacted
+    }
 
-    const map = directionsRenderer.current.getMap() as google.maps.Map;
     const bounds = new google.maps.LatLngBounds();
-
     let hasPoints = false;
+
     if (driverLocation) {
       bounds.extend({ lat: driverLocation[0], lng: driverLocation[1] });
       hasPoints = true;
@@ -203,35 +180,36 @@ export default function TripProgressScreen({
       bounds.extend({ lat: destinationCoords[1], lng: destinationCoords[0] });
       hasPoints = true;
     }
-    // Optionally include pickupCoords if relevant for initial view
     if (pickupCoords) {
-        bounds.extend({ lat: pickupCoords[1], lng: pickupCoords[0] });
-        hasPoints = true;
+      bounds.extend({ lat: pickupCoords[1], lng: pickupCoords[0] });
+      hasPoints = true;
     }
-
     if (polygonPaths.length > 0) {
-        polygonPaths.forEach(point => bounds.extend(point));
-        hasPoints = true;
+      polygonPaths.forEach(point => bounds.extend(point));
+      hasPoints = true;
     }
 
     if (hasPoints) {
-        map.fitBounds(bounds, { top: 100, right: 50, bottom: 150, left: 50 });
-        initialFitBoundsDoneRef.current = true; // Mark that the initial fitBounds has been done
+      console.log('Auto-fitting map bounds (initial view)');
+      map.fitBounds(bounds, { top: 100, right: 50, bottom: 150, left: 50 });
     }
+  }, [map, driverLocation, destinationCoords, pickupCoords, polygonPaths, isGoogleMapsLoaded, hasUserInteracted]);
 
-  }, [driverLocation, destinationCoords, pickupCoords, polygonPaths, userInteractionRef.current]); // Depend on data points and interaction flag
+  const onLoad = useCallback((map: google.maps.Map) => {
+    setMap(map);
+  }, []);
 
+  const onUnmount = useCallback(() => {
+    setMap(null);
+    setHasUserInteracted(false);
+    userInteractionRef.current = false;
+  }, []);
 
-  // Determine initial map center only if initial fitBounds hasn't happened and user hasn't interacted
-  let mapCenter = { lat: 6.5244, lng: 3.3792 }; // Default fallback
-  if (!initialFitBoundsDoneRef.current && !userInteractionRef.current) {
-    if (driverLocation) {
-        mapCenter = { lat: driverLocation[0], lng: driverLocation[1] };
-    } else if (destinationCoords) {
-        mapCenter = { lat: destinationCoords[1], lng: destinationCoords[0] };
-    }
-  }
-  // Otherwise, let the map use its current view (controlled by user interaction)
+  const mapCenter = driverLocation
+    ? { lat: driverLocation[0], lng: driverLocation[1] }
+    : destinationCoords
+    ? { lat: destinationCoords[1], lng: destinationCoords[0] }
+    : { lat: 6.5244, lng: 3.3792 };
 
   if (googleMapsLoadError) {
     return (
@@ -251,7 +229,6 @@ export default function TripProgressScreen({
     <div className="flex-1 bg-achrams-bg-primary flex flex-col">
       {driver && (
         <>
-          {/* Header with brand colors - subtle enhancement */}
           <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4 flex items-center justify-between shadow-md">
             <div className="flex items-center gap-2">
               <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center">
@@ -270,7 +247,6 @@ export default function TripProgressScreen({
             </button>
           </div>
 
-          {/* Stats Bar - Enhanced layout */}
           {routeInfo && (
             <div className="bg-white border-b border-achrams-border px-6 py-3 shadow-sm">
               <div className="flex items-center justify-between gap-4">
@@ -297,14 +273,14 @@ export default function TripProgressScreen({
             </div>
           )}
 
-          {/* Map Container */}
           <div className="flex-1 relative">
             {isGoogleMapsLoaded ? (
               <GoogleMap
                 mapContainerStyle={{ width: "100%", height: "100%" }}
-                // NEW: Only pass center and zoom if initial fitBounds hasn't happened and user hasn't interacted
-                center={(!initialFitBoundsDoneRef.current && !userInteractionRef.current) ? mapCenter : undefined}
-                zoom={(!initialFitBoundsDoneRef.current && !userInteractionRef.current) ? 14 : undefined}
+                center={mapCenter}
+                zoom={14}
+                onLoad={onLoad}
+                onUnmount={onUnmount}
                 options={{
                   styles: mapStyles,
                   streetViewControl: false,
@@ -314,34 +290,20 @@ export default function TripProgressScreen({
                   zoomControlOptions: {
                     position: google.maps.ControlPosition.RIGHT_CENTER,
                   },
-                  // NEW: Enable rotation and tilt
-                  rotateControl: true,
-                  rotateControlOptions: {
-                    position: google.maps.ControlPosition.RIGHT_CENTER,
-                  },
-                  tilt: 45, // Default tilt angle, user can change it
-                  // NEW: Ensure the map is draggable and user-controllable
-                  draggable: true,
-                  scrollwheel: true, // Allow scroll to zoom if desired
-                  disableDefaultUI: false, // Keep zoom controls
-                }}
-                onLoad={(map) => {
-                  if (directionsRenderer.current) {
-                    directionsRenderer.current.setMap(map);
-                  }
-                }}
-                onUnmount={() => {
-                  setDirections(null); // Clear directions state
-                  if (directionsRenderer.current) {
-                    directionsRenderer.current.setMap(null);
-                    directionsRenderer.current = null;
-                  }
-                  if (directionsService.current) {
-                    directionsService.current = null;
-                  }
                 }}
               >
-                {/* Airport Pickup Area Polygon */}
+                {/* ✅ FIX 6: Use Polyline instead of DirectionsRenderer for persistent route */}
+                {routePath.length > 0 && (
+                  <Polyline
+                    path={routePath}
+                    options={{
+                      strokeColor: "#3B82F6",
+                      strokeOpacity: 0.8,
+                      strokeWeight: 6,
+                    }}
+                  />
+                )}
+
                 {polygonPaths.length > 0 && (
                   <Polygon
                     paths={polygonPaths}
@@ -355,7 +317,6 @@ export default function TripProgressScreen({
                   />
                 )}
 
-                {/* Destination Marker */}
                 {destinationCoords && (
                   <Marker
                     position={{
@@ -368,7 +329,6 @@ export default function TripProgressScreen({
                   />
                 )}
 
-                {/* Driver Marker */}
                 {driverLocation && (
                   <Marker
                     position={{
@@ -381,7 +341,6 @@ export default function TripProgressScreen({
                   />
                 )}
 
-                {/* InfoWindow for Destination */}
                 {selectedMarker === "destination" && destinationCoords && (
                   <InfoWindow
                     position={{
@@ -413,7 +372,6 @@ export default function TripProgressScreen({
                   </InfoWindow>
                 )}
 
-                {/* InfoWindow for Driver */}
                 {selectedMarker === "driver" && driverLocation && driver && (
                   <InfoWindow
                     position={{
@@ -444,12 +402,6 @@ export default function TripProgressScreen({
                     </div>
                   </InfoWindow>
                 )}
-
-                {directionsError && (
-                  <div className="absolute top-4 left-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm">
-                    {directionsError}
-                  </div>
-                )}
               </GoogleMap>
             ) : (
               <div className="absolute inset-0 flex items-center justify-center bg-achrams-bg-secondary">
@@ -461,7 +413,6 @@ export default function TripProgressScreen({
             )}
           </div>
 
-          {/* Driver Info Card - Enhanced with subtle touches */}
           <div className={`bg-achrams-bg-primary px-6 py-5 border-t border-achrams-border shadow-lg ${isAuthenticated ? 'mb-10': ''}`}>
             <div className="flex items-center gap-4">
               <div className="relative">
@@ -501,14 +452,13 @@ export default function TripProgressScreen({
   );
 }
 
-
 // // src/components/app/screens/TripProgressScreen.tsx
 // "use client";
 
 // import { Shield, Navigation, MapPin, Car, Clock, Route } from "lucide-react";
 // import { GoogleMap, Marker, DirectionsRenderer, Polygon } from "@react-google-maps/api";
 // import ACHRAMFooter from "@/components/app/ui/ACHRAMFooter";
-// import { useEffect, useState, useRef } from "react";
+// import { useEffect, useState, useRef, useCallback } from "react";
 // import { InfoWindow } from "@react-google-maps/api";
 
 // interface Driver {
@@ -585,6 +535,11 @@ export default function TripProgressScreen({
 //   const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
 //   const [selectedMarker, setSelectedMarker] = useState<string | null>(null);
 
+//   // NEW: Ref to track user interaction with the map
+//   const userInteractionRef = useRef(false);
+//   // NEW: Ref to track if initial fitBounds has been done
+//   const initialFitBoundsDoneRef = useRef(false);
+
 //   const directionsService = useRef<google.maps.DirectionsService | null>(null);
 //   const directionsRenderer = useRef<google.maps.DirectionsRenderer | null>(null);
 
@@ -598,6 +553,33 @@ export default function TripProgressScreen({
 //   };
 
 //   const polygonPaths = getPolygonPaths();
+
+//   // NEW: Effect to handle user interaction events
+//   useEffect(() => {
+//     if (!window.google?.maps || !directionsRenderer.current?.getMap()) return;
+
+//     const map = directionsRenderer.current.getMap() as google.maps.Map;
+
+//     const handleMapInteraction = () => {
+//       // Set the flag to true when user interacts (pan, zoom, rotate, etc.)
+//       userInteractionRef.current = true;
+//     };
+
+//     // Listen for common user interaction events
+//     const centerListener = map.addListener('center_changed', handleMapInteraction);
+//     const zoomListener = map.addListener('zoom_changed', handleMapInteraction);
+//     const headingListener = map.addListener('heading_changed', handleMapInteraction); // NEW: For rotation
+//     const tiltListener = map.addListener('tilt_changed', handleMapInteraction); // NEW: For tilt
+
+//     // Cleanup listeners when component unmounts or map changes
+//     return () => {
+//       if (centerListener) centerListener.remove();
+//       if (zoomListener) zoomListener.remove();
+//       if (headingListener) headingListener.remove(); // NEW
+//       if (tiltListener) tiltListener.remove(); // NEW
+//     };
+//   }, [directionsRenderer.current]); // Depend on the renderer which holds the map reference
+
 
 //   // Fetch directions when driver location or destination changes
 //   useEffect(() => {
@@ -659,11 +641,51 @@ export default function TripProgressScreen({
 //     });
 //   }, [driverLocation, destinationCoords, isGoogleMapsLoaded]);
 
-//   const mapCenter = driverLocation
-//     ? { lat: driverLocation[0], lng: driverLocation[1] }
-//     : destinationCoords
-//     ? { lat: destinationCoords[1], lng: destinationCoords[0] }
-//     : { lat: 6.5244, lng: 3.3792 };
+//   // NEW: Effect to fit bounds initially, respecting user interaction
+//   useEffect(() => {
+//     if (!window.google?.maps || !directionsRenderer.current?.getMap() || initialFitBoundsDoneRef.current || userInteractionRef.current) return;
+
+//     const map = directionsRenderer.current.getMap() as google.maps.Map;
+//     const bounds = new google.maps.LatLngBounds();
+
+//     let hasPoints = false;
+//     if (driverLocation) {
+//       bounds.extend({ lat: driverLocation[0], lng: driverLocation[1] });
+//       hasPoints = true;
+//     }
+//     if (destinationCoords) {
+//       bounds.extend({ lat: destinationCoords[1], lng: destinationCoords[0] });
+//       hasPoints = true;
+//     }
+//     // Optionally include pickupCoords if relevant for initial view
+//     if (pickupCoords) {
+//         bounds.extend({ lat: pickupCoords[1], lng: pickupCoords[0] });
+//         hasPoints = true;
+//     }
+
+//     if (polygonPaths.length > 0) {
+//         polygonPaths.forEach(point => bounds.extend(point));
+//         hasPoints = true;
+//     }
+
+//     if (hasPoints) {
+//         map.fitBounds(bounds, { top: 100, right: 50, bottom: 150, left: 50 });
+//         initialFitBoundsDoneRef.current = true; // Mark that the initial fitBounds has been done
+//     }
+
+//   }, [driverLocation, destinationCoords, pickupCoords, polygonPaths, userInteractionRef.current]); // Depend on data points and interaction flag
+
+
+//   // Determine initial map center only if initial fitBounds hasn't happened and user hasn't interacted
+//   let mapCenter = { lat: 6.5244, lng: 3.3792 }; // Default fallback
+//   if (!initialFitBoundsDoneRef.current && !userInteractionRef.current) {
+//     if (driverLocation) {
+//         mapCenter = { lat: driverLocation[0], lng: driverLocation[1] };
+//     } else if (destinationCoords) {
+//         mapCenter = { lat: destinationCoords[1], lng: destinationCoords[0] };
+//     }
+//   }
+//   // Otherwise, let the map use its current view (controlled by user interaction)
 
 //   if (googleMapsLoadError) {
 //     return (
@@ -734,8 +756,9 @@ export default function TripProgressScreen({
 //             {isGoogleMapsLoaded ? (
 //               <GoogleMap
 //                 mapContainerStyle={{ width: "100%", height: "100%" }}
-//                 center={mapCenter}
-//                 zoom={14}
+//                 // NEW: Only pass center and zoom if initial fitBounds hasn't happened and user hasn't interacted
+//                 center={(!initialFitBoundsDoneRef.current && !userInteractionRef.current) ? mapCenter : undefined}
+//                 zoom={(!initialFitBoundsDoneRef.current && !userInteractionRef.current) ? 14 : undefined}
 //                 options={{
 //                   styles: mapStyles,
 //                   streetViewControl: false,
@@ -745,6 +768,16 @@ export default function TripProgressScreen({
 //                   zoomControlOptions: {
 //                     position: google.maps.ControlPosition.RIGHT_CENTER,
 //                   },
+//                   // NEW: Enable rotation and tilt
+//                   rotateControl: true,
+//                   rotateControlOptions: {
+//                     position: google.maps.ControlPosition.RIGHT_CENTER,
+//                   },
+//                   tilt: 45, // Default tilt angle, user can change it
+//                   // NEW: Ensure the map is draggable and user-controllable
+//                   draggable: true,
+//                   scrollwheel: true, // Allow scroll to zoom if desired
+//                   disableDefaultUI: false, // Keep zoom controls
 //                 }}
 //                 onLoad={(map) => {
 //                   if (directionsRenderer.current) {
@@ -752,6 +785,7 @@ export default function TripProgressScreen({
 //                   }
 //                 }}
 //                 onUnmount={() => {
+//                   setDirections(null); // Clear directions state
 //                   if (directionsRenderer.current) {
 //                     directionsRenderer.current.setMap(null);
 //                     directionsRenderer.current = null;
@@ -920,4 +954,3 @@ export default function TripProgressScreen({
 //     </div>
 //   );
 // }
-
