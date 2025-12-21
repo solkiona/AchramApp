@@ -310,7 +310,7 @@ export default function ACHRAMApp() {
   }, [screen]);
 
   const activeTripForDashboard = useMemo(() => {
-    if (activeTripId && driver) {
+    if (activeTripId) {
       return {
         id: activeTripId,
         status:

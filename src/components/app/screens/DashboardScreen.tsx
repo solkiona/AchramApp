@@ -33,7 +33,7 @@ interface DashboardProps {
     status: string;
     driver?: Driver;
     destination: string;
-  };
+  } | null;
   onShowProfile: () => void;
   onShowTripHistory: () => void;
   onShowWallet: () => void;
