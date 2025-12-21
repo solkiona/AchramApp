@@ -832,7 +832,8 @@ export default function ACHRAMApp() {
     elderly: false,
   });
 
-  const showNotification = (
+  const showNotification = useCallback(
+    (
     message: string,
     type: "info" | "success" | "warning" | "error"
   ) => {
@@ -840,7 +841,11 @@ export default function ACHRAMApp() {
     setTimeout(() => {
       setCurrentNotification(null);
     }, 5000);
-  };
+  }
+    ,[]
+  )
+  
+  console.log("Page.tsx is being rendered Now")
 
   const [driverDistance, setDriverDistance] = useState<string | null>(null);
   const [driverDuration, setDriverDuration] = useState<string | null>(null);

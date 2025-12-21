@@ -1,6 +1,6 @@
 // src/components/app/modals/TripDetailsModal.tsx (or update TripDetailsScreen.tsx if you prefer)
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Clock, MapPin, Wallet, Star, User, X, Plane, Loader } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { Driver } from "@/types/passenger"; // Assuming this type exists
@@ -45,16 +45,10 @@ export default function TripDetailsModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // NEW: Only fetch if modal is open and tripId is provided
-    if (!isOpen || !tripId) {
-        setTrip(null); // Clear previous data
-        setLoading(false);
-        setError(null);
-        return;
-    }
 
-    const fetchTripDetails = async () => {
+  const fetchTripDetails = useCallback(
+
+      async () => {
       setLoading(true);
       setError(null);
       try {
@@ -76,12 +70,23 @@ export default function TripDetailsModal({
       } finally {
         setLoading(false);
       }
-    };
+    }, [tripId, isOpen, showNotification]
+    );
+    
+
+  useEffect(() => {
+    // NEW: Only fetch if modal is open and tripId is provided
+    if (!isOpen || !tripId) {
+        setTrip(null); // Clear previous data
+        setLoading(false);
+        setError(null);
+        return;
+    }
 
     console.log("Watching these variables to know which one trigeers a rerender, tripId, isOpen, showNotification", tripId, isOpen, !!showNotification)
 
     fetchTripDetails();
-  }, [tripId, isOpen, showNotification]); // NEW: Depend on isOpen and tripId
+  }, [fetchTripDetails]); // NEW: Depend on isOpen and tripId
 
   // NEW: Don't render anything if not open
   if (!isOpen) return null;
