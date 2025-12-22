@@ -57,7 +57,7 @@ export default function TripUpdateNotification({
   }, [onDismiss]);
 
   return (
-    <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 max-w-xs w-full p-4 rounded-lg shadow-lg ${bgColor} ${textColor} flex items-start gap-2 z-50 animate-fadeInUp`}>
+    <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 max-w-xs w-full p-4 rounded-lg shadow-lg ${bgColor} ${textColor} flex items-start gap-2 z-60 animate-fadeInUp`}>
       <div className={`flex-shrink-0 mt-0.5 ${iconColor}`}>{icon}</div>
       <div className="flex-1">
         <p className="text-sm">{message}</p>

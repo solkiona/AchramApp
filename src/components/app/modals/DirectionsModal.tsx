@@ -1,4 +1,3 @@
-
 // src/components/app/modals/DirectionsModal.tsx
 import { X, Navigation, MapPin, Car, User, Route, Clock } from 'lucide-react';
 import { GoogleMap, Marker, Polygon, useJsApiLoader } from '@react-google-maps/api';
@@ -8,12 +7,12 @@ interface DirectionsModalProps {
   isOpen: boolean;
   onClose: () => void;
   pickup: string;
-  pickupCoords?: [number, number] | null;
+  pickupCoords?: [number, number] | null; // Booking location (where request was made)
   destination: string;
   destinationCoords?: [number, number] | null;
   driverLocation?: [number, number] | null;
-  passengerLocation?: [number, number] | null;
-  airportPickupArea?: any; // Consider defining a more specific type if possible
+  passengerLocation?: [number, number] | null; // Passenger's current live location
+  airportPickupArea?: any; // The polygon defining the pickup zone
   isGoogleMapsLoaded: boolean;
   googleMapsLoadError?: any;
 }
@@ -85,6 +84,32 @@ const getDestinationIcon = () => ({
   anchor: { x: 12, y: 24 } as google.maps.Point,
 });
 
+// NEW: Helper function to calculate the centroid of a polygon
+const calculatePolygonCentroid = (polygonCoords: number[][]): [number, number] | null => {
+  if (!polygonCoords || polygonCoords.length === 0) return null;
+
+  let totalX = 0;
+  let totalY = 0;
+  let count = 0;
+
+  // Loop through the coordinates of the polygon
+  for (let i = 0; i < polygonCoords.length; i++) {
+    const [lng, lat] = polygonCoords[i];
+    totalX += lng;
+    totalY += lat;
+    count++;
+  }
+
+  // Avoid division by zero
+  if (count === 0) return null;
+
+  // Calculate the average (centroid)
+  const centroidLng = totalX / count;
+  const centroidLat = totalY / count;
+
+  return [centroidLng, centroidLat];
+};
+
 export default function DirectionsModal({
   isOpen,
   onClose,
@@ -93,7 +118,7 @@ export default function DirectionsModal({
   destination,
   destinationCoords,
   driverLocation,
-  passengerLocation,
+  passengerLocation, // ✅ Use passengerLocation (live location) as the origin
   airportPickupArea,
   isGoogleMapsLoaded,
   googleMapsLoadError,
@@ -101,7 +126,7 @@ export default function DirectionsModal({
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [isDriverInPickupArea, setIsDriverInPickupArea] = useState(false);
   const [routePolylinePath, setRoutePolylinePath] = useState<google.maps.LatLngLiteral[]>([]);
-  const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
+  const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null); // ✅ Reflects passenger -> pickup area centroid
   const [activeMarker, setActiveMarker] = useState<string | null>(null);
 
   // NEW: Refs to track user interaction and initial fitBounds status
@@ -120,8 +145,9 @@ export default function DirectionsModal({
     }));
   }, [airportPickupArea]);
 
+  // ✅ UPDATED: Fetch directions from passenger's *current* location to the *centroid* of the pickup area
   const fetchDirections = useCallback(async () => {
-    if (!isGoogleMapsLoaded || !pickupCoords || !destinationCoords || !map) {
+    if (!isGoogleMapsLoaded || !passengerLocation || !airportPickupArea?.geometry?.coordinates || !map) {
       return;
     }
 
@@ -141,9 +167,21 @@ export default function DirectionsModal({
       });
     }
 
+    // ✅ Calculate the centroid of the pickup area polygon
+    const pickupAreaCentroid = calculatePolygonCentroid(airportPickupArea.geometry.coordinates[0]);
+    if (!pickupAreaCentroid) {
+        console.error("Could not calculate centroid for pickup area polygon.");
+        setRouteInfo(null);
+        setRoutePolylinePath([]);
+        directionsRenderer.current.setMap(null);
+        return;
+    }
+
+    // ✅ Set origin to passenger's *current* location (passengerLocation)
+    // ✅ Set destination to the calculated centroid of the pickup area
     const request: google.maps.DirectionsRequest = {
-      origin: new google.maps.LatLng(pickupCoords[1], pickupCoords[0]),
-      destination: new google.maps.LatLng(destinationCoords[1], destinationCoords[0]),
+      origin: new google.maps.LatLng(passengerLocation[1], passengerLocation[0]), // [lng, lat] -> {lat, lng}
+      destination: new google.maps.LatLng(pickupAreaCentroid[1], pickupAreaCentroid[0]), // [lng, lat] -> {lat, lng}
       travelMode: google.maps.TravelMode.DRIVING,
     };
 
@@ -151,8 +189,9 @@ export default function DirectionsModal({
       const result = await directionsService.current.route(request);
       if (result.status === "OK" && result.routes.length > 0) {
         const route = result.routes[0];
-        const leg = route.legs[0];
+        const leg = route.legs[0]; // Leg from passenger's current location to pickup area centroid
 
+        // ✅ Update routeInfo with distance and duration for passenger -> pickup area centroid leg
         setRouteInfo({
           distance: leg.distance?.text || "N/A",
           duration: leg.duration?.text || "N/A",
@@ -164,17 +203,17 @@ export default function DirectionsModal({
 
       } else {
         console.error("Directions request failed due to status: " + result.status);
-        setRouteInfo(null);
+        setRouteInfo(null); // ✅ Clear route info on failure
         setRoutePolylinePath([]);
         directionsRenderer.current.setMap(null);
       }
     } catch (e) {
       console.error("Error fetching directions", e);
-      setRouteInfo(null);
+      setRouteInfo(null); // ✅ Clear route info on error
       setRoutePolylinePath([]);
       directionsRenderer.current.setMap(null);
     }
-  }, [isGoogleMapsLoaded, pickupCoords, destinationCoords, map]);
+  }, [isGoogleMapsLoaded, passengerLocation, airportPickupArea, map]); // ✅ Update dependencies
 
   // NEW: Effect to handle user interaction events
   useEffect(() => {
@@ -203,13 +242,16 @@ export default function DirectionsModal({
     const bounds = new google.maps.LatLngBounds();
     let hasPoints = false;
 
-    if (pickupCoords) {
-      bounds.extend({ lat: pickupCoords[1], lng: pickupCoords[0] });
+    // ✅ Include passenger's *current* location in fitBounds calculation
+    if (passengerLocation) {
+      bounds.extend({ lat: passengerLocation[1], lng: passengerLocation[0] });
       hasPoints = true;
     }
 
-    if (destinationCoords) {
-      bounds.extend({ lat: destinationCoords[1], lng: destinationCoords[0] });
+    // ✅ Include pickup area polygon points in fitBounds calculation
+    const polygonPaths = getPolygonPaths();
+    if (polygonPaths.length > 0) {
+      polygonPaths.forEach(point => bounds.extend(point));
       hasPoints = true;
     }
 
@@ -218,14 +260,9 @@ export default function DirectionsModal({
       hasPoints = true;
     }
 
-    if (passengerLocation) {
-      bounds.extend({ lat: passengerLocation[1], lng: passengerLocation[0] });
-      hasPoints = true;
-    }
-
-    const polygonPaths = getPolygonPaths();
-    if (polygonPaths.length > 0) {
-      polygonPaths.forEach(point => bounds.extend(point));
+    // ✅ Include destination coords only if you want them visible initially
+    if (destinationCoords) {
+      bounds.extend({ lat: destinationCoords[1], lng: destinationCoords[0] });
       hasPoints = true;
     }
 
@@ -240,13 +277,12 @@ export default function DirectionsModal({
     }
   }, [
     map,
-    pickupCoords,
-    destinationCoords,
+    passengerLocation, // ✅ Use passengerLocation for initial view
+    getPolygonPaths, // ✅ Use the helper to get polygon points
     driverLocation,
-    passengerLocation,
-    airportPickupArea,
-    isGoogleMapsLoaded,
-    getPolygonPaths,
+    destinationCoords,
+    airportPickupArea, // Needed by getPolygonPaths
+    isGoogleMapsLoaded, // Needed by getPolygonPaths
     routePolylinePath,
     // userInteractionRef.current and initialFitBoundsDoneRef.current are not deps
     // because we only read their *current* value inside.
@@ -268,7 +304,7 @@ export default function DirectionsModal({
   }, [driverLocation, airportPickupArea, isGoogleMapsLoaded, getPolygonPaths]);
 
   useEffect(() => {
-    fetchDirections();
+    fetchDirections(); // ✅ Fetch passenger (live) -> pickup area centroid route
   }, [fetchDirections]);
 
   const onLoad = useCallback((map: google.maps.Map) => {
@@ -299,10 +335,16 @@ export default function DirectionsModal({
   // NEW: Determine initial center only if initial fitBounds hasn't happened and user hasn't interacted
   let mapCenter = defaultCenter;
   if (!initialFitBoundsDoneRef.current && !userInteractionRef.current) {
-     if (passengerLocation) {
+     if (passengerLocation) { // ✅ Prefer passenger's *current* location first
         mapCenter = { lat: passengerLocation[1], lng: passengerLocation[0] };
-      } else if (pickupCoords) {
-        mapCenter = { lat: pickupCoords[1], lng: pickupCoords[0] };
+      } else if (airportPickupArea) { // ✅ Then the pickup area (use its first coordinate as a fallback if no centroid calc)
+          const centroid = calculatePolygonCentroid(airportPickupArea.geometry.coordinates[0]);
+          if (centroid) {
+              mapCenter = { lat: centroid[1], lng: centroid[0] };
+          } else if (airportPickupArea.geometry.coordinates[0] && airportPickupArea.geometry.coordinates[0].length > 0) {
+              const [lng, lat] = airportPickupArea.geometry.coordinates[0][0];
+              mapCenter = { lat, lng }; // Fallback to first point of polygon
+          }
       }
   }
   // Otherwise, let the map use its current view (controlled by user interaction)
@@ -346,7 +388,8 @@ export default function DirectionsModal({
                   <Route className="w-4 h-4 text-achrams-primary-solid" />
                 </div>
                 <div>
-                  <p className="text-xs text-achrams-text-secondary font-medium">Distance</p>
+                  {/* ✅ Updated label to reflect passenger (live) -> pickup area */}
+                  <p className="text-xs text-achrams-text-secondary font-medium">To Pickup Area</p>
                   <p className="text-sm font-bold text-achrams-text-primary">{routeInfo.distance}</p>
                 </div>
               </div>
@@ -356,7 +399,8 @@ export default function DirectionsModal({
                   <Clock className="w-4 h-4 text-achrams-secondary-solid" />
                 </div>
                 <div>
-                  <p className="text-xs text-achrams-text-secondary font-medium">Duration</p>
+                  {/* ✅ Updated label to reflect passenger (live) -> pickup area */}
+                  <p className="text-xs text-achrams-text-secondary font-medium">ETA to Pickup</p>
                   <p className="text-sm font-bold text-achrams-text-primary">{routeInfo.duration}</p>
                 </div>
               </div>
@@ -415,15 +459,19 @@ export default function DirectionsModal({
                 />
               )}
 
-              {/* Airport Pickup Point Marker */}
-              {pickupCoords && (
+              {/* Airport Pickup Point Marker (Optional: Show centroid) */}
+              {/* You could optionally show a marker at the centroid used for routing */}
+              {/* {airportPickupArea && calculatePolygonCentroid(airportPickupArea.geometry.coordinates[0]) && (
                 <Marker
-                  position={{ lat: pickupCoords[1], lng: pickupCoords[0] }}
-                  icon={getPickupIcon()}
-                  title={`Pickup: ${pickup}`}
-                  onClick={() => setActiveMarker('pickup')}
+                  position={{
+                      lat: calculatePolygonCentroid(airportPickupArea.geometry.coordinates[0])[1],
+                      lng: calculatePolygonCentroid(airportPickupArea.geometry.coordinates[0])[0]
+                  }}
+                  icon={getPickupIcon()} // Could use a different icon
+                  title={`Pickup Area Centroid: ${pickup}`}
+                  zIndex={998} // Slightly below passenger/driver
                 />
-              )}
+              )} */}
 
               {/* Driver's Current Location */}
               {driverLocation && (
@@ -471,13 +519,13 @@ export default function DirectionsModal({
                   </p>
                 </div>
               )}
-              {activeMarker === 'pickup' && pickupCoords && (
+              {activeMarker === 'pickup' && polygonPaths.length > 0 && airportPickupArea && (
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-lg p-3 min-w-[180px] z-[1001] border border-achrams-border">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                       <MapPin className="w-4 h-4 text-green-600" />
                     </div>
-                    <span className="font-bold text-achrams-text-primary">Pickup Point</span>
+                    <span className="font-bold text-achrams-text-primary">Pickup Area</span>
                   </div>
                   <p className="text-xs text-achrams-text-secondary ml-10">{pickup}</p>
                 </div>
@@ -545,7 +593,7 @@ export default function DirectionsModal({
 //   destinationCoords?: [number, number] | null;
 //   driverLocation?: [number, number] | null;
 //   passengerLocation?: [number, number] | null;
-//   airportPickupArea?: any;
+//   airportPickupArea?: any; // Consider defining a more specific type if possible
 //   isGoogleMapsLoaded: boolean;
 //   googleMapsLoadError?: any;
 // }
@@ -636,6 +684,10 @@ export default function DirectionsModal({
 //   const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
 //   const [activeMarker, setActiveMarker] = useState<string | null>(null);
 
+//   // NEW: Refs to track user interaction and initial fitBounds status
+//   const userInteractionRef = useRef(false);
+//   const initialFitBoundsDoneRef = useRef(false);
+
 //   const directionsService = useRef<google.maps.DirectionsService | null>(null);
 //   const directionsRenderer = useRef<google.maps.DirectionsRenderer | null>(null);
 
@@ -704,8 +756,29 @@ export default function DirectionsModal({
 //     }
 //   }, [isGoogleMapsLoaded, pickupCoords, destinationCoords, map]);
 
+//   // NEW: Effect to handle user interaction events
 //   useEffect(() => {
-//     if (!map || !isGoogleMapsLoaded) return;
+//     if (!map) return;
+
+//     const handleMapInteraction = () => {
+//       // Set the flag to true when user interacts (pan, zoom, etc.)
+//       userInteractionRef.current = true;
+//     };
+
+//     // Listen for common user interaction events
+//     const centerListener = map.addListener('center_changed', handleMapInteraction);
+//     const zoomListener = map.addListener('zoom_changed', handleMapInteraction);
+
+//     // Cleanup listeners when component unmounts or map changes
+//     return () => {
+//       if (centerListener) centerListener.remove();
+//       if (zoomListener) zoomListener.remove();
+//     };
+//   }, [map]);
+
+//   // NEW: Effect to perform initial fitBounds only once, respecting user interaction
+//   useEffect(() => {
+//     if (!map || !isGoogleMapsLoaded || initialFitBoundsDoneRef.current || userInteractionRef.current) return;
 
 //     const bounds = new google.maps.LatLngBounds();
 //     let hasPoints = false;
@@ -743,8 +816,23 @@ export default function DirectionsModal({
 
 //     if (hasPoints) {
 //       map.fitBounds(bounds, { top: 100, right: 50, bottom: 150, left: 50 });
+//       initialFitBoundsDoneRef.current = true; // Mark that the initial fitBounds has been done
 //     }
-//   }, [map, pickupCoords, destinationCoords, driverLocation, passengerLocation, airportPickupArea, isGoogleMapsLoaded, getPolygonPaths, routePolylinePath]);
+//   }, [
+//     map,
+//     pickupCoords,
+//     destinationCoords,
+//     driverLocation,
+//     passengerLocation,
+//     airportPickupArea,
+//     isGoogleMapsLoaded,
+//     getPolygonPaths,
+//     routePolylinePath,
+//     // userInteractionRef.current and initialFitBoundsDoneRef.current are not deps
+//     // because we only read their *current* value inside.
+//   ]);
+
+//   // REMOVED: The old useEffect that constantly tried to fit bounds based on live data
 
 //   useEffect(() => {
 //     if (!isGoogleMapsLoaded || !driverLocation || !airportPickupArea) return;
@@ -788,12 +876,16 @@ export default function DirectionsModal({
 //     );
 //   }
 
+//   // NEW: Determine initial center only if initial fitBounds hasn't happened and user hasn't interacted
 //   let mapCenter = defaultCenter;
-//   if (passengerLocation) {
-//     mapCenter = { lat: passengerLocation[1], lng: passengerLocation[0] };
-//   } else if (pickupCoords) {
-//     mapCenter = { lat: pickupCoords[1], lng: pickupCoords[0] };
+//   if (!initialFitBoundsDoneRef.current && !userInteractionRef.current) {
+//      if (passengerLocation) {
+//         mapCenter = { lat: passengerLocation[1], lng: passengerLocation[0] };
+//       } else if (pickupCoords) {
+//         mapCenter = { lat: pickupCoords[1], lng: pickupCoords[0] };
+//       }
 //   }
+//   // Otherwise, let the map use its current view (controlled by user interaction)
 
 //   const polygonPaths = getPolygonPaths();
 
@@ -856,8 +948,11 @@ export default function DirectionsModal({
 //           {isGoogleMapsLoaded ? (
 //             <GoogleMap
 //               mapContainerStyle={mapContainerStyle}
-//               center={mapCenter}
-//               zoom={14}
+//               // NEW: Only pass center and zoom if initial fitBounds hasn't happened and user hasn't interacted
+//               // This prevents the map from being forced back to the center prop.
+//               // The map will manage its own view after initial load/fitBounds/user interaction.
+//               center={(!initialFitBoundsDoneRef.current && !userInteractionRef.current) ? mapCenter : undefined}
+//               zoom={(!initialFitBoundsDoneRef.current && !userInteractionRef.current) ? 14 : undefined}
 //               onLoad={onLoad}
 //               onUnmount={onUnmount}
 //               options={{
@@ -869,6 +964,10 @@ export default function DirectionsModal({
 //                 zoomControlOptions: {
 //                   position: google.maps.ControlPosition.RIGHT_CENTER,
 //                 },
+//                 // NEW: Ensure the map is draggable and user-controllable
+//                 draggable: true,
+//                 scrollwheel: true, // Allow scroll to zoom if desired
+//                 disableDefaultUI: false, // Keep zoom controls
 //               }}
 //             >
 //               {/* Passenger's Current Location */}
@@ -1011,8 +1110,6 @@ export default function DirectionsModal({
 //     </div>
 //   );
 // }
-
-
 
 
 

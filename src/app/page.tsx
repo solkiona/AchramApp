@@ -84,7 +84,7 @@ type PassengerData = {
 };
 
 interface PersistedState {
-  screen: ScreenState;
+  screen: ScreenState | null;
   pickup: string;
   destination: string;
   fareEstimate: number | null;
@@ -167,6 +167,7 @@ export default function ACHRAMApp() {
   const screenRef = useRef(screen);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   // const pollingIntervalIdRef = useRef(pollingIntervalId);
+  const [tripHistory, setTripHistory] = useState<any[]>([]);
 
   useEffect(() => {
     activeTripIdRef.current = activeTripId;
@@ -713,6 +714,7 @@ export default function ACHRAMApp() {
         console.log("user is authenticated, so let us take him to dashboard");
         setScreen("dashboard");
       } else {
+        console.log('setting screen to booking from initialize app state else condition')
         setScreen("booking");
       }
       // Reset bookAsGuest flag if there's no saved state indicating it was set
@@ -2358,7 +2360,261 @@ export default function ACHRAMApp() {
     startWebSocketConnectionForAuthUser,
     startWebSocketConnection,
     syncTripStatusInBackground,
+    previousScreen
   ]);
+
+
+  const fetchTripHistory = useCallback(async () => {
+  if (!isAuthenticated || bookAsGuest) {
+    // Only fetch history for authenticated users who booked normally
+    return;
+  }
+
+  try {
+    console.log("Fetching trip history for dashboard...");
+    // Example API call - adjust endpoint and parameters as needed
+    // Use the same query parameters as TripHistoryScreen for consistency
+    // Fetch the first page with a reasonable limit
+    const pageNum = 1;
+    const limit = 10; // Or another suitable number for the dashboard
+    const queryParams = `?page=${pageNum}&page_size=${limit}`;
+    const response = await apiClient.get(`/trips${queryParams}`, undefined, false, undefined, true); // isAuthRequest=true
+
+    console.log("Trip history API response for dashboard:", response);
+
+    if (response.count > 0) { // Check if count > 0, indicating success and data
+      const paginationData = response; // The response object itself is the pagination object
+      const history = paginationData.results || []; // Trips are in the 'results' field
+      console.log("Fetched trip history for dashboard:", history);
+      setTripHistory(history);
+    } else {
+      console.log("No trips found in history or count is 0.");
+      setTripHistory([]); // Set to empty array if no trips
+    }
+  } catch (error) {
+    console.error("Error fetching trip history for dashboard:", error);
+    setTripHistory([]); // Clear history on error
+  }
+}, [isAuthenticated, bookAsGuest, apiClient]);
+
+
+
+// NEW: useEffect to fetch trip history when user becomes authenticated
+useEffect(() => {
+  if (isAuthenticated && !bookAsGuest) {
+    // Optionally add a small delay or debounce if this triggers too frequently
+    fetchTripHistory();
+  } else {
+    // Clear history if user logs out or is a guest
+    setTripHistory([]);
+  }
+}, [isAuthenticated, bookAsGuest, fetchTripHistory]);
+
+// NEW: Determine recentTripData based on activeTripId and tripHistory
+// This uses useMemo to calculate the value efficiently only when dependencies change
+const recentTripData = useMemo(() => {
+  if (activeTripId) {
+    // If there's a current active trip in session state, the 'recent' one shown on dashboard
+    // should be the *second most recent* trip from history.
+    // This assumes tripHistory is sorted with most recent first.
+    console.log("Current session has an active trip. Looking for second most recent in history.");
+    return tripHistory.length > 1 ? tripHistory[1] : null;
+  } else {
+    // If there's no current active trip in session state
+    console.log("Current session has no active trip. Checking history for resumable or fallback trip.");
+    const terminalStatuses = ['completed', 'cancelled']; // Define terminal statuses
+
+    // First, try to find the *most recent* trip that is NOT terminal (resumable)
+    const resumableTrip = tripHistory.find(trip => !terminalStatuses.includes(trip.status.value));
+    if (resumableTrip) {
+        console.log("Found a potentially active/resumable trip in history:", resumableTrip);
+        return resumableTrip; // Return the first non-terminal trip found
+    }
+
+    // If no resumable trip was found, fall back to the *most recent* trip (index 0), regardless of status
+    if (tripHistory.length > 0) {
+        console.log("No non-terminal trips found. Falling back to the most recent trip (might be terminal):", tripHistory[0]);
+        return tripHistory[0]; // Return the most recent trip (e.g., completed/cancelled)
+    }
+
+    // If there's no active trip and the history list is empty, return null
+    console.log("No active trip and no history found. recentTripData will be null.");
+    return null;
+
+  }
+}, [activeTripId, tripHistory]);
+
+
+const updateAccountData = useCallback((newAccountData: any) => {
+  console.log("Updating account data state after API call:", newAccountData);
+  setAccountData(newAccountData); 
+}, [setAccountData]); 
+
+// NEW: Function to handle resuming a trip by ID (as discussed previously)
+const handleResumeTripById = useCallback(async (tripIdToResume: string) => {
+  console.log("Attempting to resume trip by ID from dashboard:", tripIdToResume);
+
+  if (!tripIdToResume) {
+    console.warn("No trip ID provided to resume.");
+    setScreen("booking");
+    return;
+  }
+
+  try {
+    // Determine auth context
+    const isCurrentlyAuthenticated = isAuthenticated && !bookAsGuest;
+    const isCurrentlyGuest = !isAuthenticated || bookAsGuest;
+
+    let response;
+    if (isCurrentlyAuthenticated) {
+      console.log("Resuming trip via authenticated endpoint with tripId:", tripIdToResume);
+      response = await apiClient.get(`/trips/${tripIdToResume}`, undefined, false, undefined, true); // isAuthRequest=true
+      console.log(response)
+    } else if (isCurrentlyGuest && guestId) {
+      console.log("Resuming trip via guest endpoint with guestId:", guestId);
+      response = await apiClient.get(`/trips/${tripIdToResume}?guest_id=${guestId}`, undefined, true, guestId); // isGuest=true
+    } else {
+      console.error("Cannot resume trip: No valid auth context (token or guestId) for the provided trip ID.");
+      setScreen("booking");
+      return;
+    }
+
+    if (response.status === "success" && response.data) {
+      const trip = response.data;
+      console.log("Fetched trip details for resume from dashboard:", trip);
+
+      // Update relevant state based on the fetched trip
+      setActiveTripId(trip.id);
+      setDriver(trip.driver || null);
+      setTripProgress(trip.progress || 0);
+      setVerificationCode(trip.verification_code || "");
+      setPickup(trip.pickup_address || "");
+      setDestination(trip.destination_address || "");
+      // Update coordinates if available in the response
+      setFareEstimate(
+                trip.amount?.amount ? parseFloat(trip.amount.amount) : null
+              );
+
+      setPickupCoords(
+          trip.map_data.pickup_location.geometry.coordinates || null
+        );
+        console.log("Pickup coords", pickupCoords);
+        setDestinationCoords(
+          trip.map_data.destination_location.geometry.coordinates || null
+        );
+      if (trip?.map_data?.airport?.pickup_area) {
+        setAirportPickupArea(trip.map_data.airport.pickup_area);
+      }
+
+      // Determine the correct screen based on the *fetched* status
+      if (trip.status.value === "searching") {
+        setScreen("assigning");
+        if (isCurrentlyAuthenticated) {
+          startWebSocketConnectionForAuthUser(trip.id);
+        } else if (isCurrentlyGuest && guestId) {
+          startWebSocketConnection(guestId, trip.id);
+        }
+      } else if (trip.status.value === "accepted") {
+        setScreen("driver-assigned");
+        setDriver(trip.driver);
+        setVerificationCode(trip.verification_code);
+        if (isCurrentlyAuthenticated) {
+          startWebSocketConnectionForAuthUser(trip.id);
+        } else if (isCurrentlyGuest && guestId) {
+          startWebSocketConnection(guestId, trip.id);
+        }
+      } else if (trip.status.value === "active") {
+        setScreen("trip-progress");
+        setDriver(trip.driver);
+        setTripProgress(trip.progress || 0);
+        if (isCurrentlyAuthenticated) {
+          startWebSocketConnectionForAuthUser(trip.id);
+        } else if (isCurrentlyGuest && guestId) {
+          startWebSocketConnection(guestId, trip.id);
+        }
+      } else if (trip.status.value === "completed") {
+        setScreen("trip-complete");
+        setDriver(trip.driver);
+        stopWebSocketConnection();
+        stopPollingTripStatus();
+      } else if (trip.status.value === "cancelled") {
+        console.log("Trip was cancelled, clearing ID and going to dashboard.");
+        setActiveTripId(null);
+        preserveBookingContext(); // Clear trip-specific state
+        stopWebSocketConnection();
+        stopPollingTripStatus();
+        setScreen("dashboard");
+      } else {
+        console.warn("Unexpected trip status on resume by ID from dashboard:", trip.status.value);
+        setScreen("booking");
+        stopWebSocketConnection();
+        stopPollingTripStatus();
+      }
+
+      // Save the updated state to sessionStorage
+      const stateToSave: PersistedState = {
+        screen: screen, // The screen set above
+        pickup,
+        destination,
+        fareEstimate,
+        driver,
+        tripProgress,
+        pickupCoords,
+        destinationCoords,
+        verificationCode,
+        activeTripId: trip.id, // Update active trip ID
+        guestId, // Keep guest ID if applicable
+        bookAsGuest,
+        // ... other state that needs persistence ...
+      };
+      saveAppState(stateToSave);
+
+    } else {
+      console.error("Failed to fetch trip details for resume from dashboard:", response);
+      setScreen("booking");
+      // Optionally clear activeTripId if it was set incorrectly before the call
+      if (activeTripId === tripIdToResume) {
+        setActiveTripId(null);
+      }
+    }
+  } catch (error) {
+    console.error("Error resuming trip by ID from dashboard:", error);
+    setScreen("booking");
+    // Optionally clear activeTripId if it was set incorrectly before the call
+    if (activeTripId === tripIdToResume) {
+      setActiveTripId(null);
+    }
+  }
+}, [
+  isAuthenticated,
+  bookAsGuest,
+  guestId,
+  startWebSocketConnectionForAuthUser,
+  startWebSocketConnection,
+  stopWebSocketConnection,
+  stopPollingTripStatus,
+  setScreen,
+  setActiveTripId,
+  setDriver,
+  setTripProgress,
+  setVerificationCode,
+  setPickup,
+  setDestination,
+  setAirportPickupArea,
+  pickup,
+  destination,
+  fareEstimate,
+  driver,
+  tripProgress,
+  verificationCode,
+  preserveBookingContext,
+  activeTripId,
+  screen,
+  destinationCoords,
+  pickupCoords,
+]);
+
+
 
   const handleHomeClick = useCallback(() => {
     if(screen === 'dashboard') return;
@@ -2539,10 +2795,10 @@ export default function ACHRAMApp() {
         airportPickupArea={airportPickupArea}
         screenPaddingClass={screenPaddingClass}
         isAuthenticated={isAuthenticated}
-        routePath={routePath}
-        setRoutePath={setRoutePath}
-        routeInfo={routeInfo}
-        setRouteInfo={setRouteInfo}
+        // routePath={routePath}
+        // setRoutePath={setRoutePath}
+        // routeInfo={routeInfo}
+        // setRouteInfo={setRouteInfo}
         driverLocation={driverLocation}
         setDriverLocation={setDriverLocation}
       />
@@ -2576,7 +2832,8 @@ export default function ACHRAMApp() {
           // setDriverLiveLocation(null);
           if (isAuthenticated) {
             console.log("setting screen to dashboard seven");
-            setScreen("dashboard");
+            fetchTripHistory();
+            setScreen("dashboard")
           } else {
             setScreen("booking");
           }
@@ -2616,6 +2873,8 @@ export default function ACHRAMApp() {
         onLogout={() => {}}
         activeTrip={activeTripForDashboard}
         onShowActiveTrip={handleResumeActiveTrip}
+        recentTripData = {recentTripData}
+        onResumeRecentTrip={handleResumeTripById}
       />
     );
   } else if (showTripHistory) {
@@ -2783,6 +3042,7 @@ export default function ACHRAMApp() {
             isOpen={showProfile}
             accountData={accountData}
             onClose={() => setShowProfile(false)}
+            showNotification={showNotification}
             onLogout={async () => {
               // Optional: Preserve booking context details (pickup, destination) if desired for guest re-entry
               // preserveBookingContext(); // Uncomment if you want to keep booking fields filled
@@ -2827,6 +3087,8 @@ export default function ACHRAMApp() {
                 );
               }
             }}
+
+             onUpdateAccountData={updateAccountData}
           />
           {/* NEW: Trip Request Status Modal */}
           <TripRequestStatusModal
@@ -2868,6 +3130,12 @@ export default function ACHRAMApp() {
             isOpen={showLogin}
             onClose={() => setShowLogin(false)}
             onLoginSuccess={handleLoginSuccess}
+            onLoginError={(errorMessage) => {
+                // This function is called by LoginModal when login fails with a specific message
+                console.log("page.tsx: Received login error from modal:", errorMessage);
+                showNotification(errorMessage, "error"); // Show the specific error notification
+            }}
+            showNotification={showNotification}
             onShowSignupPrompt={() => {
               setShowSignup(true);
               setShowLogin(false);

@@ -7,15 +7,20 @@ import { useAuth } from '@/contexts/AuthContext';
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLoginSuccess: () => void;
+  onLoginSuccess: (loginResult?: any) => void; 
+  onLoginError?: (errorMessage: string) => void; 
   onShowSignupPrompt: () => void;
+  showNotification: (message: string, type: "info" | "success" | "warning" | "error") => void;
 }
 
 export default function LoginModal({
   isOpen,
   onClose,
   onLoginSuccess,
-  onShowSignupPrompt
+  onShowSignupPrompt,
+  onLoginError,
+  showNotification,
+
 }: LoginModalProps) {
   if (!isOpen) return null;
 
@@ -28,6 +33,38 @@ export default function LoginModal({
   const [loading, setLoading] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
 
+  // const handleLogin = async () => {
+  //   setError('');
+  //   if (!email || !password) {
+  //     setError('Please fill in all fields.');
+  //     return;
+  //   }
+
+  //   setLoading(true);
+  //   try {
+  //     // Call the login function from AuthContext, which handles the API call and state updates
+  //     const loginSuccessful = await updateAuthContext(email, password);
+
+  //     if (loginSuccessful) {
+  //       onClose();
+  //       onLoginSuccess(); // Parent (page.tsx) can handle navigation or UI updates
+  //     } else {
+  //       // The login function in AuthContext should have handled setting an error,
+  //       // or we can set a generic one here if needed.
+  //       setError('Login failed. Please check your credentials.');
+  //     }
+  //   } catch (err: any) {
+  //       console.error("Login Error caught in LoginModal:", err);
+  //       let errorMessage = 'An unexpected error occurred.';
+  //       if (err.message) {
+  //           errorMessage = err.message;
+  //       }
+  //       setError(errorMessage);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const handleLogin = async () => {
     setError('');
     if (!email || !password) {
@@ -38,15 +75,24 @@ export default function LoginModal({
     setLoading(true);
     try {
       // Call the login function from AuthContext, which handles the API call and state updates
-      const loginSuccessful = await updateAuthContext(email, password);
+      // NEW: Expect the result to be an object { success: boolean, message?: string }
+      const loginResult = await updateAuthContext(email, password);
 
-      if (loginSuccessful) {
+      if (loginResult.success) {
         onClose();
         onLoginSuccess(); // Parent (page.tsx) can handle navigation or UI updates
+        // Optionally, page.tsx can show a success notification here too if needed
       } else {
-        // The login function in AuthContext should have handled setting an error,
-        // or we can set a generic one here if needed.
-        setError('Login failed. Please check your credentials.');
+        // NEW: Handle login failure by getting the specific error message
+        const errorMessage = loginResult.message || 'Login failed. Please check your credentials.';
+        // Option 1: Set error in the modal's local state (current behavior)
+        setError(errorMessage);
+
+        // Option 2: Call a parent handler to show a notification (NEW PREFERRED WAY)
+        if (onLoginError) {
+            onLoginError(errorMessage); // Pass the specific error message to parent
+            showNotification(errorMessage, "error")
+        }
       }
     } catch (err: any) {
         console.error("Login Error caught in LoginModal:", err);
@@ -55,6 +101,10 @@ export default function LoginModal({
             errorMessage = err.message;
         }
         setError(errorMessage);
+        showNotification(errorMessage, 'error')
+        if (onLoginError) {
+            onLoginError(errorMessage); // Pass the catch error message to parent
+        }
     } finally {
       setLoading(false);
     }

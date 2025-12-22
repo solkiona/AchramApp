@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { apiClient } from '@/lib/api';
 
 interface AuthContextType {
@@ -21,6 +21,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+
+interface LoginResult {
+  success: boolean;
+  message?: string; // Add an optional message field for errors
+}
+
+
+
+  
+    
   const checkAuthStatus = async () => {
     console.log("AuthContext: Checking authentication status via API call to /auth/passenger/authenticated...");
     // setIsLoading(true); // Don't set loading here if login function already handles it, or manage carefully to avoid conflicts
@@ -51,41 +61,86 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    console.log("AuthContext: Attempting login for user:", email);
-    setIsLoading(true); // Set loading state at the start of login
-    try {
-      // Call the login API using apiClient
-      const loginResponse = await apiClient.post('/auth/passenger/login', {
-        email,
-        password,
-      }, undefined, undefined, true);
+  // const login = async (email: string, password: string): Promise<boolean> => {
+  //   console.log("AuthContext: Attempting login for user:", email);
+  //   setIsLoading(true); // Set loading state at the start of login
+  //   try {
+  //     // Call the login API using apiClient
+  //     const loginResponse = await apiClient.post('/auth/passenger/login', {
+  //       email,
+  //       password,
+  //     }, undefined, undefined, true);
 
-      console.log("AuthContext: Login API Response:", loginResponse);
+  //     console.log("AuthContext: Login API Response:", loginResponse);
 
-      if (loginResponse.status === 'success' && loginResponse.data && loginResponse.data.token) {
-        console.log("AuthContext: Login successful via API call. Token received (though cookie is primary auth).");
-        // Store the token if the backend returns one (might be for other purposes)
-        // setToken(loginResponse.data.token);
-        // The backend should have set the httpOnly cookie here.
-        // Now, check the auth status using the cookie to update context state.
-        await new Promise(resolve => setTimeout(resolve, 500));
-        await checkAuthStatus(); // This will call the authenticated endpoint and update context
-        return true; // Indicate success
-      } else {
-        console.error("AuthContext: Login API responded with non-success status or missing token/data:", loginResponse);
-        setIsLoading(false); // Ensure loading is stopped on failure
-        return false; // Indicate failure
+  //     if (loginResponse.status === 'success' && loginResponse.data && loginResponse.data.token) {
+  //       console.log("AuthContext: Login successful via API call. Token received (though cookie is primary auth).");
+  //       // Store the token if the backend returns one (might be for other purposes)
+  //       // setToken(loginResponse.data.token);
+  //       // The backend should have set the httpOnly cookie here.
+  //       // Now, check the auth status using the cookie to update context state.
+  //       await new Promise(resolve => setTimeout(resolve, 500));
+  //       await checkAuthStatus(); // This will call the authenticated endpoint and update context
+  //       return true; // Indicate success
+  //     } else {
+
+        
+  //       console.error("AuthContext: Login API responded with non-success status or missing token/data:", loginResponse);
+  //       setIsLoading(false); // Ensure loading is stopped on failure
+  //       return false; // Indicate failure
+  //     }
+  //   } catch (err: any) {
+  //     console.error("AuthContext: Error during login API call:", err);
+  //     setIsLoading(false); // Ensure loading is stopped on error
+  //     return false; // Indicate failure
+  //   }
+  //   // Note: The loading state is managed by setIsLoading in this function and the checkAuthStatus function called within.
+  //   // Be careful not to conflict with the initial useEffect loading state.
+  // };
+
+  const login = async (email: string, password: string): Promise<LoginResult> => { // Change return type to Promise<LoginResult>
+  console.log("AuthContext: Attempting login for user:", email);
+  setIsLoading(true);
+  try {
+    const loginResponse = await apiClient.post('/auth/passenger/login', {
+      email,
+      password,
+    }, undefined, undefined, true);
+
+    console.log("AuthContext: Login API Response:", loginResponse);
+
+    if (loginResponse.status === 'success' && loginResponse.data && loginResponse.data.token) {
+      console.log("AuthContext: Login successful via API call. Token received (though cookie is primary auth).");
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await checkAuthStatus();
+      return { success: true }; // Return success object
+    } else {
+      // NEW: Extract error message from API response
+      let errorMessage = "Login failed. Please try again."; // Default message
+      if (loginResponse.message) {
+          errorMessage = loginResponse.message; // Use top-level message if available
+      } 
+      
+      if (loginResponse.details && loginResponse.details.non_field_errors && Array.isArray(loginResponse.details.non_field_errors)) {
+          // Attempt to get the first specific error from details
+          const specificError = loginResponse.details.non_field_errors[0];
+          if (specificError) {
+              errorMessage = specificError;
+          }
       }
-    } catch (err: any) {
-      console.error("AuthContext: Error during login API call:", err);
-      setIsLoading(false); // Ensure loading is stopped on error
-      return false; // Indicate failure
+      // NEW: Use the extracted or default error message
+      console.error("AuthContext: Login API responded with non-success status or missing token/data:", loginResponse);
+      setIsLoading(false);
+      // Do NOT call showNotification here, let the caller (page.tsx) handle it
+      return { success: false, message: errorMessage }; // Return failure object with message
     }
-    // Note: The loading state is managed by setIsLoading in this function and the checkAuthStatus function called within.
-    // Be careful not to conflict with the initial useEffect loading state.
-  };
-
+  } catch (err: any) {
+    console.error("AuthContext: Error during login API call:", err);
+    setIsLoading(false);
+    // NEW: Provide a generic error message for network/other errors
+    return { success: false, message: "An error occurred during login. Please check your connection." };
+  }
+};
   const logout = async () => {
     console.log("AuthContext: Attempting logout...");
     try {
