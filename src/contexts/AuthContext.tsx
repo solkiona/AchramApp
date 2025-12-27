@@ -24,6 +24,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 interface LoginResult {
   success: boolean;
+  requires2FA?: boolean;
   message?: string; // Add an optional message field for errors
 }
 
@@ -114,7 +115,13 @@ interface LoginResult {
       await new Promise(resolve => setTimeout(resolve, 500));
       await checkAuthStatus();
       return { success: true }; // Return success object
-    } else {
+    } else if(loginResponse.status === 'success' && loginResponse.data?.two_factor === true){
+      console.log("Authcontext: login successful, but 2FA verification is required");
+      setIsLoading(false);
+      return {success: true, requires2FA: true};
+    }
+    
+    else {
       // NEW: Extract error message from API response
       let errorMessage = "Login failed. Please try again."; // Default message
       if (loginResponse.message) {

@@ -1,8 +1,12 @@
 // src/components/app/modals/ProfileModal.tsx
-import { X, Phone, Mail, Shield, ChevronRight, Wallet, CreditCard, History, Settings, LogOut, User, Camera, Edit3, Save, ArrowLeft, Loader2 } from 'lucide-react';
+import { X, Phone, Mail, Shield, ChevronRight, Wallet, CreditCard, History, Settings, LogOut, User, Camera, Edit3, Save, ArrowLeft, Loader2 , Key, Trash2} from 'lucide-react';
 import Image from 'next/image';
 import { useState, useRef, useEffect } from 'react';
 import { apiClient } from '@/lib/api'; // Assuming apiClient is available or passed down
+import PasswordResetModal from "@/components/app/modals/PasswordResetModal"
+import AccountDeletionModal from "@/components/app/modals/AccountDeletionModal"
+
+
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -16,6 +20,8 @@ interface ProfileModalProps {
   onUpdateAccountData: (updatedData: any) => void;
   // NEW: Prop to show notification
   showNotification: (message: string, type: "info" | "success" | "warning" | "error") => void;
+  setShowPasswordResetModal: (val: boolean) => void;
+  setShowAccountDeletionModal: (val: boolean) => void
 }
 
 export default function ProfileModal({
@@ -28,6 +34,8 @@ export default function ProfileModal({
   onShowSettings,
   onUpdateAccountData, // NEW: Function to update parent state
   showNotification, // NEW: Function to show notifications
+  setShowPasswordResetModal,
+  setShowAccountDeletionModal,
 }: ProfileModalProps) {
   // NEW: State for editing mode and form data
   const [isEditing, setIsEditing] = useState(false);
@@ -41,6 +49,8 @@ export default function ProfileModal({
     is_2fa_enabled: accountData?.is_2fa_enabled || false,
     preferred_language: accountData?.preferred_language?.value || 'en',
   });
+  
+
   const [isSaving, setIsSaving] = useState(false);
   const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(accountData?.profile_photo || null);
 
@@ -157,6 +167,18 @@ export default function ProfileModal({
     setProfilePhotoPreview(accountData?.profile_photo || null);
     setIsEditing(false);
   };
+
+  const handleOpenPasswordReset = () => {
+    onClose();
+    setShowPasswordResetModal(true);
+  }
+
+  const handleOpenAccountDeletion = () => {
+    onClose();
+    setShowAccountDeletionModal(true);
+  }
+
+ 
 
   if (!isOpen || !accountData) return null;
 
@@ -536,6 +558,36 @@ export default function ProfileModal({
                   <ChevronRight className="w-5 h-5 text-achrams-text-secondary" />
                 </button>
               )}
+
+               {/* NEW: Password Reset Action */}
+              <button
+                onClick={handleOpenPasswordReset}
+                className="w-full flex items-center justify-between p-3 bg-white border border-achrams-border rounded-xl hover:bg-gray-50 hover:shadow-sm transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-amber-100 rounded-lg flex items-center justify-center">
+                    <Key className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <span className="font-medium text-achrams-text-primary">Reset Password</span>
+                </div>
+                <ChevronRight className="w-5 h-5 text-achrams-text-secondary" />
+              </button>
+
+              {/* NEW: Account Deletion Action */}
+              <button
+                onClick={handleOpenAccountDeletion}
+                className="w-full flex items-center justify-between p-3 bg-white border border-achrams-border rounded-xl hover:bg-red-50 hover:shadow-sm transition-all text-red-600"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-red-100 rounded-lg flex items-center justify-center">
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                  </div>
+                  <span className="font-medium">Delete Account</span>
+                </div>
+                <ChevronRight className="w-5 h-5 text-red-600" />
+              </button>
+           
+
             </div>
           </div>
 
@@ -549,6 +601,7 @@ export default function ProfileModal({
           </button>
         </div>
       </div>
+      
     </div>
   );
 }

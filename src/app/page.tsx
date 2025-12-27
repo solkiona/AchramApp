@@ -39,6 +39,9 @@ import ReconnectingWebSocket from "reconnecting-websocket";
 import { useJsApiLoader } from "@react-google-maps/api";
 import TripHistoryModal from "@/components/app/modals/TripHistoryModal";
 import TripDetailsModal from "@/components/app/modals/TripDetailModal";
+import LoginOTPModal from "@/components/app/modals/LoginOTPModal";
+import PasswordResetModal from "@/components/app/modals/PasswordResetModal";
+import AccountDeletionModal from "@/components/app/modals/AccountDeletionModal";
 
 type TripStatusValue =
   | "searching"
@@ -126,7 +129,7 @@ const loadAppState = (): PersistedState | null => {
 };
 
 export default function ACHRAMApp() {
-  const { token, isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const { token, isAuthenticated, isLoading: isAuthLoading , checkAuthStatus} = useAuth();
   const [hasHydrated, setHasHydrated] = useState(false);
   const [screen, setScreen] = useState<ScreenState | null>(null);
   const [accountData, setAccountData] = useState<any>(null);
@@ -224,14 +227,33 @@ export default function ACHRAMApp() {
     [number, number] | null
   >(null);
 
+
+  const [weatherData, setWeatherData] = useState<{
+  temp: number;
+  condition: string; // e.g., 'sunny', 'cloudy', 'rainy'
+  location: string;  // e.g., 'Lagos, Nigeria'
+  humidity?: number;
+  windSpeed?: number;
+} | null>(null);
+
+const [weatherLoading, setWeatherLoading] = useState(false);
+const [weatherError, setWeatherError] = useState<string | null>(null);
+
+
+
   const [airportPickupArea, setAirportPickupArea] = useState<any>(null);
 
   const [previousScreen, setPreviousScreen] = useState<ScreenState | null>(
     null
   );
 
+  const [show2FAOtpModal, setShow2FAOtpModal] = useState(false);
+  const [pendingLoginCreds, setPendingLoginCreds] = useState<{email: string; password: string} | null>(null)
+
   // NEW: Add a flag to indicate we are navigating to dashboard with an active trip
   const [isNavigatingToDashboard, setIsNavigatingToDashboard] = useState(false);
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+  const [showAccountDeletionModal, setShowAccountDeletionModal] = useState(false);
 
   // New state for initialization status
   const [initComplete, setInitComplete] = useState(false);
@@ -280,7 +302,7 @@ export default function ACHRAMApp() {
   };
 
   useEffect(() => {
-    if (screen !== "driver-assigned" && screen !== "trip-progress") return;
+    if (screen !== "driver-assigned" && screen !== "trip-progress" && screen !== 'dashboard') return;
 
     let watchId: number;
 
@@ -1076,6 +1098,7 @@ export default function ACHRAMApp() {
       "login successful, Authcontext should update. Screen will update via useEffect"
     );
     showNotification("Welcome Back!", "success");
+    setShowLogin(false);
   };
 
   const handleLogoutSuccess = () => {
@@ -2445,6 +2468,75 @@ const recentTripData = useMemo(() => {
 }, [activeTripId, tripHistory]);
 
 
+const verify2FAAfterLogin = async (email: string, password: string, otp: string) => {
+    console.log("page.tsx: Attempting 2FA verification for login with email:", email);
+    try {
+        const response = await apiClient.post('/auth/passenger/2fa/verify', {
+            email,
+            password,
+            otp,
+        }, undefined, undefined, true); // isAuthRequest=true
+
+        console.log("2FA Verification Response:", response);
+
+        if (response.status === "success" && response.data && response.data.token) {
+            console.log("2FA Verification successful. Token received.");
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await checkAuthStatus();
+            return { success: true };
+        } else {
+            console.error("2FA Verification failed:", response);
+            return { success: false, message: response.message || "2FA verification failed." };
+        }
+    } catch (err: any) {
+        console.error("Error during 2FA verification API call:", err);
+        let errorMessage = "An error occurred during 2FA verification.";
+        if (err.response?.data?.message) {
+            errorMessage = err.response.data.message;
+        } else if (err.message) {
+            errorMessage = err.message;
+        }
+        return { success: false, message: errorMessage };
+    }
+};
+
+// NEW: Function to handle OTP submission in the 2FA modal
+const handle2FAOtpSubmit = async (otpCode: string) => {
+    if (!pendingLoginCreds) {
+        console.error("page.tsx: No pending login credentials found for 2FA verification.");
+        showNotification("Session expired. Please try logging in again.", "error");
+        setShow2FAOtpModal(false);
+        return;
+    }
+
+    console.log("page.tsx: Submitting OTP for 2FA verification...");
+    const { email, password } = pendingLoginCreds;
+    const result = await verify2FAAfterLogin(email, password, otpCode);
+
+    if (result.success) {
+        console.log("page.tsx: 2FA verification successful. User is now fully authenticated.");
+        showNotification("Login successful!", "success");
+        setShow2FAOtpModal(false);
+        setPendingLoginCreds(null); // Clear stored credentials
+    } else {
+        console.error("page.tsx: 2FA verification failed:", result.message);
+        showNotification(result.message || "2FA verification failed. Please try again.", "error");
+    }
+};
+
+// NEW: Handler for when LoginModal reports 2FA is required
+const handleRequires2FA = useCallback((email: string, password: string) => {
+    console.log("page.tsx: Received 2FA requirement from LoginModal for email:", email);
+    // Store the credentials received from the login modal
+    setPendingLoginCreds({ email, password });
+    // Close the login modal
+    setShowLogin(false);
+    // Open the 2FA OTP modal
+    setShow2FAOtpModal(true);
+}, [setShowLogin, setShow2FAOtpModal, setPendingLoginCreds]);
+
+
+
 const updateAccountData = useCallback((newAccountData: any) => {
   console.log("Updating account data state after API call:", newAccountData);
   setAccountData(newAccountData); 
@@ -2640,6 +2732,166 @@ const handleResumeTripById = useCallback(async (tripIdToResume: string) => {
       // The useEffect will save 'booking' as expected
     }
   }, [activeTripId, screen]);
+
+  const handleLogout = async () => {
+              // Optional: Preserve booking context details (pickup, destination) if desired for guest re-entry
+              // preserveBookingContext(); // Uncomment if you want to keep booking fields filled
+
+              try {
+                console.log("Initiating logout API call...");
+                // Make the API call to the logout endpoint
+                // Ensure the URL is correct (no trailing spaces)
+                const response = await apiClient.post(
+                  "/auth/logout", // Corrected URL
+                  {},
+                  undefined,
+                  undefined,
+                  true // isAuthRequest: Ensures the auth cookie is sent with the request
+                );
+
+                console.log("Logout API response:", response); // Debug log
+
+                if (response.status === "success") {
+                  console.log(
+                    "Logout successful on server, cookie should be cleared."
+                  );
+                  window.location.href = "/";
+                } else {
+                  console.error(
+                    "Logout API responded with non-success status:",
+                    response
+                  );
+                  showNotification(
+                    response.message || "Logout failed. Please try again.",
+                    "error"
+                  );
+                }
+              } catch (err) {
+                console.error(
+                  "An error occurred during the logout API call:",
+                  err
+                );
+                showNotification(
+                  "An error occurred while logging out. Please check your connection.",
+                  "error"
+                );
+              }
+            }
+
+   const handleAccountDeletionSuccess = () => {
+    console.log("Account deletion confirmed. Loggin out user");
+    handleLogout();
+    setShowAccountDeletionModal(false);
+
+  }
+
+
+const weatherFetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+const hasInitialWeatherFetch = useRef(false); // Track if we've fetched once
+
+const fetchWeatherData = useCallback(async (lat: number, lng: number) => {
+  if (!lat || !lng) {
+    console.warn("Cannot fetch weather: coordinates missing.");
+    setWeatherData(null);
+    setWeatherError("Location not available for weather.");
+    return;
+  }
+
+  setWeatherLoading(true);
+  setWeatherError(null);
+  console.log("Fetching weather data for:", lat, lng);
+
+  try {
+    const WEATHER_API_KEY = process.env.NEXT_PUBLIC_WEATHER_API_KEY;
+    if (!WEATHER_API_KEY) {
+      throw new Error("Weather API key is not configured.");
+    }
+
+    const WEATHER_API_URL = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${WEATHER_API_KEY}&units=metric`;
+    const response = await fetch(WEATHER_API_URL);
+
+    if (!response.ok) {
+      throw new Error(`Weather API failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    const parsedWeather = {
+      temp: Math.round(data.main.temp),
+      condition: data.weather[0].main.toLowerCase(),
+      location: `${data.name}, ${data.sys.country}`,
+      humidity: data.main.humidity,
+      windSpeed: data.wind.speed,
+    };
+
+    setWeatherData(parsedWeather);
+    hasInitialWeatherFetch.current = true; // Mark as fetched
+    console.log("Weather data set:", parsedWeather);
+
+  } catch (error) {
+    console.error("Error fetching weather:", error);
+    setWeatherError(error instanceof Error ? error.message : "Unknown error");
+    setWeatherData(null);
+  } finally {
+    setWeatherLoading(false);
+  }
+}, []);
+
+useEffect(() => {
+  // Clear any pending timeout
+  if (weatherFetchTimeoutRef.current) {
+    clearTimeout(weatherFetchTimeoutRef.current);
+    weatherFetchTimeoutRef.current = null;
+  }
+
+  if (!passengerLiveLocation) {
+    console.log("No location available, clearing weather.");
+    setWeatherData(null);
+    setWeatherError(null);
+    hasInitialWeatherFetch.current = false; // Reset on location loss
+    return;
+  }
+
+  const [lat, lng] = passengerLiveLocation;
+  
+  // Validate coordinates
+  if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
+    console.warn("Invalid coordinates:", passengerLiveLocation);
+    setWeatherData(null);
+    setWeatherError("Invalid location coordinates.");
+    return;
+  }
+
+  // STRATEGY 1: Only fetch on first valid location
+  if (!hasInitialWeatherFetch.current) {
+    console.log("First valid location detected, fetching weather...");
+    fetchWeatherData(lat, lng);
+    return;
+  }
+
+  // STRATEGY 2: Debounce subsequent fetches (only if location changes)
+  // This prevents constant refetching due to GPS drift
+  console.log("Location updated, but initial weather already fetched. Skipping.");
+  
+  // Optional: Schedule periodic refresh (e.g., every 30 minutes)
+  // Uncomment if you want automatic weather updates
+  /*
+  const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
+  weatherFetchTimeoutRef.current = setTimeout(() => {
+    console.log("Periodic weather refresh triggered");
+    fetchWeatherData(lat, lng);
+  }, REFRESH_INTERVAL);
+  */
+
+  return () => {
+    if (weatherFetchTimeoutRef.current) {
+      clearTimeout(weatherFetchTimeoutRef.current);
+    }
+  };
+}, [hasHydrated, isAuthenticated, passengerLiveLocation, fetchWeatherData]);
+
+
+
 
   if (!hasHydrated || isAuthLoading || !initComplete) {
     return (
@@ -2853,6 +3105,7 @@ const handleResumeTripById = useCallback(async (tripIdToResume: string) => {
             showNotification('You have an active Trip', "info") 
             return null;
           } 
+
           setScreen("booking");
           setPickup("");
           setDestination("");
@@ -2871,6 +3124,11 @@ const handleResumeTripById = useCallback(async (tripIdToResume: string) => {
         onBookRide={() => setScreen("booking")}
         onProfile={() => setShowProfile(true)}
         onLogout={() => {}}
+
+        weatherData={weatherData}
+        weatherLoading={weatherLoading}
+        weatherError={weatherError}
+
         activeTrip={activeTripForDashboard}
         onShowActiveTrip={handleResumeActiveTrip}
         recentTripData = {recentTripData}
@@ -3043,52 +3301,10 @@ const handleResumeTripById = useCallback(async (tripIdToResume: string) => {
             accountData={accountData}
             onClose={() => setShowProfile(false)}
             showNotification={showNotification}
-            onLogout={async () => {
-              // Optional: Preserve booking context details (pickup, destination) if desired for guest re-entry
-              // preserveBookingContext(); // Uncomment if you want to keep booking fields filled
-
-              try {
-                console.log("Initiating logout API call...");
-                // Make the API call to the logout endpoint
-                // Ensure the URL is correct (no trailing spaces)
-                const response = await apiClient.post(
-                  "/auth/logout", // Corrected URL
-                  {},
-                  undefined,
-                  undefined,
-                  true // isAuthRequest: Ensures the auth cookie is sent with the request
-                );
-
-                console.log("Logout API response:", response); // Debug log
-
-                if (response.status === "success") {
-                  console.log(
-                    "Logout successful on server, cookie should be cleared."
-                  );
-                  window.location.href = "/";
-                } else {
-                  console.error(
-                    "Logout API responded with non-success status:",
-                    response
-                  );
-                  showNotification(
-                    response.message || "Logout failed. Please try again.",
-                    "error"
-                  );
-                }
-              } catch (err) {
-                console.error(
-                  "An error occurred during the logout API call:",
-                  err
-                );
-                showNotification(
-                  "An error occurred while logging out. Please check your connection.",
-                  "error"
-                );
-              }
-            }}
-
-             onUpdateAccountData={updateAccountData}
+            onLogout={handleLogout}
+            onUpdateAccountData={updateAccountData}
+            setShowPasswordResetModal={setShowPasswordResetModal}
+            setShowAccountDeletionModal={setShowAccountDeletionModal}
           />
           {/* NEW: Trip Request Status Modal */}
           <TripRequestStatusModal
@@ -3130,6 +3346,7 @@ const handleResumeTripById = useCallback(async (tripIdToResume: string) => {
             isOpen={showLogin}
             onClose={() => setShowLogin(false)}
             onLoginSuccess={handleLoginSuccess}
+            onRequires2FA={handleRequires2FA}
             onLoginError={(errorMessage) => {
                 // This function is called by LoginModal when login fails with a specific message
                 console.log("page.tsx: Received login error from modal:", errorMessage);
@@ -3141,6 +3358,20 @@ const handleResumeTripById = useCallback(async (tripIdToResume: string) => {
               setShowLogin(false);
             }}
           />
+
+          {show2FAOtpModal && pendingLoginCreds && (
+            <LoginOTPModal
+              isOpen={show2FAOtpModal}
+              onClose={() => {
+                  setShow2FAOtpModal(false);
+                  setPendingLoginCreds(null); // Clear credentials if modal is closed
+              }}
+              onSubmit={handle2FAOtpSubmit}
+              email={pendingLoginCreds.email} // Pass the email to display
+              showNotification={showNotification}
+            />
+          )}
+
           {/* NEW: Modals for dashboard features */}
           {showEnable2FA && (
             <Enable2FAModal
@@ -3217,6 +3448,23 @@ const handleResumeTripById = useCallback(async (tripIdToResume: string) => {
           />
         </div>
       </div>
+
+       {/* NEW: Render Password Reset Modal */}
+      <PasswordResetModal
+        isOpen={showPasswordResetModal}
+        onClose={() => setShowPasswordResetModal(false)}
+        showNotification={showNotification}
+        email={accountData?.email ?? ''} // Pass user's email
+      />
+
+      {/* NEW: Render Account Deletion Modal */}
+      <AccountDeletionModal
+        isOpen={showAccountDeletionModal}
+        onClose={() => setShowAccountDeletionModal(false)}
+        onConfirm={handleAccountDeletionSuccess}
+        showNotification={showNotification}
+      />
+      
       {/* NEW: Bottom Navigation Bar - Rendered only on dashboard screen */}
       {isAuthenticated && (
         <BottomNavBar

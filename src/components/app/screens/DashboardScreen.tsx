@@ -1,5 +1,5 @@
 // components/app/screens/DashboardScreen.tsx
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   MapPin,
   Clock,
@@ -49,6 +49,15 @@ interface DashboardProps {
   onResumeRecentTrip: (tripId: string) => void;
   recentTripData: any;
   // NEW: Add prop for showing notifications (if needed for wallet)
+  weatherData: {
+    temp: number;
+    condition: string;
+    location: string;
+    humidity?: number;
+    windSpeed?: number;
+  } | null;
+  weatherLoading: boolean;
+  weatherError: string | null;
   showNotification: (message: string, type: "info" | "success" | "warning" | "error") => void;
 }
 export default function DashboardScreen({
@@ -65,6 +74,9 @@ export default function DashboardScreen({
   onResumeRecentTrip,
   recentTripData,
   // NEW: Prop for notifications
+  weatherData,
+  weatherLoading,
+  weatherError,
   showNotification,
 }: DashboardProps) {
   // NEW: State for the coming soon modal
@@ -73,11 +85,11 @@ export default function DashboardScreen({
     feature: 'hotels' | 'restaurant' | 'support' | 'alerts' | 'wallet' | 'payment' | 'security' | null;
   }>({ isOpen: false, feature: null });
 
-  const [weather] = useState({
-    temp: 28,
-    condition: "sunny",
-    location: "Lagos",
-  });
+  // const [weather] = useState({
+  //   temp: 28,
+  //   condition: "sunny",
+  //   location: "Lagos",
+  // });
 
   const walletBalance = 12500;
 
@@ -109,16 +121,31 @@ export default function DashboardScreen({
   //   status: "completed",
   //   date: "Today, 2:30 PM",
   // };
+  
+  console.log("Weather Data: ", weatherData)
+  const WeatherIcon = useCallback(() => {
+    // Default icon if no data or condition is unknown
+    let iconComponent = <Sun className="w-12 h-12 text-amber-500" />;
 
-  const WeatherIcon = () => {
-    if (weather.condition === "sunny")
-      return <Sun className="w-12 h-12 text-amber-500" />;
-    if (weather.condition === "cloudy")
-      return <Cloud className="w-12 h-12 text-gray-400" />;
-    if (weather.condition === "rainy")
-      return <CloudRain className="w-12 h-12 text-blue-500" />;
-    return <Sun className="w-12 h-12 text-amber-500" />;
-  };
+    if (weatherData) {
+      const condition = weatherData.condition.toLowerCase();
+      if (condition.includes("clear")) {
+        iconComponent = <Sun className="w-12 h-12 text-amber-500" />;
+      } else if (condition.includes("clouds") || condition.includes("cloudy")) {
+        iconComponent = <Cloud className="w-12 h-12 text-gray-400" />;
+      } else if (condition.includes("rain") || condition.includes("drizzle") || condition.includes("shower")) {
+        iconComponent = <CloudRain className="w-12 h-12 text-blue-500" />;
+      } else if (condition.includes("snow")) {
+        iconComponent = <Cloud className="w-12 h-12 text-blue-200" />; // Placeholder
+      } else if (condition.includes("thunderstorm")) {
+        iconComponent = <Cloud className="w-12 h-12 text-gray-700" />; // Placeholder
+      }
+      // Add more conditions as needed based on the API's response
+    }
+
+    return iconComponent;
+  }, [weatherData]);
+  
 
   // NEW: Handler to open the coming soon modal
   const handleComingSoonClick = (feature: 'hotels' | 'restaurant' | 'support' | 'alerts' | 'payment' | 'security') => {
@@ -174,22 +201,68 @@ export default function DashboardScreen({
               <Plane className="w-6 h-6 text-emerald-600" />
             </div>
 
+            {/* NEW: Weather Display Card - Handle loading, error, and data */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 flex items-center justify-between border border-white shadow-sm">
-              <div>
-                <div className="text-4xl font-bold text-gray-900 mb-1">
-                  {weather.temp}°C
+              {weatherLoading ? (
+                // Show loading state
+                <div className="flex items-center justify-center w-full">
+                  <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-achrams-primary-solid border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                    <p className="text-achrams-text-secondary text-sm">Loading weather...</p>
+                  </div>
                 </div>
-                <div className="text-gray-600 capitalize font-medium">
-                  {weather.condition}
+              ) : weatherError ? (
+                // Show error state
+                <div className="flex items-center justify-center w-full">
+                  <div className="text-center">
+                    <div className="text-red-500 mb-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                    </div>
+                    <p className="text-achrams-text-secondary text-sm">Weather unavailable</p>
+                    <p className="text-xs text-red-500 mt-1">{weatherError}</p>
+                  </div>
                 </div>
-                <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  {weather.location}, Nigeria
+              ) : weatherData ? (
+                // Show weather data
+                <>
+                  <div>
+                    <div className="text-4xl font-bold text-gray-900 mb-1">
+                      {weatherData.temp}°C
+                    </div>
+                    <div className="text-gray-600 capitalize font-medium">
+                      {weatherData.condition}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {weatherData.location}
+                    </div>
+                    {/* Optional: Display humidity/wind if available */}
+                    {weatherData.humidity !== undefined && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        Humidity: {weatherData.humidity}%
+                      </div>
+                    )}
+                    {weatherData.windSpeed !== undefined && (
+                      <div className="text-xs text-gray-500">
+                        Wind: {weatherData.windSpeed} m/s
+                      </div>
+                    )}
+                  </div>
+                  <div className="ml-4">
+                    <WeatherIcon />
+                  </div>
+                </>
+              ) : (
+                // Fallback if no data but no error/loading
+                <div className="flex items-center justify-center w-full">
+                  <div className="text-center">
+                    <div className="text-gray-500 mb-2">
+                      <Sun className="w-12 h-12 mx-auto" />
+                    </div>
+                    <p className="text-achrams-text-secondary text-sm">Weather unknown</p>
+                  </div>
                 </div>
-              </div>
-              <div className="ml-4">
-                <WeatherIcon />
-              </div>
+              )}
             </div>
           </div>
 
