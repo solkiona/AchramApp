@@ -1450,10 +1450,15 @@ const [weatherError, setWeatherError] = useState<string | null>(null);
         );
         handleBookingApiError(response);
 
-        // throw new Error(
-        //   `${ response?.details?.destination_location?.destination_location?.[0] || "Failed to book your trip. Server responded unexpectedly."} `
-        // );
-      }
+        if(response?.details?.destination_location){
+
+          setTripRequestStatus("error")
+          setTripRequestError(response?.details?.destination_location?.destination_location?.[0])
+          // throw new Error(
+          //   `${ response?.details?.destination_location?.destination_location?.[0] || "Failed to book your trip. Server responded unexpectedly."} `
+          // );
+        }
+        }
     } catch (err: any) {
       console.error("Booking error:", err);
 
