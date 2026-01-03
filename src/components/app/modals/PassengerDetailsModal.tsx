@@ -1,6 +1,6 @@
 // src/components/app/modals/PassengerDetailsModal.tsx
 import { X, Package, Users, Accessibility } from 'lucide-react'; // Added Wheelchair icon
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 
 interface PassengerDetailsModalProps {
@@ -15,6 +15,10 @@ interface PassengerDetailsModalProps {
   setBookAsGuest: (val: boolean) => void;
   isLoading? : boolean;
   bookAsGuest: boolean;
+  getBookingFieldError: (fieldName: string) => string | undefined;
+  setTripRequestStatus: (status: string | null) => void;
+  setTripRequestError: (error: string | null) => void;
+
 
 }
 
@@ -30,8 +34,34 @@ export default function PassengerDetailsModal({
   isAuthenticated,
   setBookAsGuest,
   bookAsGuest,
+  getBookingFieldError,
+  setTripRequestStatus,
+  setTripRequestError,
 }: PassengerDetailsModalProps) {
   const [showRequirements, setShowRequirements] = useState(false);
+
+  useEffect(() => {
+    // Check if any of the relevant field errors exist using the passed getter function
+    const hasFieldError = !!(
+      getBookingFieldError('guest_name') ||
+      getBookingFieldError('name') ||
+      getBookingFieldError('guest_phone') ||
+      getBookingFieldError('phone_number') ||
+      getBookingFieldError('guest_email') ||
+      getBookingFieldError('email')
+    );
+
+    if (hasFieldError) {
+      console.log("Detected field error in PassengerDetailsModal, updating parent status.");
+      setTripRequestStatus(null); 
+      setTripRequestError(null); 
+    }
+
+  }, [
+    getBookingFieldError,
+    setTripRequestStatus,
+    setTripRequestError,
+  ]);
 
   if (!isOpen) return null;
   const isGuestFormIncomplete =
@@ -80,30 +110,60 @@ export default function PassengerDetailsModal({
         {(bookAsGuest || !isAuthenticated) && (
 
         <div className="space-y-4 mb-6">
+          <div className="relative">
           <input
             type="text"
             placeholder="Full name"
             value={passengerData.name}
             onChange={(e) => setPassengerData({ ...passengerData, name: e.target.value })}
             // Apply ACHRAMS styling to input
-            className="w-full px-4 py-4 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border"
+            className={`w-full px-4 py-4 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border ${getBookingFieldError('guest_name') || getBookingFieldError('name') ? 'border-red-500' : 'border-achrams-border'}`}
           />
+
+           {/* NEW: Display field error for name */}
+              {(getBookingFieldError('guest_name') || getBookingFieldError('name')) && (
+                <p className="text-red-500 text-xs mt-1">
+                  {getBookingFieldError('guest_name') || getBookingFieldError('name')}
+                </p>
+              )}
+
+          </div>
+
+          <div className="relative">
+
           <input
             type="tel"
             placeholder="Phone number"
             value={passengerData.phone}
             onChange={(e) => setPassengerData({ ...passengerData, phone: e.target.value })}
             // Apply ACHRAMS styling to input
-            className="w-full px-4 py-4 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border"
+            className={`w-full px-4 py-4 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border ${getBookingFieldError('guest_phone') || getBookingFieldError('phone_number') ? 'border-red-500' : 'border-achrams-border'}`}
           />
+          {/* NEW: Display field error for phone */}
+              {(getBookingFieldError('guest_phone') || getBookingFieldError('phone_number')) && (
+                <p className="text-red-500 text-xs mt-1">
+                  {getBookingFieldError('guest_phone') || getBookingFieldError('phone_number')}
+                </p>
+              )}
+          </div>
+
+          <div className="relative">
+
           <input
             type="email"
             placeholder="Email address"
             value={passengerData.email}
             onChange={(e) => setPassengerData({ ...passengerData, email: e.target.value })}
             // Apply ACHRAMS styling to input
-            className="w-full px-4 py-4 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border"
+            className={`w-full px-4 py-4 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border ${getBookingFieldError('guest_email') || getBookingFieldError('email') ? 'border-red-500' : 'border-achrams-border'}`}
           />
+             {/* NEW: Display field error for email */}
+              {(getBookingFieldError('guest_email') || getBookingFieldError('email')) && (
+                <p className="text-red-500 text-xs mt-1">
+                  {getBookingFieldError('guest_email') || getBookingFieldError('email')}
+                </p>
+              )}
+          </div>
         </div>
 
         )}
@@ -154,10 +214,10 @@ export default function PassengerDetailsModal({
         )}
         <button
           onClick={onRequestRide}
-          disabled={isGuestFormIncomplete }
+          disabled={isGuestFormIncomplete || isLoading }
           // Apply ACHRAMS gradient button styling
           className={`w-full py-4 rounded-xl font-semibold mt-6 transition-all ${
-            !isGuestFormIncomplete
+            !isGuestFormIncomplete && !isLoading
               ? 'bg-achrams-gradient-primary text-achrams-text-light hover:opacity-90 active:scale-[0.98]' // Enabled state
               : 'bg-achrams-secondary-solid text-achrams-text-light opacity-75 cursor-not-allowed' // Disabled state
           }`}

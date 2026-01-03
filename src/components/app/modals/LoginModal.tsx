@@ -3,6 +3,7 @@ import { X, Loader, Mail, Chrome, Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 // import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import GoogleColor from '@/components/icons/GoogleColor';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -221,7 +222,7 @@ export default function LoginModal({
             </div>
           ) : (
             <>
-              <Chrome className="w-5 h-5" />
+              <GoogleColor className="w-5 h-5" />
               Sign In with Google
             </>
           )}

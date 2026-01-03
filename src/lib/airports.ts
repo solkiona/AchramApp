@@ -1,5 +1,6 @@
 // src/lib/airports.ts
 import { apiClient } from '@/services/apiClient';
+import { normalizeApiError } from "@/lib/errors/normalizeApiError";
 
 export interface Airport {
   id: string;
@@ -22,7 +23,7 @@ export const findNearestAirport = async (
     return null;
   } catch (err) {
     console.error('Failed to find airport by location:', err);
-    return null;
+    throw new Error(normalizeApiError(err)[0]);
   }
 };
 

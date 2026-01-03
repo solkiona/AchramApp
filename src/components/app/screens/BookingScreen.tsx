@@ -411,18 +411,18 @@ export default function BookingScreen({
       const position = await requestPermission();
       if (!position) throw new Error("No coordinates");
 
-      const { longitude, latitude } = position;
+      const { latitude, longitude } = position;
       console.log(
         "DEBUG: handleUseCurrentLocation - Got geolocation:",
         longitude,
         latitude
       );
 
-      const coords = [longitude, latitude] as [number, number];
+      const coords = [latitude, longitude] as [number, number];
 
       geolocationCoordsRef.current = coords;
 
-      const airports = await findNearestAirport(longitude, latitude);
+      const airports = await findNearestAirport(latitude, longitude);
       console.log(
         "DEBUG: handleUseCurrentLocation - Found airports:",
         airports
@@ -438,7 +438,7 @@ export default function BookingScreen({
 
           setPickupLocationData({
             name: airports[0].name,
-            coords: [longitude, latitude],
+            coords: [latitude, longitude],
             id: airports[0].id,
             codename: airports[0].codename,
           });
@@ -451,12 +451,14 @@ export default function BookingScreen({
       }
     } catch (err) {
       console.error("Location fetch failed:", err);
+      showNotification(`Location fetch failed, Kindly search your location  `, 'error')
     } finally {
       setIsFetchingLocation(false);
     }
   }, [error, requestPermission]);
 
   const handleAirportSelectedFromModal = useCallback((airport: Airport) => {
+    
     const geolocationCoords = geolocationCoordsRef.current;
 
     console.log(

@@ -42,6 +42,8 @@ import TripDetailsModal from "@/components/app/modals/TripDetailModal";
 import LoginOTPModal from "@/components/app/modals/LoginOTPModal";
 import PasswordResetModal from "@/components/app/modals/PasswordResetModal";
 import AccountDeletionModal from "@/components/app/modals/AccountDeletionModal";
+import {useApiErrorHandler} from "@/lib/errors/apiErrorHandler"
+
 
 type TripStatusValue =
   | "searching"
@@ -60,6 +62,7 @@ type TripStatus = {
 type WebSocketMessage = {
   event: "trip:assigned" | "trip:status:update" | string;
   data: any;
+  message_id: string;
 };
 
 type ScreenState =
@@ -130,6 +133,18 @@ const loadAppState = (): PersistedState | null => {
 
 export default function ACHRAMApp() {
   const { token, isAuthenticated, isLoading: isAuthLoading , checkAuthStatus} = useAuth();
+  
+  const {
+    generalError: bookingGeneralError,
+    fieldErrors: bookingFieldErrors,
+    handleApiError: handleBookingApiError,
+    clearErrors: clearBookingErrors,
+  } = useApiErrorHandler();
+
+  const getBookingFieldError = (fieldName: string): string | undefined => {
+    return bookingFieldErrors[fieldName]?.[0];
+  }
+
   const [hasHydrated, setHasHydrated] = useState(false);
   const [screen, setScreen] = useState<ScreenState | null>(null);
   const [accountData, setAccountData] = useState<any>(null);
@@ -306,25 +321,66 @@ const [weatherError, setWeatherError] = useState<string | null>(null);
 
     let watchId: number;
 
-    const startWatchingLocation = () => {
-      if (navigator.geolocation) {
-        watchId = navigator.geolocation.watchPosition(
-          (position) => {
-            const { longitude, latitude } = position.coords;
-            setPassengerLiveLocation([longitude, latitude]);
-            console.log("Passenger location updated:", [longitude, latitude]);
-          },
-          (error) => {
-            console.error("Error watching passenger location:", error);
-          },
-          {
-            enableHighAccuracy: true,
-            maximumAge: 5000,
-            timeout: 10000,
-          }
-        );
+    // const startWatchingLocation = () => {
+    //   if (navigator.geolocation) {
+    //     watchId = navigator.geolocation.watchPosition(
+    //       (position) => {
+    //         const { longitude, latitude } = position.coords;
+    //         setPassengerLiveLocation([latitude, longitude]);
+    //         console.log("Passenger location updated:", [longitude, latitude]);
+    //       },
+    //       (error) => {
+    //         console.error("Error watching passenger location:", error);
+    //       },
+    //       {
+    //         enableHighAccuracy: true,
+    //         maximumAge: 5000,
+    //         timeout: 10000,
+    //       }
+    //     );
+    //   }
+    // };
+
+    const startWatchingLocation = async () => {
+  if (!navigator.geolocation) return;
+
+  try {
+    // Step 1: Get one accurate position first (waits for good GPS lock)
+    const initialPosition = await new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        maximumAge: 5000,
+        timeout: 20000, // Give GPS time to warm up
+      });
+    });
+
+    const { longitude, latitude } = initialPosition.coords;
+    setPassengerLiveLocation([latitude, longitude]);
+    console.log("Initial accurate location:", [longitude, latitude]);
+
+    // Step 2: Now start watching with tighter settings
+    watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const { longitude, latitude, accuracy } = position.coords;
+        
+        if (accuracy <= 50) {
+          setPassengerLiveLocation([latitude, longitude]);
+          console.log("Updated location:", [longitude, latitude]);
+        }
+      },
+      (error) => {
+        console.error("Error watching location:", error);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 15000,
       }
-    };
+    );
+  } catch (error) {
+    console.error("Failed to get initial location:", error);
+  }
+};
 
     startWatchingLocation();
 
@@ -1156,8 +1212,13 @@ const [weatherError, setWeatherError] = useState<string | null>(null);
 
   const handleRequestRide = async () => {
     // Check if tripData exists in sessionStorage
+
+    
+
     let tripData: any = null;
-    if (typeof window !== "undefined" && window.sessionStorage) {
+
+    if (typeof window !== "undefined" && window.sessionStorage && tripRequestStatus === "no-driver")
+       {
       const savedTripData = sessionStorage.getItem("tripData");
       if (savedTripData) {
         tripData = JSON.parse(savedTripData);
@@ -1289,8 +1350,10 @@ const [weatherError, setWeatherError] = useState<string | null>(null);
     }
 
     // Proceed with the ride request
-    setShowPassengerDetails(false);
+    // setShowPassengerDetails(false);
+    clearBookingErrors();
     setTripRequestStatus("loading");
+    setTripRequestError(null);
 
     try {
       let response;
@@ -1311,7 +1374,11 @@ const [weatherError, setWeatherError] = useState<string | null>(null);
       console.log("Raw API Response:", response);
 
       if (response.status === "success" && response.data) {
+
+        
+        
         const trip = response.data;
+        setShowPassengerDetails(false);
 
         if (bookAsGuest || !isAuthenticated) {
           // Guest user
@@ -1381,16 +1448,33 @@ const [weatherError, setWeatherError] = useState<string | null>(null);
           "API responded with non-success status or missing data:",
           response
         );
-        throw new Error(
-          "Failed to book your trip. Server responded unexpectedly."
-        );
+        handleBookingApiError(response);
+
+        // throw new Error(
+        //   `${ response?.details?.destination_location?.destination_location?.[0] || "Failed to book your trip. Server responded unexpectedly."} `
+        // );
       }
     } catch (err: any) {
       console.error("Booking error:", err);
-      setTripRequestStatus("error");
-      setTripRequestError(
-        "Failed to book your trip. Please check your connection and try again."
-      );
+
+      handleBookingApiError(err);
+      // setTripRequestStatus("error");
+      // setTripRequestError(
+      // `${ err || "Failed to book your trip. Please check your connection and try again"}`
+      const hasFieldErrors = Object.keys(bookingFieldErrors).length > 0
+  
+
+      if(bookingGeneralError){
+        console.log("general booking error occured")
+        setTripRequestStatus("error");
+        setTripRequestError(bookingGeneralError);
+        if(!hasFieldErrors){
+          setShowPassengerDetails(false);
+        }
+      } 
+      // );
+    } finally{
+
     }
   };
 
@@ -1448,7 +1532,20 @@ const [weatherError, setWeatherError] = useState<string | null>(null);
       try {
         const messageData: WebSocketMessage = JSON.parse(event.data);
         console.log("Received WebSocket message in page.tsx:", messageData);
-        const { event: eventType, data: tripData } = messageData;
+        const { event: eventType, data: tripData, message_id: incomingMessageId } = messageData;
+
+        if (incomingMessageId){
+          const ackMessage = JSON.stringify(
+            {
+              event: "ack",
+              data: {
+                message_id: incomingMessageId
+              }
+            }
+          );
+          console.log("sending ACK for message_id", incomingMessageId);
+          rws.send(ackMessage);
+        }
 
         if (tripData?.map_data?.airport?.pickup_area) {
           setAirportPickupArea(tripData.map_data.airport.pickup_area);
@@ -1619,7 +1716,20 @@ const [weatherError, setWeatherError] = useState<string | null>(null);
       try {
         const messageData: WebSocketMessage = JSON.parse(event.data);
         console.log("Received WebSocket message in page.tsx:", messageData);
-        const { event: eventType, data: tripData } = messageData;
+        const { event: eventType, data: tripData, message_id: incomingMessageId } = messageData;
+
+        if (incomingMessageId){
+          const ackMessage = JSON.stringify(
+            {
+              event: "ack",
+              data: {
+                message_id: incomingMessageId
+              }
+            }
+          );
+          console.log("sending ACK for message_id", incomingMessageId);
+          rws.send(ackMessage);
+        }
 
         if (tripData?.map_data?.airport?.pickup_area) {
           setAirportPickupArea(tripData.map_data.airport.pickup_area);
@@ -2436,7 +2546,7 @@ useEffect(() => {
 // NEW: Determine recentTripData based on activeTripId and tripHistory
 // This uses useMemo to calculate the value efficiently only when dependencies change
 const recentTripData = useMemo(() => {
-  if (activeTripId) {
+  if (activeTripId && !bookAsGuest) {
     // If there's a current active trip in session state, the 'recent' one shown on dashboard
     // should be the *second most recent* trip from history.
     // This assumes tripHistory is sorted with most recent first.
@@ -3219,11 +3329,14 @@ useEffect(() => {
             setPassengerData={setPassengerData}
             requirements={requirements}
             setRequirements={setRequirements}
+            getBookingFieldError={getBookingFieldError}
             onRequestRide={handleRequestRide}
             isLoading={tripRequestStatus === "loading"}
             isAuthenticated={isAuthenticated}
             setBookAsGuest={setBookAsGuest}
             bookAsGuest={bookAsGuest}
+            setTripRequestStatus={setTripRequestStatus}
+            setTripRequestError={setTripRequestError}
           />
           {/* NEW: Dynamically imported DirectionsModal */}
           {hasHydrated && (
@@ -3313,13 +3426,15 @@ useEffect(() => {
             message={tripRequestError}
             onClose={() => {
               setTripRequestStatus(null);
-              setScreen("booking");
+              
               // Clear tripData from sessionStorage
-              if (typeof window !== "undefined" && window.sessionStorage) {
+              
+              if (typeof window !== "undefined" && window.sessionStorage && tripRequestStatus === "no-driver") {
                 console.log("Clearing TripData in session");
                 preserveBookingContext();
                 sessionStorage.removeItem("tripData");
                 console.log("Cleared tripData from sessionStorage.");
+                setScreen("booking");
               }
             }}
             onConfirm={() => {

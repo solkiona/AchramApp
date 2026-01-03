@@ -10,7 +10,7 @@ const BottomNavBar: React.FC = () => {
     { href: '/', label: 'Home', icon: Home },
     { href: '/booking', label: 'Book', icon: Car }, // Using Car for booking
     { href: '/history', label: 'History', icon: History },
-    { href: '/wallet', label: 'Wallet', icon: CreditCard },
+    // { href: '/wallet', label: 'Wallet', icon: CreditCard },
     { href: '/profile', label: 'Profile', icon: User },
   ];
 

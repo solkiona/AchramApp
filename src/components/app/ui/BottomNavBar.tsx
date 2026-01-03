@@ -81,21 +81,25 @@ export default function BottomNavBar({
           <Clock className={`w-6 h-6 ${isActive('/search') ? 'fill-current' : ''}`} />
           <span className="text-xs">History</span>
         </button>
-        <button
+
+        
+        {/* <button
           onClick={handleWalletClick}
           className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-colors relative ${
             isActive('/wallet') ? 'text-achrams-primary-solid' : 'text-achrams-text-secondary'
           }  transition-all hover:bg-green-50 active:scale-95 cursor-pointer`}
         >
           <Wallet className={`w-6 h-6 ${isActive('/wallet') ? 'fill-current' : ''}`} />
-          {/* Optional: Wallet balance indicator */}
+          
           {walletBalance != null && walletBalance > 0 && (
             <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
               {walletBalance}
             </span>
           )}
           <span className="text-xs">Wallet</span>
-        </button>
+        </button> */}
+
+
         <button
           onClick={onProfileClick}
           className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-colors ${
