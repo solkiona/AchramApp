@@ -113,14 +113,6 @@ export default function DashboardScreen({
 
   const displayWalletBalance = walletBalance ?? walletBalanceFromData; // Prefer the prop if available
 
-  // const recentTrip = {
-  //   id: "recent_1",
-  //   pickup: "Murtala Muhammed Airport",
-  //   destination: "Victoria Island, Lagos",
-  //   fare: 4500,
-  //   status: "completed",
-  //   date: "Today, 2:30 PM",
-  // };
   
   console.log("Weather Data: ", weatherData)
   const WeatherIcon = useCallback(() => {
@@ -129,7 +121,7 @@ export default function DashboardScreen({
 
     if (weatherData) {
       const condition = weatherData.condition.toLowerCase();
-      if (condition.includes("clear")) {
+      if (condition.includes("clear") || condition.includes("sunny")) {
         iconComponent = <Sun className="w-12 h-12 text-amber-500" />;
       } else if (condition.includes("clouds") || condition.includes("cloudy")) {
         iconComponent = <Cloud className="w-12 h-12 text-gray-400" />;
@@ -156,7 +148,7 @@ export default function DashboardScreen({
   const handleWalletClick = () => {
     // Option 1: Show Coming Soon Modal
     setShowComingSoon({ isOpen: true, feature: 'wallet' });
-    alert('handlewallet clicked')
+    // alert('handlewallet clicked')
     // Option 2: Call the existing onShowWallet handler (if it navigates to wallet page)
     // onShowWallet(); // Uncomment if this is the desired behavior
   };
@@ -293,7 +285,7 @@ export default function DashboardScreen({
                 <div className="flex-1 min-w-0">
                   {/*  Added `truncate` to handle potentially long driver names */}
                   <p className="text-sm font-semibold text-gray-900 truncate">
-                    {activeTrip.driver?.name || "Driver Assigned"}
+                    {activeTrip.driver?.name || "Searching Driver"}
                   </p>
 
                   <p className="text-xs text-gray-600 truncate flex items-center gap-1 mt-0.5 min-w-0">

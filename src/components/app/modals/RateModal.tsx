@@ -109,7 +109,7 @@ export default function RateModal({
           }
         }
         setNotification({
-          message: errorMessage,
+          message: response?.details?.non_field_errors?.[0] || errorMessage,
           type: 'error'
         });
       }

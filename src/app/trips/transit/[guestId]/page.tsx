@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Loader2, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
+import ACHRAMApp from '@/components/app/ACHRAMApp';
 
 /**
  * Transit Link Page
@@ -57,7 +58,7 @@ export default function TransitLinkPage() {
         verificationCode: null,
         activeTripId: null, // Will be populated after fetch
         guestId: guestId, // 🎯 The extracted guestId from URL
-        bookAsGuest: false, // They're accessing an existing guest trip, not booking as guest
+        bookAsGuest: true, // They're accessing an existing guest trip, not booking as guest
       };
 
       // Store in sessionStorage using existing state key
@@ -65,10 +66,11 @@ export default function TransitLinkPage() {
       console.log('Saved transit guestId to achrams_app_state:', transitState);
 
       // Small delay to ensure sessionStorage write completes
-      setTimeout(() => {
-        console.log('Redirecting to main app to restore trip session...');
-        router.replace('/'); // Redirect to main app
-      }, 100);
+      // setTimeout(() => {
+      //   console.log('Redirecting to main app to restore trip session...');
+      //   router.replace('/'); // Redirect to main app
+      // }, 100);
+      
 
     } catch (err) {
       console.error('Error saving transit state to sessionStorage:', err);
@@ -99,6 +101,7 @@ export default function TransitLinkPage() {
     );
   }
 
+  return <ACHRAMApp />
   // Loading state (default)
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">

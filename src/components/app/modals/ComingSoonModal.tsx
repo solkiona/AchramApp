@@ -23,7 +23,9 @@ export default function ComingSoonModal({
   let description = '';
   let contactInfo = '';
 
+  console.log(feature);
   switch (feature) {
+    
     case 'hotels':
       title = 'Hotels';
       IconComponent = Plane; // Or consider a BedHotel icon if available
@@ -120,12 +122,17 @@ export default function ComingSoonModal({
               </div>
             </div>
           )}
-
-          <div className="bg-achrams-primary-solid/10 border border-achrams-primary-solid/20 rounded-xl p-4 text-center">
+          {
+            (feature === 'hotels' || feature === 'restaurant')
+             &&(
+                <div className="bg-achrams-primary-solid/10 border border-achrams-primary-solid/20 rounded-xl p-4 text-center">
             <p className="text-achrams-text-secondary text-sm">
               We're working hard to bring this feature to you. Stay tuned!
             </p>
           </div>
+            )
+          }
+        
         </div>
 
         {/* Footer */}
