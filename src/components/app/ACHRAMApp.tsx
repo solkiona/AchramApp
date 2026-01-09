@@ -483,7 +483,7 @@ useEffect(() => {
   }
 
   if(screen === "trip-complete"){
-    posthog.capture("trip_payment_completed", { fare_amount: fareEstimate, payment_method: "Cash", faan_fee: fareEstimate * 0.05 
+    posthog.capture("trip_payment_completed", { fare_amount: fareEstimate, payment_method: "Cash", faan_fee: fareEstimate * 0.05,
     source: "ride.achrams.com.ng"
     });
   }
