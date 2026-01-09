@@ -197,9 +197,10 @@ export default function SignupPromptModal({
     console.log("Airport Location for Analytics",PHPAirportLocation)
 
     //posthog signup attempt capture
-      posthog.capture("passenger_signup_started", { source: "in_app", 
+      posthog.capture("passenger_signup_started", { source: "in_app / ride.achrams.com.ng", 
       airport_location: PHPAirportLocation || "Uknown",
-      device_type: "mobile_web"
+      device_type: "mobile_web",
+      
       
     
     });
