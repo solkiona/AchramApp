@@ -5,6 +5,7 @@ import { X, Loader } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api'; // Adjust import path as needed
 import { useApiErrorHandler } from "@/lib/errors/apiErrorHandler"
+import posthog from 'posthog-js';
 
 
 // Define the type for the full signup data, including password
@@ -22,6 +23,7 @@ interface SignupPromptModalProps {
   // NEW: Prop now receives full signup data (including password) and countdown
   onVerifyEmail: (data: FullSignupData, countdown: number) => void;
   onOpenLoginModal: () => void;
+  PHPAirportLocation: string | null;
 }
 
 export default function SignupPromptModal({
@@ -30,6 +32,7 @@ export default function SignupPromptModal({
   onClose,
   onVerifyEmail, // Renamed to reflect its new purpose
   onOpenLoginModal,
+  PHPAirportLocation,
 }: SignupPromptModalProps) {
 
   const { generalError, fieldErrors, handleApiError, clearErrors } = useApiErrorHandler();
@@ -70,6 +73,11 @@ export default function SignupPromptModal({
       setConfirmPasswordError('');
     }
   }, [isOpen, passengerData]);
+
+
+
+
+  
 
   // --- Validation Functions ---
   const validateName = (input: string): string => {
@@ -185,6 +193,17 @@ export default function SignupPromptModal({
     clearErrors();
 
     setLoading(true);
+
+    console.log("Airport Location for Analytics",PHPAirportLocation)
+
+    //posthog signup attempt capture
+      posthog.capture("passenger_signup_started", { source: "in_app", 
+      airport_location: PHPAirportLocation || "Uknown",
+      device_type: "mobile_web"
+      
+    
+    });
+
     try {
       const nameParts = name.trim().split(/\s+/);
       const firstName = nameParts[0] || 'User';

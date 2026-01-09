@@ -58,6 +58,7 @@ import { useAppInitialization } from "@/hooks/app/useAppInitialization";
 import { useTripWebSocket } from "@/hooks/trip/useTripWebSocket";
 import { useDriverTracking } from "@/hooks/trip/useDriverTracking";
 import { useBooking } from "@/hooks/booking/useBooking";
+import posthog from "posthog-js";
 
 export default function ACHRAMApp() {
   const { token, isAuthenticated, isLoading: isAuthLoading, checkAuthStatus } = useAuth();
@@ -141,6 +142,9 @@ export default function ACHRAMApp() {
   const { currentNotification, showNotification, setCurrentNotification } = useNotification();
   const [pickupId, setPickupId] = useState<string | null>(null);
   const [passengerLiveLocation, setPassengerLiveLocation] = useState<[number, number] | null>(null);
+
+  const lastValidPickupForAnalyticsRef = useRef<string | null>(null);
+
   const [weatherData, setWeatherData] = useState<{
     temp: number;
     condition: string;
@@ -424,7 +428,94 @@ export default function ACHRAMApp() {
     setInitComplete,
   });
 
+
+  /**
+   * 
+   * posthog capture events section Block
+   */
+
   const initRef = useRef(false);
+
+  useEffect(()=>{
+    if(pickup && pickup !== "Use my current location"){
+
+      // alert(pickup)
+      lastValidPickupForAnalyticsRef.current = pickup;
+    }
+  } , [pickup])
+
+
+  // After successful login or auth check
+useEffect(() => {
+  if (isAuthenticated && accountData?.email) {
+    posthog.identify(accountData.email, {
+      email: accountData.email,
+      name: `${accountData.first_name} ${accountData.last_name}`,
+      user_type: "passenger",
+      is_authenticated: true,
+      source: "ride.achrams.com.ng"
+    });
+  }
+}, [isAuthenticated, accountData]);
+
+
+// When guestId is set (after booking starts)
+useEffect(() => {
+  if (guestId && passengerData.email) {
+    posthog.identify(`guest_${guestId}`, {
+      email: passengerData.email,
+      name: passengerData.name,
+      phone: passengerData.phone,
+      user_type: "passenger",
+      is_guest: true,
+      guest_id: guestId,
+      source: "ride.achrams.com.ng"
+    });
+  }
+}, [guestId, passengerData]);
+
+
+
+
+useEffect(() => {
+  if (screen) {
+    posthog.capture("$pageview", { screen });
+  }
+
+  if(screen === "trip-complete"){
+    posthog.capture("trip_payment_completed", { fare_amount: fareEstimate, payment_method: "Cash", faan_fee: fareEstimate * 0.05 
+    source: "ride.achrams.com.ng"
+    });
+  }
+}, [screen]);
+
+
+useEffect(()=>{
+  if(tripHistory.length > 0){posthog.capture("passenger_first_booking", { pickup, destination, booking_method: bookAsGuest ? "guest" : "auth", fare_estimate: fareEstimate,
+  source: "ride.achrams.com.ng",
+   });
+  }
+},[tripHistory])
+
+
+
+
+// In settings or onboarding
+const [analyticsConsent, setAnalyticsConsent] = useState(true);
+
+useEffect(() => {
+  if (analyticsConsent) {
+    posthog.opt_in_capturing();
+  } else {
+    posthog.opt_out_capturing();
+  }
+}, [analyticsConsent]);
+
+
+
+/***
+ * PostHog Capture Event EndBlock
+ */
 
 
   useEffect(() => {
@@ -545,6 +636,10 @@ export default function ACHRAMApp() {
 
   const handleRegistrationSuccess = (email: string) => {
     console.log("setting screen to dashboard six");
+    posthog.capture("passenger_signup_completed", {
+    signup_method: "email",
+    airport_location: lastValidPickupForAnalyticsRef.current, // Use last known valid pickup location
+  });
     setScreen("dashboard");
     setShowSignup(false);
   };
@@ -1780,6 +1875,7 @@ useEffect(()=>{
               passengerData={passengerData}
               onClose={() => setShowSignup(false)}
               onVerifyEmail={handleSignupInitiateSuccess}
+              PHPAirportLocation={lastValidPickupForAnalyticsRef.current}
               onRegistrationSuccess={handleRegistrationSuccess}
               onOpenLoginModal={() => setShowLogin(true)}
               onSignup={() => {

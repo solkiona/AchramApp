@@ -3,6 +3,7 @@ import { apiClient } from "@/lib/api";
 import { buildTripData } from "@/lib/booking/buildTripData";
 import { formatPhoneNumber } from "@/lib/booking/formatPhone";
 import { findNearestAirport, KNOWN_AIRPORTS } from "@/lib/airports";
+import posthog from "posthog-js";
 
 type UseBookingProps = {
   pickup: string;
@@ -67,6 +68,7 @@ export const useBooking = ({
   bookTripRetry,
   setBookTripRetry,
 }: UseBookingProps) => {
+
   const handleRequestRide = useCallback(async () => {
     let tripData: any = null;
     if (
@@ -163,6 +165,7 @@ export const useBooking = ({
         );
         return;
       }
+
       tripData = buildTripData(
         fareEstimate,
         pickup,
@@ -182,6 +185,7 @@ export const useBooking = ({
         console.log("Trip data saved to sessionStorage:", tripData);
       }
     }
+
     clearBookingErrors();
     setTripRequestStatus("loading");
     setTripRequestError(null);
@@ -189,8 +193,23 @@ export const useBooking = ({
       let response;
       if (!bookAsGuest && isAuthenticated) {
         console.log("Booking as an authenticated user");
+        //posthog event capture
+        posthog.capture("passenger_first_booking", {
+        destination: destination,
+        booking_method: "Authenticated User",
+        fare_estimate: fareEstimate,
+        airport_location: pickup
+      });
         response = await apiClient.post("/trips", tripData, undefined, undefined, true);
       } else {
+
+        //posthog event capture
+        posthog.capture("guest_booking_started", {
+        destination: destination,
+        booking_method: "guest",
+        fare_estimate: fareEstimate,
+        airport_location: pickup
+      });
         response = await apiClient.post("/trips/guest-booking", tripData);
       }
       console.log("Raw API Response:", response);

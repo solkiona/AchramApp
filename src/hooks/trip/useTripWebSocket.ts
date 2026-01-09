@@ -1,6 +1,7 @@
 import { useCallback, useRef, useEffect} from "react";
 import ReconnectingWebSocket from "reconnecting-websocket";
 import { apiClient } from "@/lib/api";
+import posthog from "posthog-js";
 
 type UseTripWebSocketProps = {
   webSocketConnection: ReconnectingWebSocket | null;
@@ -158,6 +159,7 @@ export const useTripWebSocket = ({
               setTripRequestStatus("no-driver");
               setTripRequestError("No drivers available for your trip.");
             } else if (trip.status.value === "completed") {
+
               showNotification("Trip Completed", "success");
               setScreen("trip-complete");
             } else if (trip.status.value === "cancelled") {
