@@ -6,6 +6,7 @@ import { findNearestAirport, KNOWN_AIRPORTS } from "@/lib/airports";
 import posthog from "posthog-js";
 
 type UseBookingProps = {
+  tripHistory: any[];
   pickup: string;
   destination: string;
   fareEstimate: number | null;
@@ -35,9 +36,11 @@ type UseBookingProps = {
   startWebSocketConnectionForAuthUser: (tripId: string) => void;
   bookTripRetry: boolean;
   setBookTripRetry: (retry: boolean) => void;
+
 };
 
 export const useBooking = ({
+  tripHistory,
   pickup,
   destination,
   fareEstimate,
@@ -69,8 +72,11 @@ export const useBooking = ({
   setBookTripRetry,
 }: UseBookingProps) => {
 
+  
+
   const handleRequestRide = useCallback(async () => {
     let tripData: any = null;
+    
     if (
       typeof window !== "undefined" &&
       window.sessionStorage &&
@@ -191,18 +197,35 @@ export const useBooking = ({
     setTripRequestError(null);
     try {
       let response;
+      const isFirstBooking = tripHistory.length === 0;
+
       if (!bookAsGuest && isAuthenticated) {
         console.log("Booking as an authenticated user");
         //posthog event capture
-        posthog.capture("passenger_first_booking", {
-        destination: destination,
-        booking_method: "Authenticated User",
-        fare_estimate: fareEstimate,
-        airport_location: pickup
-      });
+        if(isFirstBooking){
+
+          posthog.capture("passenger_first_booking", {
+          destination: destination,
+          booking_method: "Authenticated User",
+          fare_estimate: fareEstimate,
+          airport_location: pickup
+        });
+
+        } else {
+
+          console.log("Passenger Repeated Booking")
+           posthog.capture("passenger_repeated_booking", {
+          destination: destination,
+          booking_method: "Authenticated User",
+          fare_estimate: fareEstimate,
+          airport_location: pickup
+        });
+        }
+        
         response = await apiClient.post("/trips", tripData, undefined, undefined, true);
       } else {
 
+        
         //posthog event capture
         posthog.capture("guest_booking_started", {
         destination: destination,
@@ -289,6 +312,7 @@ export const useBooking = ({
       }
     }
   }, [
+    tripHistory,
     pickup,
     destination,
     fareEstimate,

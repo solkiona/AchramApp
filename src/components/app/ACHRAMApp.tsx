@@ -59,6 +59,7 @@ import { useTripWebSocket } from "@/hooks/trip/useTripWebSocket";
 import { useDriverTracking } from "@/hooks/trip/useDriverTracking";
 import { useBooking } from "@/hooks/booking/useBooking";
 import posthog from "posthog-js";
+import { usePWAPrompt } from "@/hooks/usePWA";
 
 export default function ACHRAMApp() {
   const { token, isAuthenticated, isLoading: isAuthLoading, checkAuthStatus } = useAuth();
@@ -345,6 +346,7 @@ export default function ACHRAMApp() {
   
 
   const { handleRequestRide } = useBooking({
+    tripHistory,
     pickup,
     destination,
     fareEstimate,
@@ -427,6 +429,40 @@ export default function ACHRAMApp() {
     preserveBookingContext,
     setInitComplete,
   });
+
+
+const { showIOSInstallGuide } = usePWAPrompt();
+
+  // Only show on iOS
+if (showIOSInstallGuide) {
+  return (
+    <div className="p-2 bg-[#0d9488] text-center">
+      Tap <b>Share</b> → <b>Add to Home Screen</b> for full app experience!
+    </div>
+  );
+}
+
+useEffect(() => {
+  const hasRecordedDownload = localStorage.getItem("achrams_app_downloaded");
+
+  if (!hasRecordedDownload) {
+    // Record immediately on first load (covers iOS + all users)
+    posthog.capture("passenger_app_downloaded", {
+      source: "web",
+      airport_location: lastValidPickupForAnalyticsRef.current || "Unknown",
+    });
+    localStorage.setItem("achrams_app_downloaded", "true");
+  }
+
+  // Also listen for install prompt (for better intent signal)
+  const handleBeforeInstallPrompt = () => {
+    // You could log an additional event like "pwa_install_prompted"
+    // but don't duplicate "downloaded"
+  };
+
+  window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+  return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+}, []);
 
 
   /**

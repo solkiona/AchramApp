@@ -57,7 +57,7 @@ export default function TransitLinkPage() {
         destinationCoords: null,
         verificationCode: null,
         activeTripId: null, // Will be populated after fetch
-        guestId: guestId, // 🎯 The extracted guestId from URL
+        guestId: guestId, //  The extracted guestId from URL
         bookAsGuest: true, // They're accessing an existing guest trip, not booking as guest
       };
 
@@ -102,6 +102,8 @@ export default function TransitLinkPage() {
   }
 
   return <ACHRAMApp />
+
+  
   // Loading state (default)
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">

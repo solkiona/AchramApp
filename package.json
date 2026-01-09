@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "redeploy": "next build --turbopack && pm2 restart ach-ride",
+    "deploy": "next build --turbopack && pm2 start 'next start -p 3006' --name ach-ride"
   },
   "dependencies": {
     "@posthog/react": "^1.5.2",
@@ -27,6 +29,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.17",
+    "@types/next-pwa": "^5.6.9",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
