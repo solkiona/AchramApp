@@ -61,6 +61,7 @@ import { useBooking } from "@/hooks/booking/useBooking";
 import posthog from "posthog-js";
 import { usePWAPrompt } from "@/hooks/usePWA";
 import IOSInstallBanner from '@/components/app/ui/IOSInstallBanner';
+import NoInternetModal from "./modals/NoInternetModal";
 
 export default function ACHRAMApp() {
   const { token, isAuthenticated, isLoading: isAuthLoading, checkAuthStatus } = useAuth();
@@ -171,6 +172,9 @@ export default function ACHRAMApp() {
     currentTokenRef.current = token;
   }, [isAuthenticated, token]);
 
+  
+
+
 
   const preserveBookingContext = useCallback(() => {
     console.log("Clearing trip data but preserving booking context for retry");
@@ -208,6 +212,36 @@ export default function ACHRAMApp() {
     setDestination,
     setScreen,
   ])
+
+
+
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+const [showNoInternetModal, setShowNoInternetModal] = useState(false);
+
+
+
+
+useEffect(() => {
+  const handleOnline = () => {
+    setIsOnline(true);
+    setShowNoInternetModal(false);
+  };
+
+  const handleOffline = () => {
+    setIsOnline(false);
+    setShowNoInternetModal(true);
+  };
+
+  window.addEventListener('online', handleOnline);
+  window.addEventListener('offline', handleOffline);
+
+  // Cleanup
+  return () => {
+    window.removeEventListener('online', handleOnline);
+    window.removeEventListener('offline', handleOffline);
+  };
+}, []);
+
 
   useEffect(() => {
     if (screen !== "driver-assigned" && screen !== "trip-progress" && screen !== "dashboard") return;
@@ -2117,6 +2151,15 @@ useEffect(()=>{
         onConfirm={handleAccountDeletionSuccess}
         showNotification={showNotification}
       />
+
+      {showNoInternetModal && (
+        <NoInternetModal
+          onRetry={() => {
+            // Optional: retry last action, or just close modal
+            setShowNoInternetModal(false);
+          }}
+        />
+      )}
       {isAuthenticated && (
         <BottomNavBar
           onProfileClick={() => setShowProfile(true)}

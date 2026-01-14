@@ -205,14 +205,14 @@ export default function DirectionsModal({
     // Listen to all camera-changing events
     const centerListener = map.addListener('center_changed', handleInteraction);
     const zoomListener = map.addListener('zoom_changed', handleInteraction);
-    const tiltListener = map.addListener('tilt_changed', handleInteraction);
-    const headingListener = map.addListener('heading_changed', handleInteraction);
+    // const tiltListener = map.addListener('tilt_changed', handleInteraction);
+    // const headingListener = map.addListener('heading_changed', handleInteraction);
 
     return () => {
       centerListener.remove();
       zoomListener.remove();
-      tiltListener.remove();
-      headingListener.remove();
+      // tiltListener.remove();
+      // headingListener.remove();
     };
   }, [map]);
 
@@ -255,8 +255,8 @@ export default function DirectionsModal({
     driverLocation,
     destinationCoords,
     isGoogleMapsLoaded,
-    // ❌ DO NOT include routePolylinePath — we only fit once!
   ]);
+
 
   // ✅ Check driver in pickup area (unchanged)
   useEffect(() => {
@@ -268,6 +268,7 @@ export default function DirectionsModal({
     const isInside = google.maps.geometry.poly.containsLocation(driverPoint, polygon);
     setIsDriverInPickupArea(isInside);
   }, [driverLocation, airportPickupArea, isGoogleMapsLoaded, getPolygonPaths]);
+
 
   // ✅ Fetch directions when live location updates
   useEffect(() => {
