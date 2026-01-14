@@ -1,7 +1,7 @@
 // src/app/layout.tsx
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import ClientProviders from "@/components/ClientProviders"; // We'll create this
+import ClientProviders from "@/providers/ClientProviders"; // We'll create this
 import {PostHogProvider} from "@/providers/PostHogProvider";
 
 export const metadata: Metadata = {
@@ -29,9 +29,7 @@ export default function RootLayout({
       <body className="bg-achrams-background-primary" suppressHydrationWarning={true}>
         <ClientProviders>
           <PostHogProvider>
-
           {children}
-
           </PostHogProvider>
         </ClientProviders>
       </body>

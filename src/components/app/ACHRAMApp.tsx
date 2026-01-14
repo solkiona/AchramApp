@@ -60,6 +60,7 @@ import { useDriverTracking } from "@/hooks/trip/useDriverTracking";
 import { useBooking } from "@/hooks/booking/useBooking";
 import posthog from "posthog-js";
 import { usePWAPrompt } from "@/hooks/usePWA";
+import IOSInstallBanner from '@/components/app/ui/IOSInstallBanner';
 
 export default function ACHRAMApp() {
   const { token, isAuthenticated, isLoading: isAuthLoading, checkAuthStatus } = useAuth();
@@ -170,18 +171,6 @@ export default function ACHRAMApp() {
     currentTokenRef.current = token;
   }, [isAuthenticated, token]);
 
-
-    const { isLoaded: isGoogleMapsLoaded, loadError: googleMapsLoadError } =
-      useJsApiLoader({
-        id: "google-map-script",
-        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-        libraries: ["places", "geometry"],
-      });
-  
-    if (googleMapsLoadError) {
-      console.error("Failed to load Google Maps API:", googleMapsLoadError);
-      return <div>Error loading Google Maps.</div>;
-    }
 
   const preserveBookingContext = useCallback(() => {
     console.log("Clearing trip data but preserving booking context for retry");
@@ -433,14 +422,7 @@ export default function ACHRAMApp() {
 
 const { showIOSInstallGuide } = usePWAPrompt();
 
-  // Only show on iOS
-if (showIOSInstallGuide) {
-  return (
-    <div className="p-2 bg-[#0d9488] text-center">
-      Tap <b>Share</b> → <b>Add to Home Screen</b> for full app experience!
-    </div>
-  );
-}
+
 
 useEffect(() => {
   const hasRecordedDownload = localStorage.getItem("achrams_app_downloaded");
@@ -1524,6 +1506,11 @@ useEffect(()=>{
     [reverseGeocodeLocation]
   );
 
+
+  
+
+
+
   useEffect(() => {
     if (weatherFetchTimeoutRef.current) {
       clearTimeout(weatherFetchTimeoutRef.current);
@@ -1557,6 +1544,39 @@ useEffect(()=>{
       }
     };
   }, [hasHydrated, isAuthenticated, passengerLiveLocation, fetchWeatherData]);
+
+
+   const { isLoaded: isGoogleMapsLoaded, loadError: googleMapsLoadError } =
+      useJsApiLoader({
+        id: "google-map-script",
+        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+        libraries: ["places", "geometry"],
+      });
+  
+    if (googleMapsLoadError) {
+      console.error("Failed to load Google Maps API:", googleMapsLoadError);
+      return <div>Error loading Google Maps.</div>;
+    }
+
+
+
+    // only show on ios
+// if (showIOSInstallGuide) {
+//   return (
+//     <div className="fixed inset-0 flex items-center justify-center bg-achrams-bg-primary">
+//       <div className="p-4 bg-[#059669] text-white text-center rounded-lg max-w-sm mx-4">
+//         <p className="text-lg font-semibold mb-2">Install ACHRAMS</p>
+//         <p>
+//           Tap <b>Share</b> → <b>Add to Home Screen</b> for the full app experience!
+//         </p>
+//       </div>
+//     </div>
+//   );
+// }
+
+
+
+
 
   if (!hasHydrated || isAuthLoading || !initComplete) {
     return (
@@ -1852,6 +1872,9 @@ useEffect(()=>{
             [font-feature-settings:'ss01']
           "
         >
+
+          <IOSInstallBanner />
+
           {currentNotification && (
             <TripUpdateNotification
               message={currentNotification.message}
