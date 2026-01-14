@@ -122,6 +122,26 @@ export default function DirectionsModal({
   const directionsService = useRef<google.maps.DirectionsService | null>(null);
   const directionsRenderer = useRef<google.maps.DirectionsRenderer | null>(null);
 
+const WALKING_ROUTE_THRESHOLD_METERS = 12;
+const lastRoutedLocationRef = useRef<[number, number] | null>(null);
+
+const shouldReRoute = (
+  prev: [number, number],
+  next: [number, number]
+) => {
+  const distance = google.maps.geometry.spherical.computeDistanceBetween(
+    new google.maps.LatLng(prev[0], prev[1]),
+    new google.maps.LatLng(next[0], next[1])
+  );
+  return distance >= WALKING_ROUTE_THRESHOLD_METERS;
+};
+
+
+
+
+
+  
+
   const getPolygonPaths = useCallback((): google.maps.LatLngLiteral[] => {
     if (!airportPickupArea?.geometry?.coordinates) return [];
     const coordinates = airportPickupArea.geometry.coordinates[0];
@@ -137,6 +157,15 @@ export default function DirectionsModal({
       return;
     }
 
+    if (lastRoutedLocationRef.current) {
+      if (!shouldReRoute(lastRoutedLocationRef.current, passengerLocation)) {
+        return; // ⛔ DO NOT call Directions API
+      }
+    }
+
+    lastRoutedLocationRef.current = passengerLocation;
+
+
     if (!directionsService.current) {
       directionsService.current = new google.maps.DirectionsService();
     }
@@ -145,6 +174,7 @@ export default function DirectionsModal({
         map: map,
         suppressMarkers: true,
         suppressInfoWindows: true,
+        preserveViewport: true,
         polylineOptions: {
           strokeColor: "#3B82F6",
           strokeOpacity: 0.8,
@@ -165,7 +195,7 @@ export default function DirectionsModal({
     const request: google.maps.DirectionsRequest = {
       origin: new google.maps.LatLng(passengerLocation[0], passengerLocation[1]),
       destination: new google.maps.LatLng(pickupAreaCentroid[1], pickupAreaCentroid[0]),
-      travelMode: google.maps.TravelMode.DRIVING,
+      travelMode: google.maps.TravelMode.WALKING,
     };
 
     try {
