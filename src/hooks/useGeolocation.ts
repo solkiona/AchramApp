@@ -79,6 +79,7 @@ export const useGeolocation = (): GeolocationResult => {
         
         if (ipLocation) {
           setCoords(ipLocation);
+          console.log('IP location from browser',[ipLocation])
           setError(null);
           resolve(ipLocation);
         } else {

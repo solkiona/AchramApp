@@ -107,6 +107,7 @@ export const useBooking = ({
         return;
       }
       let airportId: string | null = null;
+      
       if (pickup.startsWith("Use my current location")) {
         const nearestAirports = await findNearestAirport(
           pickupCoords[0],

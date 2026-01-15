@@ -10,11 +10,14 @@ export interface Airport {
   is_active: boolean; 
 }
 export const findNearestAirport = async (
-  longitude: number,
-  latitude: number
+  latitude: number,
+  longitude: number
 ): Promise<Airport[] | null> => {
   try {
+
+    // Please not that I had to swap longitude for latitude, this was done for a reason. The api useGeolocation makes use of latitude and longitude, but the backend uses longitude and latitude
     const response = await apiClient.get(`/v1/airports/by-location/?lon=${longitude}&lat=${latitude}`);
+    console.log('{latitude, longitude}', {latitude, longitude})
     console.log("API Response for airports by location:", response); 
     if (response.data?.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
       return response.data.data; 

@@ -463,7 +463,7 @@ useEffect(() => {
 
   if (!hasRecordedDownload) {
     // Record immediately on first load (covers iOS + all users)
-    posthog.capture("passenger_app_downloaded", {
+    posthog.capture("passenger_app_opened", {
       source: "web",
       airport_location: lastValidPickupForAnalyticsRef.current || "Unknown",
     });
@@ -530,9 +530,9 @@ useEffect(() => {
 
 
 useEffect(() => {
-  if (screen) {
-    posthog.capture("$pageview", { screen });
-  }
+  // if (screen) {
+  //   posthog.capture("$pageview", { screen });
+  // }
 
   if(screen === "trip-complete"){
     posthog.capture("trip_payment_completed", { fare_amount: fareEstimate, payment_method: "Cash", faan_fee: fareEstimate * 0.05,
