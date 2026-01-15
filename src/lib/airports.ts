@@ -10,8 +10,8 @@ export interface Airport {
   is_active: boolean; 
 }
 export const findNearestAirport = async (
-  latitude: number,
-  longitude: number
+  longitude: number,
+  latitude: number
 ): Promise<Airport[] | null> => {
   try {
 

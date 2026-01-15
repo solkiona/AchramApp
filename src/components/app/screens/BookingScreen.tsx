@@ -422,9 +422,9 @@ export default function BookingScreen({
 
       geolocationCoordsRef.current = coords;
 
-      const airports = await findNearestAirport(latitude, longitude);
+      const airports = await findNearestAirport(longitude, latitude);
 
-      
+
       console.log(
         "DEBUG: handleUseCurrentLocation - Found airports:",
         airports
