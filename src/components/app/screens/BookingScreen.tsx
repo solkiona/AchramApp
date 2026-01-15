@@ -418,7 +418,7 @@ export default function BookingScreen({
         latitude
       );
 
-      const coords = [latitude, longitude] as [number, number];
+      const coords = [longitude, latitude] as [number, number];
 
       geolocationCoordsRef.current = coords;
 
@@ -440,7 +440,7 @@ export default function BookingScreen({
 
           setPickupLocationData({
             name: airports[0].name,
-            coords: [latitude, longitude],
+            coords: [longitude, latitude],
             id: airports[0].id,
             codename: airports[0].codename,
           });

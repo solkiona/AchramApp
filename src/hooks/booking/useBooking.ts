@@ -121,7 +121,10 @@ export const useBooking = ({
           return;
         }
         const selectedAirport = nearestAirports.find(
-          (apt) => apt.name === pickup
+          (apt) => { 
+            alert(`airport name: ${apt.name}, pickup name: ${pickup}`)
+            return apt.name === pickup
+          }
         );
         if (!selectedAirport) {
           console.error(
@@ -294,11 +297,12 @@ export const useBooking = ({
           response
         );
         handleBookingApiError(response);
-        if (response?.details?.destination_location) {
+        if (response?.details?.pickup_location || response?.details?.destination_location) {
           setTripRequestStatus("error");
-          setTripRequestError(response?.details?.destination_location?.[0]);
+          setTripRequestError(response?.details?.pickup_location?.[0] || response?.details?.destination_location?.[0]);
         }
       }
+
     } catch (err: any) {
       console.error("Booking error:", err);
       handleBookingApiError(err);
