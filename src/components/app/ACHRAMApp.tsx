@@ -62,6 +62,7 @@ import posthog from "posthog-js";
 import { usePWAPrompt } from "@/hooks/usePWA";
 import IOSInstallBanner from '@/components/app/ui/IOSInstallBanner';
 import NoInternetModal from "./modals/NoInternetModal";
+import { useLocation } from "@/hooks/useLocation";
 
 export default function ACHRAMApp() {
   const { token, isAuthenticated, isLoading: isAuthLoading, checkAuthStatus } = useAuth();
@@ -144,7 +145,9 @@ export default function ACHRAMApp() {
   const [resetBookingKey, setResetBookingKey] = useState(0);
   const { currentNotification, showNotification, setCurrentNotification } = useNotification();
   const [pickupId, setPickupId] = useState<string | null>(null);
-  const [passengerLiveLocation, setPassengerLiveLocation] = useState<[number, number] | null>(null);
+  // const [passengerLiveLocation, setPassengerLiveLocation] = useState<[number, number] | null>(null);
+
+  const { coords: passengerLiveLocation, requestPermission } = useLocation();
 
   const lastValidPickupForAnalyticsRef = useRef<string | null>(null);
 
@@ -215,7 +218,7 @@ export default function ACHRAMApp() {
 
 
 
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isOnline, setIsOnline] = useState<boolean | null>(null);
 const [showNoInternetModal, setShowNoInternetModal] = useState(false);
 
 
@@ -232,6 +235,8 @@ useEffect(() => {
     setShowNoInternetModal(true);
   };
 
+  setIsOnline(navigator.onLine);
+
   window.addEventListener('online', handleOnline);
   window.addEventListener('offline', handleOffline);
 
@@ -243,50 +248,59 @@ useEffect(() => {
 }, []);
 
 
-  useEffect(() => {
-    if (screen !== "driver-assigned" && screen !== "trip-progress" && screen !== "dashboard") return;
-    let watchId: number;
-    const startWatchingLocation = async () => {
-      if (!navigator.geolocation) return;
-      try {
-        const initialPosition = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            maximumAge: 5000,
-            timeout: 20000,
-          });
-        });
-        const { longitude, latitude } = initialPosition.coords;
-        setPassengerLiveLocation([latitude, longitude]);
-        console.log("Initial accurate location:", [longitude, latitude]);
-        watchId = navigator.geolocation.watchPosition(
-          (position) => {
-            const { longitude, latitude, accuracy } = position.coords;
-            if (accuracy <= 50) {
-              setPassengerLiveLocation([latitude, longitude]);
-              console.log("Updated location:", [longitude, latitude]);
-            }
-          },
-          (error) => {
-            console.error("Error watching location:", error);
-          },
-          {
-            enableHighAccuracy: true,
-            maximumAge: 0,
-            timeout: 15000,
-          }
-        );
-      } catch (error) {
-        console.error("Failed to get initial location:", error);
-      }
-    };
-    startWatchingLocation();
-    return () => {
-      if (watchId) {
-        navigator.geolocation.clearWatch(watchId);
-      }
-    };
-  }, [screen]);
+useEffect(() => {
+  if (screen === 'dashboard' || screen === 'trip-progress' || screen === 'driver-assigned') {
+    requestPermission(); // ← Only when relevant
+  }
+}, [screen, requestPermission]);
+
+
+  // useEffect(() => {
+  //   if (screen !== "driver-assigned" && screen !== "trip-progress" && screen !== "dashboard") return;
+  //   let watchId: number;
+
+
+  //   const startWatchingLocation = async () => {
+  //     if (!navigator.geolocation) return;
+  //     try {
+  //       const initialPosition = await new Promise<GeolocationPosition>((resolve, reject) => {
+  //         navigator.geolocation.getCurrentPosition(resolve, reject, {
+  //           enableHighAccuracy: true,
+  //           maximumAge: 5000,
+  //           timeout: 20000,
+  //         });
+  //       });
+  //       const { longitude, latitude } = initialPosition.coords;
+  //       setPassengerLiveLocation([latitude, longitude]);
+  //       console.log("Initial accurate location:", [longitude, latitude]);
+  //       watchId = navigator.geolocation.watchPosition(
+  //         (position) => {
+  //           const { longitude, latitude, accuracy } = position.coords;
+  //           if (accuracy <= 50) {
+  //             setPassengerLiveLocation([latitude, longitude]);
+  //             console.log("Updated location:", [longitude, latitude]);
+  //           }
+  //         },
+  //         (error) => {
+  //           console.error("Error watching location:", error);
+  //         },
+  //         {
+  //           enableHighAccuracy: true,
+  //           maximumAge: 0,
+  //           timeout: 15000,
+  //         }
+  //       );
+  //     } catch (error) {
+  //       console.error("Failed to get initial location:", error);
+  //     }
+  //   };
+  //   startWatchingLocation();
+  //   return () => {
+  //     if (watchId) {
+  //       navigator.geolocation.clearWatch(watchId);
+  //     }
+  //   };
+  // }, [screen]);
 
   const activeTripForDashboard = useMemo(() => {
     if (activeTripId) {
@@ -2172,6 +2186,25 @@ useEffect(()=>{
           }}
         />
       )}
+
+      {/* {process.env.NODE_ENV === 'development' && passengerLiveLocation && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 10,
+            right: 10,
+            background: 'rgba(0,0,0,0.7)',
+            color: 'white',
+            padding: '8px 12px',
+            borderRadius: 6,
+            fontSize: '12px',
+            zIndex: 10000,
+          }}
+        >
+          📍 Lat: {passengerLiveLocation[0].toFixed(6)}<br/>
+          📍 Lng: {passengerLiveLocation[1].toFixed(6)}
+        </div>
+      )} */}
     </>
   );
 }

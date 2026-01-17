@@ -121,7 +121,7 @@ export default function DashboardScreen({
 
     if (weatherData) {
       const condition = weatherData.condition.toLowerCase();
-      if (condition.includes("clear") || condition.includes("sunny")) {
+      if ((condition.includes("clear") && !condition.includes("clouds")) || condition.includes("sunny")) {
         iconComponent = <Sun className="w-12 h-12 text-amber-500" />;
       } else if (condition.includes("clouds") || condition.includes("cloudy")) {
         iconComponent = <Cloud className="w-12 h-12 text-gray-400" />;

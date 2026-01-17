@@ -4,6 +4,11 @@ import withPWA from "next-pwa";
 import path from "path"
 
 const nextConfig: NextConfig = {
+
+  compiler: {
+    removeConsole: true,
+  },
+
   images: {
   remotePatterns: [
     { hostname: 'localhost' },
@@ -23,7 +28,7 @@ const nextConfig: NextConfig = {
   experimental: {
     // reactCompiler: false,
   },
- 
+  //output: 'export', // <-- COMMENTED SINCE WE ARE USING DYNAMIC ROUTING 
 };
 
 // PWA Configuration

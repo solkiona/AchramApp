@@ -206,6 +206,9 @@ export default function LoginModal({
         </button>
 
         {/* Google Login Button */}
+
+        {false && (
+
         <button
           onClick={handleGoogleLogin}
           disabled={loading || loadingGoogle}
@@ -227,6 +230,8 @@ export default function LoginModal({
             </>
           )}
         </button>
+
+        )}
 
         {/* Sign Up Link */}
         <div className="mt-4 text-center">
