@@ -13,7 +13,7 @@ export default function AssigningScreen({status, isAuthenticated}: RequestStatus
     const error = status === "error";
   //if (status == 'no-driver') // I want to change the spinner to stop spinning 
   return (
-    <div className="h-screen bg-achrams-bg-primary flex flex-col items-center justify-center px-6">
+    <div className="h-screen bg-achrams-bg-primary flex flex-col items-center justify-center px-6 py-5">
       {/* Spinner using ACHRAMS primary color */
       }
       <div className="h-screen bg-achrams-bg-primary flex flex-col items-center justify-center px-6">

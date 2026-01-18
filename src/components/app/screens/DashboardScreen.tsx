@@ -246,12 +246,37 @@ export default function DashboardScreen({
                 </>
               ) : (
                 // Fallback if no data but no error/loading
-                <div className="flex items-center justify-center w-full">
-                  <div className="text-center">
-                    <div className="text-gray-500 mb-2">
-                      <Sun className="w-12 h-12 mx-auto" />
+                // <div className="flex items-center justify-center w-full">
+                //   <div className="text-center">
+                //     <div className="text-gray-500 mb-2">
+                //       <Sun className="w-12 h-12 mx-auto" />
+                //     </div>
+                //     <p className="text-achrams-text-secondary text-sm">Weather unknown</p>
+                //   </div>
+                // </div>
+
+                <div className="flex items-center justify-between w-full animate-pulse">
+                  <div>
+                    {/* Temperature Skeleton */}
+                    <div className="h-10 w-24 bg-gray-200 rounded-lg mb-2"></div>
+                    
+                    {/* Condition Skeleton */}
+                    <div className="h-5 w-32 bg-gray-200 rounded-md mb-2"></div>
+                    
+                    {/* Location Skeleton */}
+                    <div className="flex items-center gap-1 mt-1">
+                      <div className="w-3 h-3 bg-gray-200 rounded-full"></div>
+                      <div className="h-3 w-20 bg-gray-200 rounded-md"></div>
                     </div>
-                    <p className="text-achrams-text-secondary text-sm">Weather unknown</p>
+
+                    {/* Secondary Info Skeletons */}
+                    <div className="h-3 w-28 bg-gray-100 rounded-md mt-2"></div>
+                    <div className="h-3 w-24 bg-gray-100 rounded-md mt-1"></div>
+                  </div>
+
+                  {/* Icon Skeleton */}
+                  <div className="ml-4">
+                    <div className="w-16 h-16 bg-gray-200 rounded-2xl"></div>
                   </div>
                 </div>
               )}

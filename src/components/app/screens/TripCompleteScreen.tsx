@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { Check, MapPin, Star } from 'lucide-react';
-import { Driver } from '@/types/passenger';
-import ACHRAMFooter from '@/components/app/ui/ACHRAMFooter';
-import Image from 'next/image';
+import { Check, MapPin, Star } from "lucide-react";
+import { Driver } from "@/types/passenger";
+import ACHRAMFooter from "@/components/app/ui/ACHRAMFooter";
+import Image from "next/image";
 
 type OnDoneHandler = () => void;
 
@@ -14,7 +14,7 @@ interface TripCompleteScreenProps {
   destination: string;
   onRate?: () => void;
   onDone: OnDoneHandler;
-  screenPaddingClass: string,
+  screenPaddingClass: string;
   isAuthenticated: boolean;
 }
 
@@ -29,17 +29,21 @@ export default function TripCompleteScreen({
   isAuthenticated,
 }: TripCompleteScreenProps) {
   return (
-    <div className="flex-1 bg-achrams-bg-primary flex flex-col">
-      <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4">
+    <div className="flex-1 bg-achrams-bg-primary relative flex flex-col">
+      <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-5">
         <h1 className="text-xl font-bold">Trip completed</h1>
       </div>
 
-      <div className={`flex-1 overflow-y-auto px-6 py-8  ${screenPaddingClass}`}>
+      <div
+        className={`flex-1 overflow-y-auto px-6 py-8  ${screenPaddingClass}`}
+      >
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-achrams-bg-secondary rounded-full flex items-center justify-center mx-auto mb-4 border border-achrams-border">
             <Check className="w-10 h-10 text-achrams-primary-solid" />
           </div>
-          <h2 className="text-2xl font-bold mb-2 text-achrams-text-primary">You've arrived!</h2>
+          <h2 className="text-2xl font-bold mb-2 text-achrams-text-primary">
+            You've arrived!
+          </h2>
           <p className="text-achrams-text-secondary">How was your trip?</p>
         </div>
 
@@ -64,7 +68,9 @@ export default function TripCompleteScreen({
               </div>
               {/* Name & Rating */}
               <div>
-                <h3 className="text-lg font-bold text-achrams-text-primary">{driver.name}</h3>
+                <h3 className="text-lg font-bold text-achrams-text-primary">
+                  {driver.name}
+                </h3>
                 <div className="flex items-center gap-1">
                   <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
                   <span className="font-medium text-achrams-text-primary">
@@ -81,15 +87,23 @@ export default function TripCompleteScreen({
           <div className="flex items-start gap-3 mb-3">
             <MapPin className="w-4 h-4 text-achrams-primary-solid mt-0.5 flex-shrink-0" />
             <div>
-              <div className="text-xs text-achrams-text-secondary mb-1">PICKUP</div>
-              <div className="font-medium text-achrams-text-primary">{pickup}</div>
+              <div className="text-xs text-achrams-text-secondary mb-1">
+                PICKUP
+              </div>
+              <div className="font-medium text-achrams-text-primary">
+                {pickup}
+              </div>
             </div>
           </div>
           <div className="flex items-start gap-3">
             <MapPin className="w-4 h-4 text-achrams-primary-solid mt-0.5 flex-shrink-0" />
             <div>
-              <div className="text-xs text-achrams-text-secondary mb-1">DESTINATION</div>
-              <div className="font-medium text-achrams-text-primary">{destination}</div>
+              <div className="text-xs text-achrams-text-secondary mb-1">
+                DESTINATION
+              </div>
+              <div className="font-medium text-achrams-text-primary">
+                {destination}
+              </div>
             </div>
           </div>
         </div>
@@ -99,40 +113,36 @@ export default function TripCompleteScreen({
           <div className="flex justify-between items-center mb-4">
             <span className="text-achrams-text-secondary">Total Fare</span>
             <span className="text-3xl font-bold text-achrams-text-primary">
-              ₦{fareEstimate?.toLocaleString() || '0'}
+              ₦{fareEstimate?.toLocaleString() || "0"}
             </span>
           </div>
-          <div className="text-sm text-achrams-text-secondary">Paid via Cash</div>
+          <div className="text-sm text-achrams-text-secondary">
+            Paid via Cash
+          </div>
         </div>
 
         {onRate && (
-  <button
-    onClick={onRate}
-    className="w-full py-4 rounded-xl font-semibold mb-3 
+          <button
+            onClick={onRate}
+            className="w-full py-4 rounded-xl font-semibold mb-3 
       border border-achrams-primary-solid text-achrams-primary-solid 
       bg-white hover:bg-achrams-bg-secondary transition-colors cursor-pointer"
-  >
-    Rate your ride
-  </button>
-)}
+          >
+            Rate your ride
+          </button>
+        )}
 
-{/* Done – primary style */}
-<button
-  onClick={onDone}
-  className="w-full py-4 rounded-xl font-semibold 
+        {/* Done – primary style */}
+        <button
+          onClick={onDone}
+          className="w-full py-4 rounded-xl font-semibold 
     bg-achrams-gradient-primary text-achrams-text-light 
     hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
->
-  Done
-</button>
+        >
+          Done
+        </button>
       </div>
-    {
-      !isAuthenticated && (
-
-        <ACHRAMFooter />
-
-      )
-    }
+      {!isAuthenticated && <ACHRAMFooter />}
     </div>
   );
 }

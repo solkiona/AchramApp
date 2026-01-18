@@ -203,7 +203,14 @@ export default function DirectionsModal({
   return (
     <div className="fixed inset-0 bg-white z-[60] flex flex-col overflow-hidden animate-in fade-in duration-300">
       {/* HEADER: Decoupled from Map for performance */}
-      <div className="bg-achrams-primary-solid text-white p-4 sm:p-5 flex justify-between items-center shadow-xl z-20">
+      <div className="bg-achrams-primary-solid text-white p-4 sm:p-5 py-6 flex justify-between items-center shadow-xl z-20"
+      
+      style={{ 
+          // Your existing 1rem (py-4) + the phone's safe area height
+          paddingTop: 'calc(env(safe-area-inset-top) + 1rem)',
+          paddingBottom: '1rem'
+        }}
+      >
         <div className="flex items-center gap-3 sm:gap-4">
           <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
             <Navigation size={20} className="sm:size-22" />

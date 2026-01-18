@@ -10,15 +10,22 @@ const config: CapacitorConfig = {
     url: 'https://achram-app.vercel.app',
     androidScheme: 'https',
   },
+
+  android: {
+    adjustMarginsForEdgeToEdge: 'auto',
+  },
+  
   plugins: {
-    SplashScreen: {
-      launchShowDuration: 2000,
-      androidSplashResourceName: "splash",
-      backgroundColor: '#059669',
+     SplashScreen: {
+      launchShowDuration: 0,
+      launchAutoHide: true,
       showSpinner: false,
+      splashFullScreen: false,
+      splashImmersive: false
     },
     StatusBar: {
-      style: 'LIGHT',
+      overlaysWebView: false,
+      style: 'DARK',
       backgroundColor: '#059669',
     },
   },

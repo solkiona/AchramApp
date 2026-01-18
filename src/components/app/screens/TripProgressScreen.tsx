@@ -191,7 +191,13 @@ export default function TripProgressScreen({
     <div className="flex-1 bg-achrams-bg-primary flex flex-col">
       {driver && (
         <>
-          <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4 flex items-center justify-between shadow-md z-10">
+          <div className="bg-achrams-primary-solid text-achrams-text-light px-6 py-4 flex items-center justify-between shadow-md z-10"
+          style={{ 
+          // Your existing 1rem (py-4) + the phone's safe area height
+          paddingTop: 'calc(env(safe-area-inset-top) + 1rem)',
+          paddingBottom: '1rem'
+        }}
+          >
             <div className="flex items-center gap-2">
               <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center">
                 <Navigation className="w-5 h-5" />
