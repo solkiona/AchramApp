@@ -1,39 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- MAIN APP THEME -->
-    <style name="AppTheme.NoActionBar"
-        parent="Theme.Material3.DayNight.NoActionBar">
-
-        <!-- Status bar -->
-        <item name="android:statusBarColor">#059669</item>
-        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
-        <item name="android:windowTranslucentStatus">false</item>
-
-        <!-- Android 12+ Splash -->
-        <item name="android:windowSplashScreenBackground">#059669</item>
-
-        <!-- Optional centered logo -->
-        <!-- Remove or set @null if you don't want a logo -->
-        <item name="android:windowSplashScreenAnimatedIcon">
-            @drawable/ic_splash_logo
-        </item>
-
-        <item name="android:windowSplashScreenIconBackgroundColor">
-            @android:color/transparent
-        </item>
-
-        <!-- Avoid cutout overlap -->
-        <item name="android:windowLayoutInDisplayCutoutMode">never</item>
-
-    </style>
-
-</resources>
-
-
-<!-- <?xml version="1.0" encoding="utf-8"?>
-<resources>
-
     <!-- Base application theme. -->
     <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
         <!-- Customize your theme here. -->
@@ -45,7 +12,7 @@
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
-        <item name="android:background">@android:color/transparent</item>
+        <item name="android:background">#059669</item>
         <item name="android:statusBarColor">#059669</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:windowTranslucentStatus">false</item>
@@ -54,8 +21,8 @@
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:windowSplashScreenBackground">#059669</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@null</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
         <item name="android:windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
         <item name="android:windowLayoutInDisplayCutoutMode">never</item>
     </style>
-</resources> -->
+</resources>
