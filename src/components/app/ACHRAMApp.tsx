@@ -2239,7 +2239,7 @@ useEffect(() => {
       )}
 
       {error?.includes('timeout') && (
-      <div className="p-3 bg-yellow-50 border-l-4 border-yellow-500">
+      <div className="p-3 bg-yellow-50 border-l-4 border-yellow-500 fixed top-0">
         <p className="text-sm text-yellow-800">
           GPS signal weak? Ensure:
           <br />• Location is ON
