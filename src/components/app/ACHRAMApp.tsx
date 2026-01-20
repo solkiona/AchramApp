@@ -1647,6 +1647,21 @@ useEffect(() => {
   };
 }, []);
 
+const [showGpsError, setShowGpsError] = useState(false);
+
+
+useEffect(() => {
+  if (error?.includes('timeout')) {
+    setShowGpsError(true);
+
+    const timer = setTimeout(() => {
+      setShowGpsError(false);
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }
+}, [error]);
+
     // only show on ios
 // if (showIOSInstallGuide) {
 //   return (
@@ -2238,8 +2253,8 @@ useEffect(() => {
         />
       )}
 
-      {error?.includes('timeout') && (
-      <div className="p-3 bg-yellow-50 border-l-4 border-yellow-500 fixed top-0">
+      {showGpsError && (
+      <div className="p-3 bg-yellow-50 border-l-4 border-yellow-500 absolute top-0 w-full z-[1000]">
         <p className="text-sm text-yellow-800">
           GPS signal weak? Ensure:
           <br />• Location is ON

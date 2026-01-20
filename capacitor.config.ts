@@ -19,14 +19,9 @@ const config: CapacitorConfig = {
   
   plugins: {
      SplashScreen: {
-      launchShowDuration: 3000,
+      launchShowDuration:0,
       launchAutoHide: true,
-      launchFadeOutDuration: 500,
-      backgroundColor: "#FFFFFF",
-      androidSplashResourceName: "splash",
-      androidScaleType: "CENTER_CROP",
-      iosSpinnerStyle: "large",
-      androidSpinnerStyle: "large",
+      showSpinner: false,
     },
     Keyboard: {
       resize: KeyboardResize.Body,
