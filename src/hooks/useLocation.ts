@@ -1,156 +1,156 @@
-// src/hooks/useLocation.ts
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Geolocation, PositionOptions } from '@capacitor/geolocation';
-import { Capacitor } from '@capacitor/core';
+// // src/hooks/useLocation.ts
+// import { useState, useEffect, useRef, useCallback } from 'react';
+// import { Geolocation, PositionOptions } from '@capacitor/geolocation';
+// import { Capacitor } from '@capacitor/core';
 
-export interface LocationResult {
-  coords: [number, number] | null;
-  error: string | null;
-  loading: boolean;
-  requestPermission: () => Promise<boolean>;
-}
+// export interface LocationResult {
+//   coords: [number, number] | null;
+//   error: string | null;
+//   loading: boolean;
+//   requestPermission: () => Promise<boolean>;
+// }
 
-export const useLocation = (): LocationResult => {
-  const [coords, setCoords] = useState<[number, number] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const watchIdRef = useRef<string | null>(null);
-  const isCapacitor = Capacitor.getPlatform() !== 'web';
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+// export const useLocation = (): LocationResult => {
+//   const [coords, setCoords] = useState<[number, number] | null>(null);
+//   const [error, setError] = useState<string | null>(null);
+//   const [loading, setLoading] = useState(true);
+//   const watchIdRef = useRef<string | null>(null);
+//   const isCapacitor = Capacitor.getPlatform() !== 'web';
+//   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const clearAll = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    if (watchIdRef.current) {
-      if (isCapacitor) {
-        Geolocation.clearWatch({ id: watchIdRef.current });
-      } else {
-        navigator.geolocation.clearWatch(parseInt(watchIdRef.current));
-      }
-      watchIdRef.current = null;
-    }
-  }, [isCapacitor]);
+//   const clearAll = useCallback(() => {
+//     if (timeoutRef.current) {
+//       clearTimeout(timeoutRef.current);
+//       timeoutRef.current = null;
+//     }
+//     if (watchIdRef.current) {
+//       if (isCapacitor) {
+//         Geolocation.clearWatch({ id: watchIdRef.current });
+//       } else {
+//         navigator.geolocation.clearWatch(parseInt(watchIdRef.current));
+//       }
+//       watchIdRef.current = null;
+//     }
+//   }, [isCapacitor]);
 
-  const requestPermission = useCallback(async (): Promise<boolean> => {
-    if (!isCapacitor) return true;
+//   const requestPermission = useCallback(async (): Promise<boolean> => {
+//     if (!isCapacitor) return true;
 
-    try {
-      const status = await Geolocation.checkPermissions();
-      if (status.location === 'granted') return true;
+//     try {
+//       const status = await Geolocation.checkPermissions();
+//       if (status.location === 'granted') return true;
       
-      const result = await Geolocation.requestPermissions();
-      return result.location === 'granted';
-    } catch (err) {
-      console.error('Permission request failed:', err);
-      return false;
-    }
-  }, [isCapacitor]);
+//       const result = await Geolocation.requestPermissions();
+//       return result.location === 'granted';
+//     } catch (err) {
+//       console.error('Permission request failed:', err);
+//       return false;
+//     }
+//   }, [isCapacitor]);
 
-  useEffect(() => {
-    let isMounted = true;
+//   useEffect(() => {
+//     let isMounted = true;
 
-    const startLocation = async () => {
-      if (!isMounted) return;
+//     const startLocation = async () => {
+//       if (!isMounted) return;
 
-      // Step 1: Try last known position (fast!)
-      if (isCapacitor) {
-        try {
-          const lastPos = await Geolocation.getLastKnownPosition();
-          if (lastPos?.coords && isMounted) {
-            setCoords([lastPos.coords.latitude, lastPos.coords.longitude]);
-            setError(null);
-            // Don't stop loading yet—we'll try for fresher data
-          }
-        } catch (e) {
-          console.warn('No last known position');
-        }
-      }
+//       // Step 1: Try last known position (fast!)
+//       if (isCapacitor) {
+//         try {
+//           const lastPos = await Geolocation.getLastKnownPosition();
+//           if (lastPos?.coords && isMounted) {
+//             setCoords([lastPos.coords.latitude, lastPos.coords.longitude]);
+//             setError(null);
+//             // Don't stop loading yet—we'll try for fresher data
+//           }
+//         } catch (e) {
+//           console.warn('No last known position');
+//         }
+//       }
 
-      // Step 2: Request permission
-      const hasPerms = await requestPermission();
-      if (!hasPerms) {
-        setError('Location permission denied');
-        setLoading(false);
-        return;
-      }
+//       // Step 2: Request permission
+//       const hasPerms = await requestPermission();
+//       if (!hasPerms) {
+//         setError('Location permission denied');
+//         setLoading(false);
+//         return;
+//       }
 
-      // Step 3: Set aggressive timeout (8s max wait)
-      timeoutRef.current = setTimeout(() => {
-        if (isMounted && loading) {
-          setError('Location timeout: GPS signal weak or disabled');
-          setLoading(false);
-          clearAll();
-        }
-      }, 8000);
+//       // Step 3: Set aggressive timeout (8s max wait)
+//       timeoutRef.current = setTimeout(() => {
+//         if (isMounted && loading) {
+//           setError('Location timeout: GPS signal weak or disabled');
+//           setLoading(false);
+//           clearAll();
+//         }
+//       }, 8000);
 
-      // Step 4: Start watching
-      const options: PositionOptions = {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 10000, // Use cached if <10s old
-        interval: 2000,    // Android-only: min update interval
-      };
+//       // Step 4: Start watching
+//       const options: PositionOptions = {
+//         enableHighAccuracy: true,
+//         timeout: 10000,
+//         maximumAge: 10000, // Use cached if <10s old
+//         interval: 2000,    // Android-only: min update interval
+//       };
 
-      if (isCapacitor) {
-        const id = await Geolocation.watchPosition(options, (position, err) => {
-          if (!isMounted) return;
+//       if (isCapacitor) {
+//         const id = await Geolocation.watchPosition(options, (position, err) => {
+//           if (!isMounted) return;
           
-          if (err) {
-            setError(err.message || 'Unknown location error');
-            setLoading(false);
-            return;
-          }
+//           if (err) {
+//             setError(err.message || 'Unknown location error');
+//             setLoading(false);
+//             return;
+//           }
 
-          if (position) {
-            setCoords([position.coords.latitude, position.coords.longitude]);
-            setError(null);
-            setLoading(false);
-            // Clear timeout since we got a fix
-            if (timeoutRef.current) {
-              clearTimeout(timeoutRef.current);
-              timeoutRef.current = null;
-            }
-          }
-        });
-        watchIdRef.current = id;
-      } else {
-        // Web fallback (unchanged)
-        const id = navigator.geolocation.watchPosition(
-          (pos) => {
-            if (isMounted) {
-              setCoords([pos.coords.latitude, pos.coords.longitude]);
-              setError(null);
-              setLoading(false);
-              if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
-                timeoutRef.current = null;
-              }
-            }
-          },
-          (err) => {
-            if (isMounted) {
-              setError(err.message);
-              setLoading(false);
-            }
-          },
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
-        );
-        watchIdRef.current = id.toString();
-      }
-    };
+//           if (position) {
+//             setCoords([position.coords.latitude, position.coords.longitude]);
+//             setError(null);
+//             setLoading(false);
+//             // Clear timeout since we got a fix
+//             if (timeoutRef.current) {
+//               clearTimeout(timeoutRef.current);
+//               timeoutRef.current = null;
+//             }
+//           }
+//         });
+//         watchIdRef.current = id;
+//       } else {
+//         // Web fallback (unchanged)
+//         const id = navigator.geolocation.watchPosition(
+//           (pos) => {
+//             if (isMounted) {
+//               setCoords([pos.coords.latitude, pos.coords.longitude]);
+//               setError(null);
+//               setLoading(false);
+//               if (timeoutRef.current) {
+//                 clearTimeout(timeoutRef.current);
+//                 timeoutRef.current = null;
+//               }
+//             }
+//           },
+//           (err) => {
+//             if (isMounted) {
+//               setError(err.message);
+//               setLoading(false);
+//             }
+//           },
+//           { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
+//         );
+//         watchIdRef.current = id.toString();
+//       }
+//     };
 
-    startLocation();
+//     startLocation();
 
-    return () => {
-      isMounted = false;
-      clearAll();
-    };
-  }, [isCapacitor, requestPermission, clearAll, loading]);
+//     return () => {
+//       isMounted = false;
+//       clearAll();
+//     };
+//   }, [isCapacitor, requestPermission, clearAll, loading]);
 
-  return { coords, error, loading, requestPermission };
-};
+//   return { coords, error, loading, requestPermission };
+// };
 
 
 
@@ -268,115 +268,115 @@ export const useLocation = (): LocationResult => {
 // };
 
 // // src/hooks/useLocation.ts
-// import { useState, useEffect, useRef } from 'react';
-// import { Geolocation } from '@capacitor/geolocation';
-// import { Network } from '@capacitor/network';
-// import {Capacitor } from '@capacitor/core'
+import { useState, useEffect, useRef } from 'react';
+import { Geolocation } from '@capacitor/geolocation';
+import { Network } from '@capacitor/network';
+import {Capacitor } from '@capacitor/core'
 
-// export interface LocationResult {
-//   coords: [number, number] | null; // [lat, lng]
-//   error: string | null;
-//   loading: boolean;
-//   requestPermission: () => Promise<boolean>;
-// }
+export interface LocationResult {
+  coords: [number, number] | null; // [lat, lng]
+  error: string | null;
+  loading: boolean;
+  requestPermission: () => Promise<boolean>;
+}
 
-// export const useLocation = (): LocationResult => {
-//   const [coords, setCoords] = useState<[number, number] | null>(null);
-//   const [error, setError] = useState<string | null>(null);
-//   const [loading, setLoading] = useState(false);
-//   const watchIdRef = useRef<string | null>(null);
-//   const isCapacitor = Capacitor.getPlatform() !== 'web'
+export const useLocation = (): LocationResult => {
+  const [coords, setCoords] = useState<[number, number] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const watchIdRef = useRef<string | null>(null);
+  const isCapacitor = Capacitor.getPlatform() !== 'web'
 
-//   // Check online status
-//   const [isOnline, setIsOnline] = useState(true);
-//   useEffect(() => {
-//     const checkNetwork = async () => {
-//       const status = await Network.getStatus();
-//       setIsOnline(status.connected);
-//     };
-//     checkNetwork();
-//     const listener = Network.addListener('networkStatusChange', (status) => {
-//       setIsOnline(status.connected);
-//     });
-//     return () => listener.remove();
-//   }, []);
+  // Check online status
+  const [isOnline, setIsOnline] = useState(true);
+  useEffect(() => {
+    const checkNetwork = async () => {
+      const status = await Network.getStatus();
+      setIsOnline(status.connected);
+    };
+    checkNetwork();
+    const listener = Network.addListener('networkStatusChange', (status) => {
+      setIsOnline(status.connected);
+    });
+    return () => listener.remove();
+  }, []);
 
-//   const requestPermission = async (): Promise<boolean> => {
-//     if (!isCapacitor) return false; // Browser handles its own permissions
+  const requestPermission = async (): Promise<boolean> => {
+    if (!isCapacitor) return false; // Browser handles its own permissions
 
-//     try {
-//       const permission = await Geolocation.requestPermissions();
-//       return permission.location === 'granted';
-//     } catch (err) {
-//       console.error('Location permission error:', err);
-//       return false;
-//     }
-//   };
+    try {
+      const permission = await Geolocation.requestPermissions();
+      return permission.location === 'granted';
+    } catch (err) {
+      console.error('Location permission error:', err);
+      return false;
+    }
+  };
 
-//   // Watch location
-//   useEffect(() => {
-//     if (!isCapacitor || !isOnline) return;
+  // Watch location
+  useEffect(() => {
+    if (!isCapacitor || !isOnline) return;
 
-//     const watchLocation = async () => {
-//       try {
-//         const id = await Geolocation.watchPosition(
-//           { enableHighAccuracy: true, timeout: 10000, distanceFilter: 5 },
-//           (position) => {
-//             if (position.coords) {
-//               setCoords([position.coords.latitude, position.coords.longitude]);
-//               setError(null);
-//             }
-//           },
-//           (err) => {
-//             console.error('Capacitor location error:', err);
-//             setError(err.message || 'Location error');
-//           }
-//         );
-//         watchIdRef.current = id;
-//       } catch (err) {
-//         console.error('Failed to start location watch:', err);
-//         setError('Failed to start location tracking');
-//       }
-//     };
+    const watchLocation = async () => {
+      try {
+        const id = await Geolocation.watchPosition(
+          { enableHighAccuracy: true, timeout: 10000, distanceFilter: 5 },
+          (position) => {
+            if (position.coords) {
+              setCoords([position.coords.latitude, position.coords.longitude]);
+              setError(null);
+            }
+          },
+          (err) => {
+            console.error('Capacitor location error:', err);
+            setError(err.message || 'Location error');
+          }
+        );
+        watchIdRef.current = id;
+      } catch (err) {
+        console.error('Failed to start location watch:', err);
+        setError('Failed to start location tracking');
+      }
+    };
 
-//     watchLocation();
+    watchLocation();
 
-//     return () => {
-//       if (watchIdRef.current) {
-//         Geolocation.clearWatch({ id: watchIdRef.current });
-//       }
-//     };
-//   }, [isCapacitor, isOnline]);
+    return () => {
+      if (watchIdRef.current) {
+        Geolocation.clearWatch({ id: watchIdRef.current });
+      }
+    };
+  }, [isCapacitor, isOnline]);
 
-//   // Fallback to browser geolocation if not in Capacitor
-//   useEffect(() => {
-//     if (isCapacitor || !isOnline) return;
+  // Fallback to browser geolocation if not in Capacitor
+  useEffect(() => {
+    if (isCapacitor || !isOnline) return;
 
-//     let watchId: number;
-//     const startBrowserWatch = () => {
-//       if (!navigator.geolocation) return;
+    let watchId: number;
+    const startBrowserWatch = () => {
+      if (!navigator.geolocation) return;
       
 
-//       watchId = navigator.geolocation.watchPosition(
-//         (pos) => {
-//           setCoords([pos.coords.latitude, pos.coords.longitude]);
-//           //alert(`watching with browser geolocation ${pos.coords.latitude}, ${pos.coords.longitude}`)
-//           setError(null);
-//         },
-//         (err) => {
-//           console.error('Browser location error:', err);
-//           setError(err.message || 'Location unavailable');
-//         },
-//         { enableHighAccuracy: true, timeout: 10000 }
-//       );
-//     };
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          setCoords([pos.coords.latitude, pos.coords.longitude]);
+          //alert(`watching with browser geolocation ${pos.coords.latitude}, ${pos.coords.longitude}`)
+          setError(null);
+        },
+        (err) => {
+          console.error('Browser location error:', err);
+          setError(err.message || 'Location unavailable');
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    };
 
-//     startBrowserWatch();
+    startBrowserWatch();
 
-//     return () => {
-//       if (watchId) navigator.geolocation.clearWatch(watchId);
-//     };
-//   }, [isCapacitor, isOnline]);
+    return () => {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [isCapacitor, isOnline]);
 
-//   return { coords, error, loading, requestPermission };
-// };
+  return { coords, error, loading, requestPermission };
+};
