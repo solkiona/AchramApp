@@ -528,13 +528,13 @@ export default function DashboardScreen({
         />
 
         {/* Bottom Navigation */}
-        <BottomNavBar
+        {/* <BottomNavBar
           onProfileClick={() => {}}
           onHomeClick={() => {}}
           onWalletClick={handleWalletClick} // NEW: Use the new handler
           onSearchClick={() => {}}
           walletBalance={walletBalance}
-        />
+        /> */}
       </div>
     </div>
   );

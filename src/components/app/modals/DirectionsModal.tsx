@@ -196,12 +196,34 @@ export default function DirectionsModal({
   const onUnmount = useCallback(() => {
     setMap(null);
     if (directionsRendererRef.current) directionsRendererRef.current.setMap(null);
+    // directionsRendererRef.current = null;
+    console.log("Map unmounted - Resources cleared.");
   }, []);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+  if (isOpen && map) {
+    // 1. Force Google Maps to recalculate its container size
+    google.maps.event.trigger(map, 'resize');
+
+    // 2. Re-fit the bounds so the user sees the whole route immediately
+    const bounds = new google.maps.LatLngBounds();
+    if (passengerLocation) bounds.extend({ lat: passengerLocation[0], lng: passengerLocation[1] });
+    if (destinationCoords) bounds.extend({ lat: destinationCoords[1], lng: destinationCoords[0] });
+    polygonPaths.forEach(p => bounds.extend(p));
+
+    map.fitBounds(bounds, { top: 80, bottom: 100, left: 40, right: 40 });
+    
+    // 3. Reset the interaction flag so the "Recenter" button disappears until they move it again
+    userInteractionRef.current = false;
+    setShowRecenter(false);
+  }
+}, [isOpen, map]); // Triggers every time the modal slides up
+
 
   return (
-    <div className="fixed inset-0 bg-white z-[60] flex flex-col overflow-hidden animate-in fade-in duration-300">
+    <div className={`fixed inset-0 bg-white z-[60] flex flex-col overflow-hidden animate-in fade-in transition-transform duration-500 ease-in-out ${
+        isOpen ? 'translate-y-0' : 'translate-y-full'
+      }`}>
       {/* HEADER: Decoupled from Map for performance */}
       <div className="bg-achrams-primary-solid text-white p-4 sm:p-5 py-6 flex justify-between items-center shadow-xl z-20"
       

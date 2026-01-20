@@ -31,10 +31,11 @@ export default function AccountDeletionModal({
     try {
       // Note: The DELETE endpoint typically doesn't require a request body
       // but the API might require authentication via headers/cookies
-      const response = await apiClient.delete('/auth/passenger/me', undefined, undefined, true); // isAuthRequest=true
+      const response = await apiClient.delete('/auth/passenger/me', undefined, true); // isAuthRequest=true
 
-      console.log("Delete account response:", response);
+      
       if (response.status === "success") {
+        console.log("Delete account response:", response);
         showNotification("Account deleted successfully.", "success");
         onConfirm(); // Trigger parent logic (e.g., logout)
       } else {

@@ -301,6 +301,8 @@ export const useBooking = ({
           setTripRequestStatus("error");
           setTripRequestError(response?.details?.pickup_location?.[0] || response?.details?.destination_location?.[0]);
         }
+        setTripRequestError(response.message);
+        setTripRequestStatus("error");
       }
 
     } catch (err: any) {

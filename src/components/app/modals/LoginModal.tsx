@@ -137,7 +137,7 @@ export default function LoginModal({
 
   return (
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50">
-      <div className="bg-white max-w-sm mx-auto w-full rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border">
+      <div className="bg-white max-w-sm mx-auto w-full rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border">
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-xl font-bold text-achrams-text-primary">Sign In to your account</h3>
           <button

@@ -21,6 +21,7 @@ export default function OTPModal({
   onResendOtp,
   onComplete, // This should now trigger the success flow (e.g., setScreen('dashboard'))
   onClose,
+  
 }: {
   isOpen: boolean;
   initialSignupData: FullSignupData; // NEW: Initial data for confirmation/resend
@@ -28,6 +29,7 @@ export default function OTPModal({
   onResendOtp: (data: FullSignupData) => Promise<number>; // NEW: Function to call the initiate endpoint again
   onComplete: () => void;
   onClose: () => void;
+  
 }) {
   const [otp, setOtp] = useState(['', '', '', '', '', '']); // Changed to 6 digits
   const [verified, setVerified] = useState(false);
@@ -119,7 +121,7 @@ export default function OTPModal({
         last_name: lastName, // Use data from stored signupData
         password: initialSignupData.password, // Use data from stored signupData
         otp: otpCode, // Add the user-inputted OTP
-      });
+      }, undefined, undefined, true);
 
       console.log("OTP Confirmation Response:", response);
 
@@ -139,6 +141,9 @@ export default function OTPModal({
         }
 
         setVerified(true);
+
+
+
         setTimeout(() => {
           onComplete(); // This triggers the flow back in page.tsx
         }, 1000);

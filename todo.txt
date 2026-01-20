@@ -1,0 +1,5 @@
+Weather - capacitor //fixed potentially until build to confirm
+Directions Modal - // Fixed and works perfectly
+Signup - // Fixed and logins in as well as fetches account Data successfully upon successful signup
+input - capacitor //
+offline- initial login attempt // Fixed 

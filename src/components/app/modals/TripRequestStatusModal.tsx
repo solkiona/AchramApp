@@ -52,7 +52,7 @@ export default function TripRequestStatusModal({
 
   return (
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-100">
-      <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border">
+      <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl p-6 animate-slideUp min-h-[30vh] max-h-[85vh] overflow-y-auto border-t border-achrams-border">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold text-achrams-text-primary">{title}</h3>
           <button

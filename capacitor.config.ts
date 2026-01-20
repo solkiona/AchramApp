@@ -1,5 +1,6 @@
 // capacitor.config.ts
 import { CapacitorConfig } from '@capacitor/cli';
+import { KeyboardResize } from '@capacitor/keyboard';
 
 const config: CapacitorConfig = {
   appId: 'com.achrams.passenger',
@@ -8,6 +9,7 @@ const config: CapacitorConfig = {
 
   server: {
     url: 'https://achram-app.vercel.app',
+    errorPath: 'offline.html',
     androidScheme: 'https',
   },
 
@@ -17,11 +19,18 @@ const config: CapacitorConfig = {
   
   plugins: {
      SplashScreen: {
-      launchShowDuration: 0,
+      launchShowDuration: 3000,
       launchAutoHide: true,
-      showSpinner: false,
-      splashFullScreen: false,
-      splashImmersive: false
+      launchFadeOutDuration: 500,
+      backgroundColor: "#FFFFFF",
+      androidSplashResourceName: "splash",
+      androidScaleType: "CENTER_CROP",
+      iosSpinnerStyle: "large",
+      androidSpinnerStyle: "large",
+    },
+    Keyboard: {
+      resize: KeyboardResize.Body,
+      resizeOnFullScreen: true,
     },
     StatusBar: {
       overlaysWebView: false,

@@ -5,9 +5,9 @@ import path from "path"
 
 const nextConfig: NextConfig = {
 
-  compiler: {
-    removeConsole: true,
-  },
+  // compiler: {
+  //   removeConsole: true,
+  // },
 
   images: {
   remotePatterns: [

@@ -63,6 +63,9 @@ import { usePWAPrompt } from "@/hooks/usePWA";
 import IOSInstallBanner from '@/components/app/ui/IOSInstallBanner';
 import NoInternetModal from "./modals/NoInternetModal";
 import { useLocation } from "@/hooks/useLocation";
+import { useStatusBarTheme } from '@/hooks/useStatusBarTheme';
+import {Keyboard}  from '@capacitor/keyboard'
+import { StatusBar, Style } from '@capacitor/status-bar';
 
 export default function ACHRAMApp() {
   const { token, isAuthenticated, isLoading: isAuthLoading, checkAuthStatus } = useAuth();
@@ -147,7 +150,7 @@ export default function ACHRAMApp() {
   const [pickupId, setPickupId] = useState<string | null>(null);
   // const [passengerLiveLocation, setPassengerLiveLocation] = useState<[number, number] | null>(null);
 
-  const { coords: passengerLiveLocation, requestPermission } = useLocation();
+  const { coords: passengerLiveLocation, error, requestPermission } = useLocation();
 
   const lastValidPickupForAnalyticsRef = useRef<string | null>(null);
 
@@ -174,6 +177,8 @@ export default function ACHRAMApp() {
     currentAuthStatusRef.current = isAuthenticated;
     currentTokenRef.current = token;
   }, [isAuthenticated, token]);
+
+  
 
   
 
@@ -221,7 +226,7 @@ export default function ACHRAMApp() {
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
 const [showNoInternetModal, setShowNoInternetModal] = useState(false);
 
-
+useStatusBarTheme(false);
 
 
 useEffect(() => {
@@ -635,7 +640,9 @@ useEffect(() => {
           });
         }
       };
+
       fetchAccountData();
+
     } else if (hasHydrated && !isAuthenticated) {
       console.log("User is not authenticated, clearing account data.");
       setAccountData(null);
@@ -1434,8 +1441,10 @@ useEffect(()=>{
 
   const handleAccountDeletionSuccess = () => {
     console.log("Account deletion confirmed. Loggin out user");
-    handleLogout();
+    showNotification("Account deleted successfully.", "success");
     setShowAccountDeletionModal(false);
+    window.location.href = "/";
+    
   };
 
   const [resolvedLocationName, setResolvedLocationName] = useState<string | null>(null);
@@ -1607,6 +1616,36 @@ useEffect(()=>{
     }
 
 
+
+
+useEffect(() => {
+  const initStatusBar = async () => {
+    if (Capacitor.isNativePlatform()) {
+      await StatusBar.setBackgroundColor({ color: '#059669' });
+      await StatusBar.setStyle({ style: Style.Dark }); // 'Dark' enum = White text on Dark background
+    }
+  };
+  initStatusBar();
+}, []);
+
+
+useEffect(() => {
+  const showHandler = Keyboard.addListener('keyboardWillShow', () => {
+    // Small delay to allow the resize to happen first
+    setTimeout(() => {
+      if (document.activeElement) {
+        document.activeElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+      }
+    }, 100);
+  });
+
+  return () => {
+    showHandler.remove();
+  };
+}, []);
 
     // only show on ios
 // if (showIOSInstallGuide) {
@@ -1947,7 +1986,7 @@ useEffect(()=>{
             setTripRequestStatus={setTripRequestStatus}
             setTripRequestError={setTripRequestError}
           />
-          {hasHydrated && (
+          {hasHydrated && !['trip-progress', 'trip-complete', 'booking', 'dashboard'].includes(screen) &&(
             <DirectionsModal
               isOpen={showDirections}
               onClose={() => setShowDirections(false)}
@@ -2004,7 +2043,19 @@ useEffect(()=>{
               ...passengerData,
               password: signupPasswordForOtp,
             }}
-            onComplete={() => {
+            
+            onComplete={ async () => {
+
+              await new Promise(resolve => setTimeout(resolve, 300));
+
+              await checkAuthStatus();
+              
+              setCurrentNotification({
+                message: "Account Creation was Successful. Welcome",
+                type: "success",
+              });
+              console.log("Testing if user is authenticated: ", isAuthenticated)
+
               setScreen("dashboard");
               setShowOTP(false);
               setSignupPasswordForOtp("");
@@ -2186,6 +2237,17 @@ useEffect(()=>{
           }}
         />
       )}
+
+      {error?.includes('timeout') && (
+      <div className="p-3 bg-yellow-50 border-l-4 border-yellow-500">
+        <p className="text-sm text-yellow-800">
+          GPS signal weak? Ensure:
+          <br />• Location is ON
+          <br />• Battery optimization is OFF for ACHRAMS
+          <br />• Try moving outdoors
+        </p>
+      </div>
+    )}
 
       {/* {process.env.NODE_ENV === 'development' && passengerLiveLocation && (
         <div 
