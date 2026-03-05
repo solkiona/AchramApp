@@ -206,7 +206,7 @@ export default function DashboardScreen({
               >
                 <RefreshCw className="w-5 h-5 text-emerald-600" />
               </button>
-              <Plane className="w-6 h-6 text-emerald-600" />
+              {/* <Plane className="w-6 h-6 text-emerald-600" /> */}
             </div>
 
             {/* NEW: Weather Display Card - Handle loading, error, and data */}
