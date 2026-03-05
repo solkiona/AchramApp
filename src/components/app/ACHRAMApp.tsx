@@ -263,59 +263,58 @@ useEffect(() => {
 }, []);
 
 
+// useEffect(() => {
+//   if (screen === 'dashboard' || screen === 'trip-progress' || screen === 'driver-assigned' || screen === 'booking') {
+//     requestPermission(); // ← Only when relevant
+//   }
+// }, [screen, requestPermission]);
+
+
 useEffect(() => {
+  const shouldRequestLocation = () => {
+    // Check if we already have valid coordinates
+    if (passengerLiveLocation && 
+        passengerLiveLocation.length === 2 && 
+        typeof passengerLiveLocation[0] === 'number' && 
+        typeof passengerLiveLocation[1] === 'number' &&
+        !isNaN(passengerLiveLocation[0]) && 
+        !isNaN(passengerLiveLocation[1])) {
+      console.log('✅ Valid coordinates already exist:', passengerLiveLocation);
+      return false; // Don't request permission
+    }
+    
+    console.log('⚠️ No valid coordinates, requesting permission...');
+    return true; // Request permission
+  };
+  
   if (screen === 'dashboard' || screen === 'trip-progress' || screen === 'driver-assigned') {
-    requestPermission(); // ← Only when relevant
+    if (shouldRequestLocation()) {
+      requestPermission();
+    }
   }
-}, [screen, requestPermission]);
+}, [screen, requestPermission, passengerLiveLocation]);
 
 
-  // useEffect(() => {
-  //   if (screen !== "driver-assigned" && screen !== "trip-progress" && screen !== "dashboard") return;
-  //   let watchId: number;
 
+const handleRefreshLocation = useCallback(async () => {
+  console.log('🔄 Manually refreshing location...');
+  showNotification('Updating your location...', 'info');
+  
+  try {
+    const position = await requestPermission();
+    if (position) {
+      console.log('✅ Location refreshed successfully:', position);
+      showNotification('Location updated successfully', 'success');
+    } else {
+      showNotification('Could not update location. Please check permissions.', 'error');
+    }
+  } catch (err) {
+    console.error('Location refresh failed:', err);
+    showNotification('Failed to refresh location', 'error');
+  }
+}, [requestPermission, showNotification]);
 
-  //   const startWatchingLocation = async () => {
-  //     if (!navigator.geolocation) return;
-  //     try {
-  //       const initialPosition = await new Promise<GeolocationPosition>((resolve, reject) => {
-  //         navigator.geolocation.getCurrentPosition(resolve, reject, {
-  //           enableHighAccuracy: true,
-  //           maximumAge: 5000,
-  //           timeout: 20000,
-  //         });
-  //       });
-  //       const { longitude, latitude } = initialPosition.coords;
-  //       setPassengerLiveLocation([latitude, longitude]);
-  //       console.log("Initial accurate location:", [longitude, latitude]);
-  //       watchId = navigator.geolocation.watchPosition(
-  //         (position) => {
-  //           const { longitude, latitude, accuracy } = position.coords;
-  //           if (accuracy <= 50) {
-  //             setPassengerLiveLocation([latitude, longitude]);
-  //             console.log("Updated location:", [longitude, latitude]);
-  //           }
-  //         },
-  //         (error) => {
-  //           console.error("Error watching location:", error);
-  //         },
-  //         {
-  //           enableHighAccuracy: true,
-  //           maximumAge: 0,
-  //           timeout: 15000,
-  //         }
-  //       );
-  //     } catch (error) {
-  //       console.error("Failed to get initial location:", error);
-  //     }
-  //   };
-  //   startWatchingLocation();
-  //   return () => {
-  //     if (watchId) {
-  //       navigator.geolocation.clearWatch(watchId);
-  //     }
-  //   };
-  // }, [screen]);
+  
 
   const activeTripForDashboard = useMemo(() => {
     if (activeTripId) {
@@ -1940,6 +1939,9 @@ useEffect(() => {
         setNumberOfSeats={setNumberOfSeats}
         isStrictPreferences={isStrictPreferences}
         setIsStrictPreferences={setIsStrictPreferences}
+
+        passengerLiveLocation={passengerLiveLocation} // NEW
+        onRefreshLocation={handleRefreshLocation} // NEW
       />
     );
   } else if (screen === "assigning") {
@@ -2047,6 +2049,7 @@ useEffect(() => {
           setDriver(null);
           setTripProgress(0);
           setVerificationCode(null);
+         
         }}
         onShowWallet={() => setShowWallet(true)}
         onShowSettings={() => setShowSettings(true)}
@@ -2062,6 +2065,7 @@ useEffect(() => {
         onShowActiveTrip={handleResumeActiveTrip}
         recentTripData={recentTripData}
         onResumeRecentTrip={handleResumeTripById}
+        handleRefreshLocation={handleRefreshLocation}
       />
     );
   } else if (showTripHistory) {

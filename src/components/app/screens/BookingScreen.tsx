@@ -83,6 +83,8 @@ interface BookingScreenProps {
   setNumberOfSeats: (val: number) => void;
   isStrictPreferences: boolean;
   setIsStrictPreferences: (val: boolean) => void;
+  passengerLiveLocation: [number, number] | null; 
+  onRefreshLocation?: () => void; // NEW: Optional refresh handler
 }
 
 const losCoords: [number, number] = [3.330058, 6.568287];
@@ -151,6 +153,8 @@ export default function BookingScreen({
   setNumberOfSeats,
   isStrictPreferences,
   setIsStrictPreferences,
+  passengerLiveLocation, 
+  onRefreshLocation,
 }: BookingScreenProps) {
   const [pickupOpen, setPickupOpen] = useState(false);
   const [destOpen, setDestOpen] = useState(false);
@@ -502,69 +506,144 @@ export default function BookingScreen({
     destinationInputRef.current?.focus();
   }, []);
 
+  // const handleUseCurrentLocation = useCallback(async () => {
+  //   if (error?.includes("denied")) {
+  //     setShowLocationSettingsModal(true);
+  //     setPickupOpen(false);
+  //     return;
+  //   }
+
+  //   setIsFetchingLocation(true);
+  //   setPickupOpen(false);
+
+  //   try {
+  //     const position = await requestPermission();
+  //     if (!position) throw new Error("No coordinates");
+
+  //     const { latitude, longitude } = position;
+  //     console.log(
+  //       "DEBUG: handleUseCurrentLocation - Got geolocation:",
+  //       longitude,
+  //       latitude,
+  //     );
+
+  //     const coords = [longitude, latitude] as [number, number];
+
+  //     geolocationCoordsRef.current = coords;
+
+  //     const airports = await findNearestAirport(longitude, latitude);
+
+  //     console.log(
+  //       "DEBUG: handleUseCurrentLocation - Found airports:",
+  //       airports,
+  //     );
+  //     if (airports && airports.length > 0) {
+  //       if (airports.length === 1) {
+  //         console.log(
+  //           "DEBUG: handleUseCurrentLocation - Setting single airport:",
+  //           airports[0].name,
+  //           "with coords:",
+  //           [longitude, latitude],
+  //         );
+
+  //         setPickupLocationData({
+  //           name: airports[0].name,
+  //           coords: [longitude, latitude],
+  //           id: airports[0].id,
+  //           codename: airports[0].codename,
+  //         });
+  //       } else {
+  //         setAirportsToSelect(airports);
+  //         setShowAirportSelectionModal(true);
+  //       }
+  //     } else {
+  //       setShowOutsideServiceModal(true);
+  //     }
+  //   } catch (err) {
+  //     console.error("Location fetch failed:", err);
+  //     showNotification(
+  //       `Location fetch failed, Kindly search your location  `,
+  //       "error",
+  //     );
+  //   } finally {
+  //     setIsFetchingLocation(false);
+  //   }
+  // }, [error, requestPermission]);
+
+
   const handleUseCurrentLocation = useCallback(async () => {
-    if (error?.includes("denied")) {
-      setShowLocationSettingsModal(true);
-      setPickupOpen(false);
-      return;
-    }
-
-    setIsFetchingLocation(true);
-    setPickupOpen(false);
-
-    try {
-      const position = await requestPermission();
-      if (!position) throw new Error("No coordinates");
-
-      const { latitude, longitude } = position;
-      console.log(
-        "DEBUG: handleUseCurrentLocation - Got geolocation:",
-        longitude,
-        latitude,
-      );
-
-      const coords = [longitude, latitude] as [number, number];
-
-      geolocationCoordsRef.current = coords;
-
-      const airports = await findNearestAirport(longitude, latitude);
-
-      console.log(
-        "DEBUG: handleUseCurrentLocation - Found airports:",
-        airports,
-      );
-      if (airports && airports.length > 0) {
-        if (airports.length === 1) {
-          console.log(
-            "DEBUG: handleUseCurrentLocation - Setting single airport:",
-            airports[0].name,
-            "with coords:",
-            [longitude, latitude],
-          );
-
-          setPickupLocationData({
-            name: airports[0].name,
-            coords: [longitude, latitude],
-            id: airports[0].id,
-            codename: airports[0].codename,
-          });
-        } else {
-          setAirportsToSelect(airports);
-          setShowAirportSelectionModal(true);
-        }
+  // FIRST: Check if we already have valid coordinates from parent
+  if (passengerLiveLocation && 
+      passengerLiveLocation.length === 2 && 
+      !isNaN(passengerLiveLocation[0]) && 
+      !isNaN(passengerLiveLocation[1])) {
+    console.log('✅ Using existing coordinates:', passengerLiveLocation);
+    
+    // Use existing coordinates to find airports
+    const [lat, lng] = passengerLiveLocation;
+    const airports = await findNearestAirport(lng, lat);
+    
+    if (airports && airports.length > 0) {
+      if (airports.length === 1) {
+        setPickupLocationData({
+          name: airports[0].name,
+          coords: [lng, lat],
+          id: airports[0].id,
+          codename: airports[0].codename,
+        });
       } else {
-        setShowOutsideServiceModal(true);
+        setAirportsToSelect(airports);
+        setShowAirportSelectionModal(true);
+        geolocationCoordsRef.current = [lng, lat];
       }
-    } catch (err) {
-      console.error("Location fetch failed:", err);
-      showNotification(
-        `Location fetch failed, Kindly search your location  `,
-        "error",
-      );
-    } finally {
-      setIsFetchingLocation(false);
+      return; // Exit early, no need to request permission
     }
-  }, [error, requestPermission]);
+  }
+  
+  // SECOND: If no existing coordinates, request fresh location
+  console.log('⚠️ No existing coordinates, requesting fresh location...');
+  
+  if (error?.includes("denied")) {
+    setShowLocationSettingsModal(true);
+    setPickupOpen(false);
+    return;
+  }
+  
+  setIsFetchingLocation(true);
+  setPickupOpen(false);
+  
+  try {
+    const position = await requestPermission();
+    if (!position) throw new Error("No coordinates");
+    
+    const { latitude, longitude } = position;
+    const coords = [longitude, latitude] as [number, number];
+    geolocationCoordsRef.current = coords;
+    
+    const airports = await findNearestAirport(longitude, latitude);
+    
+    if (airports && airports.length > 0) {
+      if (airports.length === 1) {
+        setPickupLocationData({
+          name: airports[0].name,
+          coords,
+          id: airports[0].id,
+          codename: airports[0].codename,
+        });
+      } else {
+        setAirportsToSelect(airports);
+        setShowAirportSelectionModal(true);
+      }
+    } else {
+      setShowOutsideServiceModal(true);
+    }
+  } catch (err) {
+    console.error("Location fetch failed:", err);
+    showNotification('Location fetch failed. Please search manually.', 'error');
+  } finally {
+    setIsFetchingLocation(false);
+  }
+}, [error, requestPermission, passengerLiveLocation]); // ← Add passengerLiveLocation to deps
 
   const handleAirportSelectedFromModal = useCallback((airport: Airport) => {
     const geolocationCoords = geolocationCoordsRef.current;

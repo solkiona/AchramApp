@@ -19,7 +19,8 @@ import {
   Bell,
   Heart,
   Utensils,
-  Bed, // If available, otherwise use Plane for hotels
+  Bed,
+  RefreshCw, // If available, otherwise use Plane for hotels
   // Add other icons if needed
 } from "lucide-react";
 import BottomNavBar from "../ui/BottomNavBar";
@@ -59,6 +60,7 @@ interface DashboardProps {
   weatherLoading: boolean;
   weatherError: string | null;
   showNotification: (message: string, type: "info" | "success" | "warning" | "error") => void;
+  handleRefreshLocation: () => void;
 }
 export default function DashboardScreen({
   onBookNewTrip,
@@ -69,6 +71,7 @@ export default function DashboardScreen({
   onShowTripHistory,
   onShowWallet, // NEW: Handler for wallet button
   onShowSettings,
+  handleRefreshLocation,
   onShowActiveTrip,
   accountData,
   onResumeRecentTrip,
@@ -190,6 +193,19 @@ export default function DashboardScreen({
                   Ready for your next journey?
                 </p>
               </div>
+              <Plane className="w-6 h-6 text-emerald-600" />
+            </div>
+
+
+             <div className="flex items-center gap-2">
+              {/* NEW: Refresh location button */}
+              <button
+                onClick={handleRefreshLocation} // Pass this from parent
+                className="p-2 hover:bg-white/50 rounded-lg transition-colors"
+                title="Refresh location"
+              >
+                <RefreshCw className="w-5 h-5 text-emerald-600" />
+              </button>
               <Plane className="w-6 h-6 text-emerald-600" />
             </div>
 
