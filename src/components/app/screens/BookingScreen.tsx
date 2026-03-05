@@ -582,6 +582,7 @@ export default function BookingScreen({
     // Use existing coordinates to find airports
     const [lat, lng] = passengerLiveLocation;
     const airports = await findNearestAirport(lng, lat);
+    setPickupOpen(false);
     
     if (airports && airports.length > 0) {
       if (airports.length === 1) {
