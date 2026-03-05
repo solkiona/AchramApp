@@ -1,4 +1,5 @@
-import { Requirements, PassengerData } from "@/types/booking";
+// src/lib/booking/buildTripData.ts
+import { Requirements, PassengerData, VehicleCategory, BookingData } from "@/types/booking";
 
 export const buildTripData = (
   fareEstimate: number | null,
@@ -11,7 +12,11 @@ export const buildTripData = (
   airportId: string,
   bookAsGuest: boolean,
   isAuthenticated: boolean,
-  formatPhoneNumber: (input: string) => string
+  formatPhoneNumber: (input: string) => string,
+  selectedCategory: VehicleCategory | null,
+  numberOfSeats: number,
+  isStrictPreferences: boolean,
+  sourceDomain: string,
 ) => {
   return {
     amount: {
@@ -33,5 +38,10 @@ export const buildTripData = (
     pickup_location: pickupCoords,
     destination_address: destination,
     destination_location: destinationCoords,
+    // NEW: Booking preferences
+    category: selectedCategory,
+    number_of_seats: numberOfSeats,
+    is_strict_preferences: isStrictPreferences,
+    source_domain: sourceDomain,
   };
 };

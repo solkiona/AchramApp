@@ -113,6 +113,25 @@ export const useAppInitialization = ({
       const isTransitRoute =
         typeof window !== "undefined" &&
         /^\/trips\/transit\/[a-zA-Z0-9_-]+$/.test(window.location.pathname);
+
+      
+        if (savedState.selectedCategory) {
+        // You'll need to pass a setter for this or handle it in the parent
+        console.log("Restored selected category:", savedState.selectedCategory);
+      }
+      
+      // Restore seat count
+      if (savedState.numberOfSeats) {
+        console.log("Restored number of seats:", savedState.numberOfSeats);
+      }
+      
+      // Restore strict preferences
+      if (savedState.isStrictPreferences !== undefined) {
+        console.log("Restored strict preferences:", savedState.isStrictPreferences);
+      }
+
+
+
       if (isAuthenticated) {
         console.log(
           "User is authenticated, checking for stored active trip ID..."
@@ -443,6 +462,7 @@ export const useAppInitialization = ({
     setTripRequestError,
     preserveBookingContext,
     setInitComplete,
+    
   ]);
 
   return { initializeAppState };

@@ -3,12 +3,12 @@ import { CapacitorConfig } from '@capacitor/cli';
 import { KeyboardResize } from '@capacitor/keyboard';
 
 const config: CapacitorConfig = {
-  appId: 'com.achrams.passenger',
+  appId: 'com.achrams.ride1',
   appName: 'ACHRAMS Passenger',
   webDir: 'public', // Even if unused, Capacitor expects this
 
   server: {
-    url: 'https://achram-app.vercel.app',
+    url: 'https://ride.achrams.com.ng',
     errorPath: 'offline.html',
     androidScheme: 'https',
   },
@@ -22,7 +22,7 @@ const config: CapacitorConfig = {
       launchShowDuration: 0,
       launchAutoHide: true,
       showSpinner: false,
-      backgroundColor: "#059669",
+      backgroundColor: "#6AB148",
     },
     Keyboard: {
       resize: KeyboardResize.Body,

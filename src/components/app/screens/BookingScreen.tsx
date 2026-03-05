@@ -8,6 +8,11 @@ import {
   X,
   Loader,
   ChevronLeft,
+  Shield,
+  Car,
+  Smartphone,
+  Leaf,
+  Zap,
 } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import ACHRAMSHeader from "@/components/ui/ACHRAMSHeader";
@@ -53,11 +58,31 @@ interface BookingScreenProps {
   onShowLogin: (val: boolean) => void;
   showNotification: (
     message: string,
-    type: "info" | "success" | "warning" | "error"
+    type: "info" | "success" | "warning" | "error",
   ) => void;
   isAuthenticated: boolean;
   onBackToDashboard: () => void;
   screenPaddingClass: string;
+
+  showVehicleCategories: boolean;
+  setShowVehicleCategories: (val: boolean) => void;
+  selectedCategory: string | null;
+  setSelectedCategory: (val: string | null) => void;
+  vehicleQuotes: any[];
+  isFetchingVehicles: boolean;
+  handleCategorySelect: (category: any) => void;
+  handleBackToCategories: () => void;
+  onDestinationSelected: (
+
+    destination: string,
+    coords: [number, number],
+    destinationFareZone: string,
+  ) => void;
+  getCategoryIcon: (val: string) => string;
+  numberOfSeats: number;
+  setNumberOfSeats: (val: number) => void;
+  isStrictPreferences: boolean;
+  setIsStrictPreferences: (val: boolean) => void;
 }
 
 const losCoords: [number, number] = [3.330058, 6.568287];
@@ -69,7 +94,7 @@ const libraries: "places"[] = ["places"];
 // Custom debounce hook (lightweight & stable)
 function useDebounceCallback<T extends (...args: any[]) => any>(
   callback: T,
-  delay: number
+  delay: number,
 ) {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -86,7 +111,7 @@ function useDebounceCallback<T extends (...args: any[]) => any>(
         callback(...args);
       }, delay);
     }) as T,
-    [callback, delay]
+    [callback, delay],
   );
 }
 
@@ -113,6 +138,19 @@ export default function BookingScreen({
   isAuthenticated,
   onBackToDashboard,
   screenPaddingClass,
+  showVehicleCategories,
+  setShowVehicleCategories,
+  selectedCategory,
+  vehicleQuotes,
+  isFetchingVehicles,
+  handleCategorySelect,
+  handleBackToCategories,
+  onDestinationSelected,
+  getCategoryIcon,
+  numberOfSeats,
+  setNumberOfSeats,
+  isStrictPreferences,
+  setIsStrictPreferences,
 }: BookingScreenProps) {
   const [pickupOpen, setPickupOpen] = useState(false);
   const [destOpen, setDestOpen] = useState(false);
@@ -122,7 +160,6 @@ export default function BookingScreen({
   const [showOutsideServiceModal, setShowOutsideServiceModal] = useState(false);
   const [showLocationSettingsModal, setShowLocationSettingsModal] =
     useState(false);
-
 
   const searchBoxRef = useRef<google.maps.places.SearchBox | null>(null);
   const destinationInputRef = useRef<HTMLInputElement>(null);
@@ -160,7 +197,7 @@ export default function BookingScreen({
   useEffect(() => {
     console.log(
       "DEBUG: Syncing pickup data to parent - Name: ",
-      pickupLocationData.name
+      pickupLocationData.name,
     );
     setPickup(pickupLocationData.name);
     setPickupCoords(pickupLocationData.coords);
@@ -169,9 +206,9 @@ export default function BookingScreen({
   useEffect(() => {
     console.log(
       "DEBUG: Syncing destination data to parent - Name:",
-      destinationLocationData.name,
+      destinationLocationData,
       "coords:",
-      destinationLocationData.coords
+      destinationLocationData.coords,
     );
     setDestination(destinationLocationData.name);
     setDestinationCoords(destinationLocationData.coords);
@@ -181,98 +218,122 @@ export default function BookingScreen({
     setPickupCodename(pickupLocationData.codename);
   }, [pickupLocationData.codename, setPickupCodename]);
 
-  const fetchFareEstimate = async (
-    airportCodename: string,
-    destinationName: string
-  ): Promise<number | null> => {
-    if (!airportCodename || !destinationName) {
-      console.warn(
-        "Cannot fetch fare: airport codename or destination name is missing"
-      );
-      setFareEstimate(null);
-      setFareIsFlatRate(null);
-      return null;
-    }
-    try {
-      console.log(
-        `Fetching fare for airport: ${airportCodename}, destination: ${destinationName}`
-      );
-      // The 'search' parameter is the destination address string.
-      // The 'airport' parameter is the airport codename.
-      const response = await apiClient.get(
-        `/fares/lookup?airport=${encodeURIComponent(
-          airportCodename
-        )}&search=${encodeURIComponent(destinationName)}`
-      );
-      // ikeja
-      console.log(`Estimated Fare Response: ${response}`);
+  // const fetchFareEstimate = async (
+  //   airportCodename: string,
+  //   destinationName: string
+  // ): Promise<number | null> => {
+  //   if (!airportCodename || !destinationName) {
+  //     console.warn(
+  //       "Cannot fetch fare: airport codename or destination name is missing"
+  //     );
+  //     setFareEstimate(null);
+  //     setFareIsFlatRate(null);
+  //     return null;
+  //   }
+  //   try {
+  //     console.log(
+  //       `Fetching fare for airport: ${airportCodename}, destination: ${destinationName}`
+  //     );
+  //     // The 'search' parameter is the destination address string.
+  //     // The 'airport' parameter is the airport codename.
+  //     const response = await apiClient.get(
+  //       `/fares/lookup?airport=${encodeURIComponent(
+  //         airportCodename
+  //       )}&search=${encodeURIComponent(destinationName)}`
+  //     );
+  //     // ikeja
+  //     console.log(`Estimated Fare Response: ${response}`);
 
-      if (response.status === "success" && response.data) {
-        const fareData = response.data;
-        console.log("Fetched fare data:", fareData);
-        // Return the numeric amount from the API response
-        setFareEstimate(fareData.amount.amount);
-        setFareIsFlatRate(fareData.is_flat_rate);
-        return fareData.amount.amount; // e.g., 100 from the example
-      } else {
-        console.log(
-          "Fare lookup API responded with non-success status or missing data:",
-          response
-        );
+  //     if (response.status === "success" && response.data) {
+  //       const fareData = response.data;
+  //       console.log("Fetched fare data:", fareData);
+  //       // Return the numeric amount from the API response
+  //       setFareEstimate(fareData.amount.amount);
+  //       setFareIsFlatRate(fareData.is_flat_rate);
+  //       return fareData.amount.amount; // e.g., 100 from the example
+  //     } else {
+  //       console.log(
+  //         "Fare lookup API responded with non-success status or missing data:",
+  //         response
+  //       );
 
-        setFareEstimate(null);
-        setFareIsFlatRate(null);
-        return null;
+  //       setFareEstimate(null);
+  //       setFareIsFlatRate(null);
+  //       return null;
+  //     }
+  //   } catch (err) {
+  //     console.error("Error fetching fare estimate:", err);
+  //     //showNotification("Could not fetch fare estimate. Using default.", "warning"); // Example
+  //     setFareEstimate(null);
+  //     setFareIsFlatRate(null);
+  //     return null;
+  //   }
+  // };
+
+  // useEffect(() => {
+  //   const getFare = async () => {
+  //     // Only proceed if both codename and destination name are present
+  //     if (pickupLocationData.codename && destinationLocationData.name) {
+  //       // Show a loading state if desired (e.g., disable proceed button, show spinner next to fare)
+  //       // setIsFetchingFare(true); // Example state
+
+  //       const fare = await fetchFareEstimate(
+  //         pickupLocationData.codename,
+  //         destinationLocationData.name
+  //       );
+
+  //       // setIsFetchingFare(false); // Example state
+
+  //       if (fare !== null) {
+  //         // Update the parent's fare estimate state
+  //         setFareEstimate(fare);
+  //       } else {
+  //         // Handle case where fare lookup failed
+  //         // You might want to clear the estimate or show an error
+  //         setFareIsFlatRate(null);
+  //         setFareEstimate(null); // Or keep the previous value, or set to -1 to indicate error
+  //         // showNotification("Failed to get fare estimate.", "error"); // Example
+  //       }
+  //     } else {
+  //       // If either codename or destination name is missing, clear the estimate
+  //       setFareEstimate(null);
+  //       setFareIsFlatRate(null);
+  //     }
+  //   };
+
+  //   getFare(); // Call the async function
+
+  //   // Depend on the codename and destination name to re-run the effect when they change
+  // }, [
+  //   pickupLocationData.codename,
+  //   destinationLocationData.name,
+  //   setFareEstimate,
+  //   setFareIsFlatRate,
+  // ]);
+
+  // Helper: Extract fare zone from Google Places result
+  const getFareZone = (
+    place: google.maps.places.PlaceResult,
+  ): string | null => {
+    let lga: string | null = null;
+    let locality: string | null = null;
+    let sublocality: string | null = null;
+
+    place.address_components?.forEach((component) => {
+      const types = component.types;
+      if (types.includes("administrative_area_level_2")) {
+        lga = component.long_name;
       }
-    } catch (err) {
-      console.error("Error fetching fare estimate:", err);
-      //showNotification("Could not fetch fare estimate. Using default.", "warning"); // Example
-      setFareEstimate(null);
-      setFareIsFlatRate(null);
-      return null;
-    }
+      if (types.includes("locality")) {
+        locality = component.long_name;
+      }
+      if (types.includes("sublocality")) {
+        sublocality = component.long_name;
+      }
+    });
+
+    return lga || locality || sublocality;
   };
-
-  useEffect(() => {
-    const getFare = async () => {
-      // Only proceed if both codename and destination name are present
-      if (pickupLocationData.codename && destinationLocationData.name) {
-        // Show a loading state if desired (e.g., disable proceed button, show spinner next to fare)
-        // setIsFetchingFare(true); // Example state
-
-        const fare = await fetchFareEstimate(
-          pickupLocationData.codename,
-          destinationLocationData.name
-        );
-
-        // setIsFetchingFare(false); // Example state
-
-        if (fare !== null) {
-          // Update the parent's fare estimate state
-          setFareEstimate(fare);
-        } else {
-          // Handle case where fare lookup failed
-          // You might want to clear the estimate or show an error
-          setFareIsFlatRate(null);
-          setFareEstimate(null); // Or keep the previous value, or set to -1 to indicate error
-          // showNotification("Failed to get fare estimate.", "error"); // Example
-        }
-      } else {
-        // If either codename or destination name is missing, clear the estimate
-        setFareEstimate(null);
-        setFareIsFlatRate(null);
-      }
-    };
-
-    getFare(); // Call the async function
-
-    // Depend on the codename and destination name to re-run the effect when they change
-  }, [
-    pickupLocationData.codename,
-    destinationLocationData.name,
-    setFareEstimate,
-    setFareIsFlatRate,
-  ]);
 
   // Reset fetching state when trip request ends
   useEffect(() => {
@@ -303,35 +364,79 @@ export default function BookingScreen({
       }
       debouncedDestinationInput(value);
     },
-    [debouncedDestinationInput]
+    [debouncedDestinationInput],
   );
 
   const geolocationCoordsRef = useRef<[number, number] | null>(null);
 
+  // const handlePlaceChanged = useCallback(() => {
+  //   if (isGoogleMapsLoaded && searchBoxRef.current) {
+
+  //     // NEW: Only run if API is loaded
+  //     const places = searchBoxRef.current.getPlaces();
+
+  //     if (places && places.length > 0) {
+  //       const place = places[0];
+
+  //       const components = place.address_components || [];
+
+  //       components.forEach((component) => {
+  //         console.log(component.long_name, component.types);
+  //       });
+
+  //       if (place.geometry && place.geometry.location) {
+  //         const lat = place.geometry.location.lat();
+  //         const lng = place.geometry.location.lng();
+  //         setDestinationLocationData({
+  //           name: place.formatted_address || place.name || "", // Prefer formatted address, fallback to name
+  //           coords: [lng, lat], // [longitude, latitude]
+  //         });
+  //         setDestOpen(false); // Close the dropdown after selection
+  //       } else {
+  //         console.error("Place selected but no geometry.location found.");
+  //       }
+  //     } else {
+  //       console.log("No places found from search box.");
+  //       // Optionally clear coordinates if user clears the input and presses enter/selects nothing
+  //       setDestinationLocationData((prev) => ({ ...prev, coords: null }));
+  //     }
+  //   }
+  // }, [isGoogleMapsLoaded]);
+
   const handlePlaceChanged = useCallback(() => {
     if (isGoogleMapsLoaded && searchBoxRef.current) {
-      // NEW: Only run if API is loaded
       const places = searchBoxRef.current.getPlaces();
       if (places && places.length > 0) {
         const place = places[0];
         if (place.geometry && place.geometry.location) {
           const lat = place.geometry.location.lat();
           const lng = place.geometry.location.lng();
+
+          // Show full address in UI for user certainty
+          const fullAddress = place.formatted_address || place.name || "";
+
+          //Extract fare zone for backend API (LGA → locality → sublocality)
+          const fareZone = getFareZone(place);
+
           setDestinationLocationData({
-            name: place.formatted_address || place.name || "", // Prefer formatted address, fallback to name
-            coords: [lng, lat], // [longitude, latitude]
+            name: fullAddress, // Display full address
+            coords: [lng, lat],
           });
-          setDestOpen(false); // Close the dropdown after selection
+          setDestOpen(false);
+
+          
+
+           onDestinationSelected(fullAddress, [lng, lat], fareZone || fullAddress);
+          //  alert(fareZone)
+
         } else {
           console.error("Place selected but no geometry.location found.");
         }
-      } else {
-        console.log("No places found from search box.");
-        // Optionally clear coordinates if user clears the input and presses enter/selects nothing
-        setDestinationLocationData((prev) => ({ ...prev, coords: null }));
       }
     }
-  }, [isGoogleMapsLoaded]);
+  }, [isGoogleMapsLoaded, onDestinationSelected]);
+
+
 
   const handlePickupPlaceChanged = useCallback(() => {
     if (isGoogleMapsLoaded && pickupSearchBoxRef.current) {
@@ -371,11 +476,11 @@ export default function BookingScreen({
             } catch (err) {
               console.error(
                 "Failed to fetch airports for pickup location:",
-                err
+                err,
               );
               showNotification(
                 "Failed to fetch airports for pickup location. Please try again",
-                "error"
+                "error",
               );
               // 👇 Notify user — see Step 4 for implementation
               onShowLogin(false); // Placeholder — you’ll replace this with real notification
@@ -415,7 +520,7 @@ export default function BookingScreen({
       console.log(
         "DEBUG: handleUseCurrentLocation - Got geolocation:",
         longitude,
-        latitude
+        latitude,
       );
 
       const coords = [longitude, latitude] as [number, number];
@@ -424,10 +529,9 @@ export default function BookingScreen({
 
       const airports = await findNearestAirport(longitude, latitude);
 
-
       console.log(
         "DEBUG: handleUseCurrentLocation - Found airports:",
-        airports
+        airports,
       );
       if (airports && airports.length > 0) {
         if (airports.length === 1) {
@@ -435,7 +539,7 @@ export default function BookingScreen({
             "DEBUG: handleUseCurrentLocation - Setting single airport:",
             airports[0].name,
             "with coords:",
-            [longitude, latitude]
+            [longitude, latitude],
           );
 
           setPickupLocationData({
@@ -453,25 +557,27 @@ export default function BookingScreen({
       }
     } catch (err) {
       console.error("Location fetch failed:", err);
-      showNotification(`Location fetch failed, Kindly search your location  `, 'error')
+      showNotification(
+        `Location fetch failed, Kindly search your location  `,
+        "error",
+      );
     } finally {
       setIsFetchingLocation(false);
     }
   }, [error, requestPermission]);
 
   const handleAirportSelectedFromModal = useCallback((airport: Airport) => {
-    
     const geolocationCoords = geolocationCoordsRef.current;
 
     console.log(
       "DEBUG: handleAirportSelectedFromModal - Selected airport:",
       airport,
       "Retaining coords:",
-      geolocationCoords
+      geolocationCoords,
     );
     console.log(
       "DEBUG: handleAirportSelectedFromModal - Using coords from SELECTED airport object:",
-      geolocationCoords
+      geolocationCoords,
     );
     setPickupLocationData({
       name: airport.name,
@@ -507,7 +613,7 @@ export default function BookingScreen({
         "DEBUG: handleAirportSelect - Setting pickup to:",
         selected.name,
         "with coords:",
-        selected.coords
+        selected.coords,
       );
       setPickupLocationData({
         name: selected.name,
@@ -518,7 +624,7 @@ export default function BookingScreen({
     } else {
       console.warn(
         "DEBUG: handleAirportSelect - Airport ID not found in map:",
-        airportId
+        airportId,
       );
     }
     setPickupOpen(false);
@@ -592,9 +698,7 @@ export default function BookingScreen({
         </div>
       )}
 
-      <div
-        className={`flex-1 px-6 py-8 overflow-y-auto ${screenPaddingClass}`}
-      >
+      <div className={`flex-1 px-6 py-8 overflow-y-auto ${screenPaddingClass}`}>
         <h2 className="text-2xl font-semibold tracking-tight text-achrams-text-primary pb-4">
           Book Your Airport Ride
         </h2>
@@ -747,7 +851,7 @@ export default function BookingScreen({
           </div>
         </div>
 
-        {fareEstimate !== null && (
+        {/* {fareEstimate !== null && (
           <div className="mt-6 p-4 bg-achrams-bg-secondary rounded-xl border border-achrams-border">
             <div className="flex justify-between items-center">
               <span className="text-achrams-text-secondary">
@@ -766,15 +870,72 @@ export default function BookingScreen({
               </span>
             </div>
           </div>
+        )} */}
+
+        {fareEstimate !== null && selectedCategory && (
+  <div className="mt-6 animate-scaleIn">
+    <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 rounded-2xl p-5 shadow-sm border-2 border-emerald-200">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4 pb-4 border-b border-emerald-200">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center border border-emerald-100">
+            {getCategoryIcon(selectedCategory) === 'Shield' && <Shield className="w-6 h-6 text-emerald-600" />}
+            {getCategoryIcon(selectedCategory) === 'Car' && <Car className="w-6 h-6 text-emerald-600" />}
+            {getCategoryIcon(selectedCategory) === 'Smartphone' && <Smartphone className="w-6 h-6 text-emerald-600" />}
+            {getCategoryIcon(selectedCategory) === 'Leaf' && <Leaf className="w-6 h-6 text-emerald-600" />}
+            {getCategoryIcon(selectedCategory) === 'Zap' && <Zap className="w-6 h-6 text-emerald-600" />}
+          </div>
+          <div>
+            <div className="font-semibold text-achrams-text-primary">
+              {vehicleQuotes.find(q => q.categoryValue === selectedCategory)?.name || 'Selected Ride'}
+            </div>
+            <div className="text-xs text-achrams-text-secondary">
+              {vehicleQuotes.find(q => q.categoryValue === selectedCategory)?.description}
+            </div>
+          </div>
+        </div>
+        {fareIsFlatRate && (
+          <span className="inline-flex items-center px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full">
+            Flat Rate
+          </span>
         )}
-
-
-
-
-        
       </div>
 
-      <div className={` p-6 ${isAuthenticated ? 'mb-24' : ''}`}>
+      {/* Price */}
+      <div className="flex justify-between items-center">
+        <div>
+          <div className="text-sm text-achrams-text-secondary font-medium">Estimated fare</div>
+          <div className="text-xs text-achrams-text-tertiary flex items-center gap-1 mt-0.5">
+            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+            Pay with cash or card
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+            ₦{fareEstimate.toLocaleString()}
+          </div>
+          {fareIsFlatRate && (
+            <div className="text-xs text-amber-600 mt-0.5">Subject to bargain</div>
+          )}
+        </div>
+      </div>
+
+      {/* Back to Categories */}
+      <button
+        onClick={handleBackToCategories}
+        className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        Change vehicle category
+      </button>
+    </div>
+  </div>
+)}
+      </div>
+
+      {/* <div className={` p-6 ${isAuthenticated ? 'mb-24' : ''}`}>
+
+
         <button
           onClick={onProceed}
           disabled={!fareEstimate}
@@ -788,7 +949,32 @@ export default function BookingScreen({
             ? `Proceed • ₦${fareEstimate.toLocaleString()}`
             : "Enter destinations"}
         </button>
-      </div>
+      </div> */}
+
+      <div className={`p-4 ${isAuthenticated ? 'mb-24' : ''}`}>
+  {selectedCategory && fareEstimate && (
+    <button
+      onClick={handleBackToCategories}
+      className="w-full bg-white border-2 border-achrams-border text-achrams-text-primary py-3.5 rounded-xl font-medium mb-2.5 hover:bg-achrams-bg-secondary transition-colors flex items-center justify-center gap-2"
+    >
+      <ChevronLeft className="w-4 h-4" />
+      Back to Categories
+    </button>
+  )}
+  <button
+    onClick={onProceed}
+    disabled={!fareEstimate || !selectedCategory}
+    className={`w-full py-4 rounded-xl text-base font-semibold text-achrams-text-light transition-all ${
+      fareEstimate && selectedCategory
+        ? "bg-achrams-gradient-primary hover:opacity-95 active:scale-[0.98] shadow-md"
+        : "bg-achrams-secondary-solid opacity-75 cursor-not-allowed"
+    }`}
+  >
+    {fareEstimate && selectedCategory
+      ? `Proceed • ₦${fareEstimate.toLocaleString()}`
+      : "Enter destinations"}
+  </button>
+</div>
 
       {!isAuthenticated && (
         <div className="w-full flex justify-end mb-4">
@@ -804,6 +990,99 @@ export default function BookingScreen({
       )}
 
       {!isAuthenticated && <ACHRAMFooter />}
+
+      {/* Vehicle Categories Modal */}
+{showVehicleCategories && (
+  <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center sm:justify-center z-50 animate-fadeIn">
+    <div className="bg-white w-full sm:max-w-2xl sm:rounded-2xl rounded-t-2xl animate-slideUp max-h-[90vh] overflow-y-auto shadow-xl">
+      {/* Header */}
+      <div className="sticky top-0 bg-white border-b border-achrams-border px-4 sm:px-6 py-4 sm:rounded-t-2xl z-10">
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-xl sm:text-2xl font-bold text-achrams-text-primary">Choose your ride</h3>
+            <p className="text-sm text-achrams-text-secondary mt-0.5">Select the vehicle category that suits your needs</p>
+          </div>
+          <button
+            onClick={() => setShowVehicleCategories(false)}
+            className="p-2 hover:bg-achrams-bg-secondary rounded-full transition-colors text-achrams-text-secondary hover:text-achrams-text-primary"
+            aria-label="Close modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {isFetchingVehicles ? (
+        <div className="px-4 sm:px-6 py-12 flex flex-col items-center justify-center">
+          <Loader className="w-10 h-10 text-achrams-primary-solid animate-spin mb-3" />
+          <p className="text-achrams-text-secondary text-sm">Fetching available vehicles...</p>
+        </div>
+      ) : (
+        <>
+          {/* Vehicle List */}
+          <div className="px-4 sm:px-6 py-4 space-y-3">
+            {vehicleQuotes.map((category) => {
+              const IconComponent = getCategoryIcon(category.categoryValue);
+              return (
+                <button
+                  key={category.id}
+                  onClick={() => handleCategorySelect(category)}
+                  className="w-full bg-white rounded-xl p-4 hover:border-achrams-primary-solid border-2 border-achrams-border transition-all text-left group hover:shadow-md"
+                >
+                  <div className="flex items-center gap-4">
+                    {/* Icon with brand gradient background */}
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center flex-shrink-0 border border-emerald-100">
+                      {IconComponent === 'Shield' && <Shield className="w-6 h-6 text-emerald-600" />}
+                      {IconComponent === 'Car' && <Car className="w-6 h-6 text-emerald-600" />}
+                      {IconComponent === 'Smartphone' && <Smartphone className="w-6 h-6 text-emerald-600" />}
+                      {IconComponent === 'Leaf' && <Leaf className="w-6 h-6 text-emerald-600" />}
+                      {IconComponent === 'Zap' && <Zap className="w-6 h-6 text-emerald-600" />}
+                    </div>
+
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-achrams-text-primary text-base">{category.name}</div>
+                      <div className="text-sm text-achrams-text-secondary mt-0.5 line-clamp-1">{category.description}</div>
+                      <div className="flex items-center gap-1.5 mt-1 text-xs text-achrams-text-tertiary">
+                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                        <span>Available • {category.eta}</span>
+                      </div>
+                    </div>
+
+                    {/* Price */}
+                    <div className="text-right flex-shrink-0">
+                      <div className="text-lg font-bold text-achrams-text-primary">
+                        {category.formattedPrice}
+                      </div>
+                      <div className="text-xs text-achrams-text-tertiary mt-0.5">Estimated</div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Info Note */}
+          <div className="px-4 sm:px-6 pb-6">
+            <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 flex items-start gap-3">
+              <div className="text-blue-600 mt-0.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+              </div>
+              <p className="text-sm text-gray-700">
+                <span className="font-medium">Note:</span> Final prices may vary based on traffic, route, and real-time demand.
+              </p>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  </div>
+)}
     </div>
   );
 }

@@ -1,24 +1,32 @@
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.achrams.ride"
+    namespace "com.achrams.ride1"
     compileSdk rootProject.ext.compileSdkVersion
-
+    
     signingConfigs {
         release {
-            storeFile file('achrams-release.keystore')
-            storePassword System.getenv("ACHRAMS_RELEASE_STORE_PASSWORD") ?: project.property("ACHRAMS_RELEASE_STORE_PASSWORD")
-            keyAlias 'achrams-key'
-            keyPassword System.getenv("ACHRAMS_RELEASE_KEY_PASSWORD") ?: project.property("ACHRAMS_RELEASE_KEY_PASSWORD")
+            if (keystorePropertiesFile.exists()) {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+            }
         }
     }
-
+    
     defaultConfig {
-        applicationId "com.achrams.ride"
+        applicationId "com.achrams.ride1"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.0.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -26,13 +34,12 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-
-
+    
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
         }
     }
 }

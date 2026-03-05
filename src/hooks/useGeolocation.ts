@@ -14,6 +14,7 @@ export interface GeolocationResult {
 }
 
 export const useGeolocation = (): GeolocationResult => {
+  
   const [coords, setCoords] = useState<GeolocationCoordinates | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);

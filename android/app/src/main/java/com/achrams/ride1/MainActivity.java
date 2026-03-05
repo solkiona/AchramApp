@@ -1,4 +1,4 @@
-package com.achrams.ride;
+package com.achrams.ride1;
 
 import com.getcapacitor.BridgeActivity;
 

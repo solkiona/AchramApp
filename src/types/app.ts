@@ -23,4 +23,9 @@ export interface PersistedState {
   activeTripId: string | null;
   guestId: string | null;
   bookAsGuest: boolean;
+ 
+  selectedCategory: string | null;
+  numberOfSeats: number;
+  isStrictPreferences: boolean;
+  fareIsFlatRate: boolean | null;
 }

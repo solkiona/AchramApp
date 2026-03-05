@@ -20,7 +20,11 @@ export const usePersistedAppState = (
   activeTripId: string | null,
   guestId: string | null,
   bookAsGuest: boolean,
-  setIsNavigatingToDashboard: (val: boolean) => void
+  setIsNavigatingToDashboard: (val: boolean) => void,
+  selectedCategory: string | null,
+  numberOfSeats: number,
+  isStrictPreferences: boolean,
+  fareIsFlatRate: boolean | null,
 ) => {
   useEffect(() => {
     if (hasHydrated && screen !== null) {
@@ -39,6 +43,10 @@ export const usePersistedAppState = (
         activeTripId,
         guestId,
         bookAsGuest,
+        selectedCategory,
+        numberOfSeats,
+        isStrictPreferences,
+        fareIsFlatRate,
       };
       console.log("Saving app state with screen:", screenToSave);
       saveAppState(stateToSave);
@@ -63,5 +71,9 @@ export const usePersistedAppState = (
     isNavigatingToDashboard,
     previousScreen,
     setIsNavigatingToDashboard,
+    selectedCategory,
+    numberOfSeats,
+    isStrictPreferences,
+    fareIsFlatRate,
   ]);
 };

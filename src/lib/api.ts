@@ -1,6 +1,7 @@
 
 // src/lib/api.ts
-const API_BASE = 'https://api.achrams.com.ng/v1'; // Corrected trailing space
+// const API_BASE = 'https://api.achrams.com.ng/v1'; // Corrected trailing space
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE
 
 interface ApiResponse<T = unknown> {
   status: 'success' | 'error';

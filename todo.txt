@@ -3,3 +3,6 @@ Directions Modal - // Fixed and works perfectly
 Signup - // Fixed and logins in as well as fetches account Data successfully upon successful signup
 input - capacitor //
 offline- initial login attempt // Fixed 
+
+
+To silently turnoff native android splash screen i changed android:theme="@style/AppTheme.NoActionBarLaunch" to just android:theme="@style/AppTheme.NoActionBar" in the AndroidManifest.xml file

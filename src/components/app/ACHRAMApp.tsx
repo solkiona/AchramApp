@@ -178,10 +178,20 @@ export default function ACHRAMApp() {
     currentTokenRef.current = token;
   }, [isAuthenticated, token]);
 
-  
+  // Add these states with your existing booking-related states
+const [showVehicleCategories, setShowVehicleCategories] = useState(false);
+const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+const [vehicleQuotes, setVehicleQuotes] = useState<any[]>([]);
+const [isFetchingVehicles, setIsFetchingVehicles] = useState(false);
 
-  
+const [numberOfSeats, setNumberOfSeats] = useState<number>(1);
+const [isStrictPreferences, setIsStrictPreferences] = useState<boolean>(false);
 
+// Constant for source domain
+
+ const sourceDomain = typeof window !== 'undefined' 
+    ? window.location.hostname 
+    : 'ride.achrams.com.ng';
 
 
   const preserveBookingContext = useCallback(() => {
@@ -418,6 +428,10 @@ useEffect(() => {
     startWebSocketConnectionForAuthUser,
     bookTripRetry: false,
     setBookTripRetry: () => {},
+    selectedCategory,
+    numberOfSeats,
+    isStrictPreferences,
+    sourceDomain, 
   });
 
   useDriverTracking({
@@ -704,7 +718,11 @@ useEffect(() => {
     activeTripId,
     guestId,
     bookAsGuest,
-    setIsNavigatingToDashboard
+    setIsNavigatingToDashboard,
+    selectedCategory,
+    numberOfSeats,
+    isStrictPreferences,
+    fareIsFlatRate,
   );
 
   const handleRegistrationSuccess = (email: string) => {
@@ -749,7 +767,7 @@ useEffect(() => {
   };
 
   const handleProceed = () => {
-    if (fareEstimate && pickup && destination) {
+    if (fareEstimate && pickup && destination && selectedCategory) {
       setShowPassengerDetails(true);
     }
   };
@@ -890,6 +908,122 @@ useEffect(() => {
       setShowCancel(false);
     }
   };
+
+
+const handleCategorySelect = (category: any) => {
+  const categoryValue = category?.categoryValue || category?.category?.value || category?.id;
+  const price = category?.estimatedPrice || category?.amount?.amount || category?.basePrice;
+  
+  if (!categoryValue) {
+    showNotification("Invalid vehicle category selected", "error");
+    return;
+  }
+  
+  setSelectedCategory(categoryValue);
+  setFareEstimate(typeof price === 'number' ? price : null);
+  setFareIsFlatRate(fareIsFlatRate);
+  setShowVehicleCategories(false);
+};
+
+const handleBackToCategories = () => {
+  setSelectedCategory(null);
+  setFareEstimate(null);
+  setShowVehicleCategories(true);
+};
+
+const fetchVehicleQuotes = async (airportCodename: string | undefined, destinationFareZone: string) => {
+  if (!airportCodename || !destinationFareZone?.trim()) {
+    setVehicleQuotes([]);
+    return;
+  }
+
+  setIsFetchingVehicles(true);
+  setVehicleQuotes([]);
+  
+  try {
+    const response = await apiClient.get(
+      `/fares/lookup?airport=${encodeURIComponent(airportCodename)}&search=${encodeURIComponent(destinationFareZone.trim())}`
+    );
+    
+    if (response.status === "success" && response.data?.breakdown) {
+      console.log('Fare lookup Response', response)
+      const quotes = response.data.breakdown.map((item: any) => ({
+        id: item.id,
+        name: item.category.label,
+        categoryValue: item.category.value,
+        description: getCategoryDescription(item.category.value),
+        estimatedPrice: item.amount.amount,
+        formattedPrice: item.amount.formatted,
+        currency: item.amount.currency,
+        available: true,
+        eta: '4-8 mins'
+      }));
+      
+      setVehicleQuotes(quotes);
+      setShowVehicleCategories(true);
+    } else if (response.status === "error") {
+      if (response.message?.includes("Rate limit") || response.message?.includes("throttled")) {
+        showNotification("Fare estimates temporarily unavailable. Please wait a moment.", "warning");
+        return;
+      }
+      showNotification("Could not fetch vehicle options. Please try again.", "error");
+    }
+  } catch (err) {
+    console.error("Error fetching vehicle quotes:", err);
+    showNotification("Could not fetch vehicle options. Please try again.", "error");
+  } finally {
+    setIsFetchingVehicles(false);
+  }
+};
+
+const getCategoryDescription = (value: string) => {
+  const map: Record<string, string> = {
+    'vip': 'Premium executive transport',
+    'legacy': 'Older cars from 2000 and above',
+    'e_hailing': 'Bolt, Uber & similar services',
+    'smart_ride': 'CNG / Smart Ride eco-friendly option',
+    'ev': 'Eco-friendly electric cars'
+  };
+  return map[value] || 'Standard ride';
+};
+
+const getCategoryIcon = (value: string) => {
+  switch (value) {
+    case 'vip':
+      return 'Shield';
+    case 'legacy':
+      return 'Car';
+    case 'e_hailing':
+      return 'Smartphone';
+    case 'smart_ride':
+      return 'Leaf';
+    case 'ev':
+      return 'Zap';
+    default:
+      return 'Car';
+  }
+};
+
+
+const handleDestinationSelected = (destinationName: string, destinationCoords: [number, number], fareZone: string) => {
+  setDestination(destinationName);
+  setDestinationCoords(destinationCoords);
+  console.log("before fetch vehicle quotes, PICKUP: PICKUPCODENAME", pickup, pickupCodename, fareZone)
+  // if (pickup && pickupCodename) {
+    // alert("fetchVehicleQuotes ws called")
+
+    // In handleDestinationSelected, add this warning
+if (!pickup || !pickupCodename) {
+  showNotification(
+    !pickup ? "Please select a pickup location first" : "Pickup location not fully loaded",
+    "warning"
+  );
+  return;
+}
+    fetchVehicleQuotes(pickupCodename, fareZone);
+  // }
+};
+
 
   const handleSignupInitiateSuccess = (
     data: { name: string; email: string; phone: string; password: string },
@@ -1789,6 +1923,23 @@ useEffect(() => {
             : undefined
         }
         screenPaddingClass={screenPaddingClass}
+
+
+        showVehicleCategories={showVehicleCategories}
+        setShowVehicleCategories={setShowVehicleCategories}
+        selectedCategory={selectedCategory}
+        setSelectedCategory={setSelectedCategory}
+        vehicleQuotes={vehicleQuotes}
+        isFetchingVehicles={isFetchingVehicles}
+        handleCategorySelect={handleCategorySelect}
+        handleBackToCategories={handleBackToCategories}
+        onDestinationSelected={handleDestinationSelected}
+        getCategoryIcon={getCategoryIcon}
+
+        numberOfSeats={numberOfSeats}
+        setNumberOfSeats={setNumberOfSeats}
+        isStrictPreferences={isStrictPreferences}
+        setIsStrictPreferences={setIsStrictPreferences}
       />
     );
   } else if (screen === "assigning") {
@@ -2000,6 +2151,13 @@ useEffect(() => {
             bookAsGuest={bookAsGuest}
             setTripRequestStatus={setTripRequestStatus}
             setTripRequestError={setTripRequestError}
+
+            numberOfSeats={numberOfSeats}
+            setNumberOfSeats={setNumberOfSeats}
+            isStrictPreferences={isStrictPreferences}
+            setIsStrictPreferences={setIsStrictPreferences}
+            selectedCategory={selectedCategory}
+            fareEstimate={fareEstimate}
           />
           {hasHydrated && !['trip-progress', 'trip-complete', 'booking', 'dashboard'].includes(screen) &&(
             <DirectionsModal

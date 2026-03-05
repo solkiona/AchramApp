@@ -1,5 +1,5 @@
 // src/components/app/modals/PassengerDetailsModal.tsx
-import { X, Package, Users, Accessibility } from 'lucide-react'; // Added Wheelchair icon
+import { X, Package, Users, Accessibility, Minus, Plus } from 'lucide-react'; // Added Wheelchair icon
 import { useState, useEffect } from 'react';
 
 
@@ -20,6 +20,14 @@ interface PassengerDetailsModalProps {
   setTripRequestError: (error: string | null) => void;
 
 
+  numberOfSeats: number;
+  setNumberOfSeats: (val: number) => void;
+  isStrictPreferences: boolean;
+  setIsStrictPreferences: (val: boolean) => void;
+  selectedCategory: string | null;
+  fareEstimate: number | null;
+
+
 }
 
 export default function PassengerDetailsModal({
@@ -37,6 +45,12 @@ export default function PassengerDetailsModal({
   getBookingFieldError,
   setTripRequestStatus,
   setTripRequestError,
+  numberOfSeats,
+  setNumberOfSeats,
+  isStrictPreferences,
+  setIsStrictPreferences,
+  selectedCategory,
+  fareEstimate,
 }: PassengerDetailsModalProps) {
   const [showRequirements, setShowRequirements] = useState(false);
 
@@ -177,6 +191,7 @@ export default function PassengerDetailsModal({
           {/* Use ChevronDown/Up instead of X for consistency */}
           {showRequirements ? <X className="w-5 h-5" /> : <span className="text-achrams-text-secondary">+ Add</span>}
         </button>
+        
         {showRequirements && (
           <div className="space-y-3 py-4">
             <label className="flex items-center gap-3 p-3 bg-achrams-bg-secondary rounded-xl cursor-pointer border border-achrams-border">
@@ -210,6 +225,65 @@ export default function PassengerDetailsModal({
               <Users className="w-5 h-5 text-achrams-text-secondary flex-shrink-0" />
               <span className="text-achrams-text-primary">Elderly passenger</span>
             </label>
+            {/* NEW: Seat Selector */}
+            
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-achrams-text-primary mb-2">
+              Number of Seats
+            </label>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setNumberOfSeats(Math.max(1, numberOfSeats - 1))}
+                className="w-10 h-10 rounded-lg bg-achrams-bg-secondary border border-achrams-border flex items-center justify-center hover:bg-achrams-bg-primary transition-colors"
+                disabled={numberOfSeats <= 1}
+              >
+                <Minus className="w-5 h-5 text-achrams-text-primary" />
+              </button>
+              <span className="text-lg font-semibold text-achrams-text-primary w-8 text-center">
+                {numberOfSeats}
+              </span>
+              <button
+                type="button"
+                onClick={() => setNumberOfSeats(Math.min(8, numberOfSeats + 1))}
+                className="w-10 h-10 rounded-lg bg-achrams-bg-secondary border border-achrams-border flex items-center justify-center hover:bg-achrams-bg-primary transition-colors"
+                disabled={numberOfSeats >= 8}
+              >
+                <Plus className="w-5 h-5 text-achrams-text-primary" />
+              </button>
+            </div>
+            <p className="text-xs text-achrams-text-secondary mt-1">
+              Maximum 8 seats per booking
+            </p>
+          </div>
+
+{/* NEW: Strict Preferences Toggle */}
+
+  <label className="flex items-center justify-between p-4 bg-achrams-bg-secondary rounded-xl border border-achrams-border cursor-pointer">
+    <div className="flex items-center gap-3">
+      <Users className="w-5 h-5 text-achrams-text-secondary" />
+      <div>
+        <div className="text-sm font-medium text-achrams-text-primary">Strict Preferences</div>
+        <div className="text-xs text-achrams-text-secondary">Match all requirements exactly</div>
+      </div>
+    </div>
+    <div className="relative">
+      <input
+        type="checkbox"
+        checked={isStrictPreferences}
+        onChange={(e) => setIsStrictPreferences(e.target.checked)}
+        className="sr-only"
+      />
+      <div className={`w-11 h-6 rounded-full transition-colors ${
+        isStrictPreferences ? 'bg-achrams-primary-solid' : 'bg-achrams-border'
+      }`}>
+        <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${
+          isStrictPreferences ? 'translate-x-5' : 'translate-x-0.5'
+        }`} />
+      </div>
+    </div>
+  </label>
+
           </div>
         )}
         <button

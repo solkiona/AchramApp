@@ -65,6 +65,9 @@ export const useTripWebSocket = ({
   isAuthenticated,
 }: UseTripWebSocketProps) => {
 
+
+  const API_BASE = process.env.NEXT_PUBLIC_WS_HOST
+
   const bookAsGuestRef = useRef(bookAsGuest);
   const isAuthenticatedRef = useRef(isAuthenticated);
 
@@ -242,7 +245,7 @@ export const useTripWebSocket = ({
         console.log("Closing existing WebSocket connection.");
         webSocketConnectionRef.current.close();
       }
-      const wsUrl = `wss://api.achrams.com.ng/ws/v1/app?trip_id=${tripId}`;
+      const wsUrl = `wss://${API_BASE}/ws/v1/app?trip_id=${tripId}`;
       console.log(
         `Attempting to connect to WebSocket for authenticated user: ${wsUrl}`
       );
@@ -444,7 +447,7 @@ export const useTripWebSocket = ({
         console.log("Closing existing WebSocket connection.");
         webSocketConnectionRef.current.close();
       }
-      const wsUrl = `wss://api.achrams.com.ng/ws/v1/app?guest_id=${guestId}`;
+      const wsUrl = `wss://${API_BASE}/ws/v1/app?guest_id=${guestId}`;
       console.log(`Attempting to connect to WebSocket for guest: ${wsUrl}`);
       const rws = new ReconnectingWebSocket(wsUrl, [], {
         connectionTimeout: 10000,

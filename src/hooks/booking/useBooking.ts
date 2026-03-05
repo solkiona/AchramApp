@@ -36,6 +36,10 @@ type UseBookingProps = {
   startWebSocketConnectionForAuthUser: (tripId: string) => void;
   bookTripRetry: boolean;
   setBookTripRetry: (retry: boolean) => void;
+  selectedCategory: string | null;
+  numberOfSeats: number;
+  isStrictPreferences: boolean;
+  sourceDomain: string;
 
 };
 
@@ -70,6 +74,10 @@ export const useBooking = ({
   startWebSocketConnectionForAuthUser,
   bookTripRetry,
   setBookTripRetry,
+  selectedCategory,
+  numberOfSeats,
+  isStrictPreferences,
+  sourceDomain,
 }: UseBookingProps) => {
 
   
@@ -187,8 +195,14 @@ export const useBooking = ({
         airportId,
         bookAsGuest,
         isAuthenticated,
-        formatPhoneNumber
+        formatPhoneNumber,
+        selectedCategory,
+        numberOfSeats,
+        isStrictPreferences,
+        sourceDomain,
+
       );
+
       console.log("Request Data:", tripData);
       if (typeof window !== "undefined" && window.sessionStorage) {
         sessionStorage.setItem("tripData", JSON.stringify(tripData));
@@ -227,6 +241,8 @@ export const useBooking = ({
         }
         
         response = await apiClient.post("/trips", tripData, undefined, undefined, true);
+
+        console.log('Trip Data', tripData)
       } else {
 
         
@@ -349,6 +365,11 @@ export const useBooking = ({
     bookTripRetry,
     setBookTripRetry,
     tripRequestStatus,
+
+    selectedCategory,
+    numberOfSeats,
+    isStrictPreferences,
+    sourceDomain,
   ]);
 
   return { handleRequestRide };

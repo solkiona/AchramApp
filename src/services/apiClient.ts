@@ -3,7 +3,7 @@ import axios, { AxiosRequestConfig } from 'axios';
 
 
 const apiClient = axios.create({
-  baseURL: 'https://api.achrams.com.ng',
+  baseURL: process.env.NEXT_PUBLIC_API_BASE,
   timeout: 10000, 
   headers: {
     'Content-Type': 'application/json',

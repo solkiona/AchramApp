@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
     { hostname: 'api.achrams.com.ng' },
     { hostname: 'ride.achrams.com.ng' },
     { hostname: 'book.achrams.com.ng' },
+    { hostname: 'api.staging.achrams.com.ng' },
   ],
 },
   typescript: {
