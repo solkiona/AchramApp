@@ -1,0 +1,1803 @@
+[
+
+{
+    "address_components": [
+        {
+            "long_name": "Lekki Phase 1",
+            "short_name": "Lekki Phase 1",
+            "types": [
+                "political",
+                "sublocality",
+                "sublocality_level_1"
+            ]
+        },
+        {
+            "long_name": "Lekki",
+            "short_name": "Lekki",
+            "types": [
+                "locality",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Lagos",
+            "short_name": "LA",
+            "types": [
+                "administrative_area_level_1",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Nigeria",
+            "short_name": "NG",
+            "types": [
+                "country",
+                "political"
+            ]
+        },
+        {
+            "long_name": "106104",
+            "short_name": "106104",
+            "types": [
+                "postal_code"
+            ]
+        }
+    ],
+    "adr_address": "<span class=\"extended-address\">Lekki Phase 1</span>, <span class=\"locality\">Lekki</span> <span class=\"postal-code\">106104</span>, <span class=\"region\">Lagos</span>, <span class=\"country-name\">Nigeria</span>",
+    "formatted_address": "Lekki Phase 1, Lekki 106104, Lagos, Nigeria",
+    "geometry": {
+        "location": {
+            "lat": 6.447809299999999,
+            "lng": 3.4723495
+        },
+        "viewport": {
+            "south": 6.430092641646302,
+            "west": 3.452560961065465,
+            "north": 6.470304477909568,
+            "east": 3.489471617911549
+        }
+    },
+    "icon": "https://maps.gstatic.com/mapfiles/place_api/icons/v1/png_71/geocode-71.png",
+    "icon_background_color": "#7B9EB0",
+    "icon_mask_base_uri": "https://maps.gstatic.com/mapfiles/place_api/icons/v2/generic_pinlet",
+    "name": "Lekki Phase 1",
+    "photos": [
+        {
+            "height": 3600,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/108716780027778169085\">Okechukwu Kalu</a>"
+            ],
+            "width": 4800
+        },
+        {
+            "height": 530,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/103189306296477350579\">Architectural Design engineer</a>"
+            ],
+            "width": 850
+        },
+        {
+            "height": 1024,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/111790829736779158410\">Timothy Agada</a>"
+            ],
+            "width": 768
+        },
+        {
+            "height": 2448,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/112878902120855348467\">John Ajogo</a>"
+            ],
+            "width": 3264
+        },
+        {
+            "height": 717,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/102961576718395069791\">Modele Dawodu</a>"
+            ],
+            "width": 1144
+        },
+        {
+            "height": 562,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/103189306296477350579\">Architectural Design engineer</a>"
+            ],
+            "width": 1000
+        },
+        {
+            "height": 465,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/103189306296477350579\">Architectural Design engineer</a>"
+            ],
+            "width": 625
+        },
+        {
+            "height": 2448,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/108716780027778169085\">Okechukwu Kalu</a>"
+            ],
+            "width": 3264
+        },
+        {
+            "height": 4640,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/101256227686879930169\">chinedu osigwe</a>"
+            ],
+            "width": 3472
+        },
+        {
+            "height": 3600,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/104609570543900068604\">Princewill Onyeka</a>"
+            ],
+            "width": 4800
+        }
+    ],
+    "place_id": "ChIJS9Q72lL0OxARKJ3cGrQfM0c",
+    "reference": "ChIJS9Q72lL0OxARKJ3cGrQfM0c",
+    "types": [
+        "political",
+        "sublocality",
+        "sublocality_level_1"
+    ],
+    "url": "https://maps.google.com/?cid=5130479258910367016",
+    "utc_offset": 60,
+    "vicinity": "Lekki Phase 1, Lekki",
+    "html_attributions": [],
+    "utc_offset_minutes": 60
+},
+
+{
+    "address_components": [
+        {
+            "long_name": "Adewale Adesina street",
+            "short_name": "Adewale Adesina St",
+            "types": [
+                "route"
+            ]
+        },
+        {
+            "long_name": "Lambasa",
+            "short_name": "Lambasa",
+            "types": [
+                "neighborhood",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Lekki",
+            "short_name": "Lekki",
+            "types": [
+                "locality",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Ajah/Sangotedo",
+            "short_name": "Ajah/Sangotedo",
+            "types": [
+                "administrative_area_level_3",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Eti Osa",
+            "short_name": "Eti Osa",
+            "types": [
+                "administrative_area_level_2",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Lagos",
+            "short_name": "LA",
+            "types": [
+                "administrative_area_level_1",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Nigeria",
+            "short_name": "NG",
+            "types": [
+                "country",
+                "political"
+            ]
+        },
+        {
+            "long_name": "106104",
+            "short_name": "106104",
+            "types": [
+                "postal_code"
+            ]
+        }
+    ],
+    "adr_address": "<span class=\"street-address\">Adewale Adesina St</span>, <span class=\"extended-address\">Lambasa</span>, <span class=\"locality\">Lekki</span> <span class=\"postal-code\">106104</span>, <span class=\"region\">Lagos</span>, <span class=\"country-name\">Nigeria</span>",
+    "formatted_address": "Adewale Adesina St, Lambasa, Lekki 106104, Lagos, Nigeria",
+    "geometry": {
+        "location": {
+            "lat": 6.493197,
+            "lng": 3.6002029
+        },
+        "viewport": {
+            "south": 6.491433269708497,
+            "west": 3.598841369708497,
+            "north": 6.494131230291502,
+            "east": 3.601539330291502
+        }
+    },
+    "icon": "https://maps.gstatic.com/mapfiles/place_api/icons/v1/png_71/geocode-71.png",
+    "icon_background_color": "#7B9EB0",
+    "icon_mask_base_uri": "https://maps.gstatic.com/mapfiles/place_api/icons/v2/generic_pinlet",
+    "name": "Adewale Adesina street",
+    "place_id": "EjlBZGV3YWxlIEFkZXNpbmEgU3QsIExhbWJhc2EsIExla2tpIDEwNjEwNCwgTGFnb3MsIE5pZ2VyaWEiLiosChQKEglLpRG2F_o7EBHj7GoLy0fsZhIUChIJZ0PH9V33OxARSs3B1vl9fmo",
+    "reference": "EjlBZGV3YWxlIEFkZXNpbmEgU3QsIExhbWJhc2EsIExla2tpIDEwNjEwNCwgTGFnb3MsIE5pZ2VyaWEiLiosChQKEglLpRG2F_o7EBHj7GoLy0fsZhIUChIJZ0PH9V33OxARSs3B1vl9fmo",
+    "types": [
+        "route"
+    ],
+    "url": "https://maps.google.com/?q=Adewale+Adesina+St,+Lambasa,+Lekki+106104,+Lagos,+Nigeria&ftid=0x103bfa17b611a54b:0x66ec47cb0b6aece3",
+    "utc_offset": 60,
+    "vicinity": "Adewale Adesina St, Lekki",
+    "html_attributions": [],
+    "utc_offset_minutes": 60
+},
+
+{
+    "address_components": [
+        {
+            "long_name": "Oshodi",
+            "short_name": "",
+            "types": []
+        },
+        {
+            "long_name": "Shop No. D1",
+            "short_name": "Shop No. D1",
+            "types": [
+                "subpremise"
+            ]
+        },
+        {
+            "long_name": "Banjoke Plaza",
+            "short_name": "Banjoke Plaza",
+            "types": [
+                "premise"
+            ]
+        },
+        {
+            "long_name": "Orile Oshodi",
+            "short_name": "Orile Oshodi",
+            "types": [
+                "neighborhood",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Lagos",
+            "short_name": "Lagos",
+            "types": [
+                "locality",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Orile-Oshodi",
+            "short_name": "Orile-Oshodi",
+            "types": [
+                "administrative_area_level_3",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Oshodi/Isolo",
+            "short_name": "Oshodi/Isolo",
+            "types": [
+                "administrative_area_level_2",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Lagos",
+            "short_name": "LA",
+            "types": [
+                "administrative_area_level_1",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Nigeria",
+            "short_name": "NG",
+            "types": [
+                "country",
+                "political"
+            ]
+        },
+        {
+            "long_name": "102214",
+            "short_name": "102214",
+            "types": [
+                "postal_code"
+            ]
+        }
+    ],
+    "adr_address": "Oshodi, Shop No. D1, Banjoke Plaza, <span class=\"extended-address\">Orile Oshodi</span>, <span class=\"locality\">Lagos</span> <span class=\"postal-code\">102214</span>, <span class=\"region\">Lagos</span>, <span class=\"country-name\">Nigeria</span>",
+    "business_status": "OPERATIONAL",
+    "current_opening_hours": {
+        "open_now": false,
+        "periods": [
+            {
+                "close": {
+                    "date": "2026-03-08",
+                    "day": 0,
+                    "time": "2000"
+                },
+                "open": {
+                    "date": "2026-03-08",
+                    "day": 0,
+                    "time": "0800"
+                }
+            },
+            {
+                "close": {
+                    "date": "2026-03-09",
+                    "day": 1,
+                    "time": "2000"
+                },
+                "open": {
+                    "date": "2026-03-09",
+                    "day": 1,
+                    "time": "0800"
+                }
+            },
+            {
+                "close": {
+                    "date": "2026-03-10",
+                    "day": 2,
+                    "time": "2000"
+                },
+                "open": {
+                    "date": "2026-03-10",
+                    "day": 2,
+                    "time": "0800"
+                }
+            },
+            {
+                "close": {
+                    "date": "2026-03-11",
+                    "day": 3,
+                    "time": "2000"
+                },
+                "open": {
+                    "date": "2026-03-11",
+                    "day": 3,
+                    "time": "0800"
+                }
+            },
+            {
+                "close": {
+                    "date": "2026-03-12",
+                    "day": 4,
+                    "time": "2000"
+                },
+                "open": {
+                    "date": "2026-03-12",
+                    "day": 4,
+                    "time": "0800"
+                }
+            },
+            {
+                "close": {
+                    "date": "2026-03-06",
+                    "day": 5,
+                    "time": "2000"
+                },
+                "open": {
+                    "date": "2026-03-06",
+                    "day": 5,
+                    "time": "0800"
+                }
+            },
+            {
+                "close": {
+                    "date": "2026-03-07",
+                    "day": 6,
+                    "time": "2000"
+                },
+                "open": {
+                    "date": "2026-03-07",
+                    "day": 6,
+                    "time": "0800"
+                }
+            }
+        ],
+        "weekday_text": [
+            "Monday: 8:00 AM – 8:00 PM",
+            "Tuesday: 8:00 AM – 8:00 PM",
+            "Wednesday: 8:00 AM – 8:00 PM",
+            "Thursday: 8:00 AM – 8:00 PM",
+            "Friday: 8:00 AM – 8:00 PM",
+            "Saturday: 8:00 AM – 8:00 PM",
+            "Sunday: 8:00 AM – 8:00 PM"
+        ]
+    },
+    "formatted_address": "Oshodi, Shop No. D1, Banjoke Plaza, Orile Oshodi, Lagos 102214, Lagos, Nigeria",
+    "formatted_phone_number": "0708 668 6983",
+    "geometry": {
+        "location": {
+            "lat": 6.556178999999999,
+            "lng": 3.350401
+        },
+        "viewport": {
+            "south": 6.554788919708497,
+            "west": 3.349073469708498,
+            "north": 6.557486880291501,
+            "east": 3.351771430291502
+        }
+    },
+    "icon": "https://maps.gstatic.com/mapfiles/place_api/icons/v1/png_71/shopping-71.png",
+    "icon_background_color": "#4B96F3",
+    "icon_mask_base_uri": "https://maps.gstatic.com/mapfiles/place_api/icons/v2/shopping_pinlet",
+    "international_phone_number": "+234 708 668 6983",
+    "name": "St Michaels",
+    "opening_hours": {
+        "open_now": false,
+        "periods": [
+            {
+                "close": {
+                    "day": 0,
+                    "time": "2000",
+                    "hours": 20,
+                    "minutes": 0,
+                    "nextDate": 1772996400000
+                },
+                "open": {
+                    "day": 0,
+                    "time": "0800",
+                    "hours": 8,
+                    "minutes": 0,
+                    "nextDate": 1772953200000
+                }
+            },
+            {
+                "close": {
+                    "day": 1,
+                    "time": "2000",
+                    "hours": 20,
+                    "minutes": 0,
+                    "nextDate": 1773082800000
+                },
+                "open": {
+                    "day": 1,
+                    "time": "0800",
+                    "hours": 8,
+                    "minutes": 0,
+                    "nextDate": 1773039600000
+                }
+            },
+            {
+                "close": {
+                    "day": 2,
+                    "time": "2000",
+                    "hours": 20,
+                    "minutes": 0,
+                    "nextDate": 1773169200000
+                },
+                "open": {
+                    "day": 2,
+                    "time": "0800",
+                    "hours": 8,
+                    "minutes": 0,
+                    "nextDate": 1773126000000
+                }
+            },
+            {
+                "close": {
+                    "day": 3,
+                    "time": "2000",
+                    "hours": 20,
+                    "minutes": 0,
+                    "nextDate": 1773255600000
+                },
+                "open": {
+                    "day": 3,
+                    "time": "0800",
+                    "hours": 8,
+                    "minutes": 0,
+                    "nextDate": 1773212400000
+                }
+            },
+            {
+                "close": {
+                    "day": 4,
+                    "time": "2000",
+                    "hours": 20,
+                    "minutes": 0,
+                    "nextDate": 1773342000000
+                },
+                "open": {
+                    "day": 4,
+                    "time": "0800",
+                    "hours": 8,
+                    "minutes": 0,
+                    "nextDate": 1773298800000
+                }
+            },
+            {
+                "close": {
+                    "day": 5,
+                    "time": "2000",
+                    "hours": 20,
+                    "minutes": 0,
+                    "nextDate": 1772823600000
+                },
+                "open": {
+                    "day": 5,
+                    "time": "0800",
+                    "hours": 8,
+                    "minutes": 0,
+                    "nextDate": 1772780400000
+                }
+            },
+            {
+                "close": {
+                    "day": 6,
+                    "time": "2000",
+                    "hours": 20,
+                    "minutes": 0,
+                    "nextDate": 1772910000000
+                },
+                "open": {
+                    "day": 6,
+                    "time": "0800",
+                    "hours": 8,
+                    "minutes": 0,
+                    "nextDate": 1772866800000
+                }
+            }
+        ],
+        "weekday_text": [
+            "Monday: 8:00 AM – 8:00 PM",
+            "Tuesday: 8:00 AM – 8:00 PM",
+            "Wednesday: 8:00 AM – 8:00 PM",
+            "Thursday: 8:00 AM – 8:00 PM",
+            "Friday: 8:00 AM – 8:00 PM",
+            "Saturday: 8:00 AM – 8:00 PM",
+            "Sunday: 8:00 AM – 8:00 PM"
+        ]
+    },
+    "place_id": "ChIJd-Ut3O-NOxAR7LQIklXMyrI",
+    "plus_code": {
+        "compound_code": "H942+F5 Lagos, Nigeria",
+        "global_code": "6FR5H942+F5"
+    },
+    "reference": "ChIJd-Ut3O-NOxAR7LQIklXMyrI",
+    "types": [
+        "clothing_store",
+        "establishment",
+        "point_of_interest",
+        "store"
+    ],
+    "url": "https://maps.google.com/?cid=12883334351941055724",
+    "utc_offset": 60,
+    "vicinity": "Shop No. D1, Banjoke Plaza, Oshodi, Lagos",
+    "html_attributions": [],
+    "utc_offset_minutes": 60
+},
+
+{
+    "address_components": [
+        {
+            "long_name": "Salvation Road",
+            "short_name": "Salvation Rd",
+            "types": [
+                "route"
+            ]
+        },
+        {
+            "long_name": "Choba",
+            "short_name": "Choba",
+            "types": [
+                "administrative_area_level_3",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Obio/Akpor",
+            "short_name": "Obio/Akpor",
+            "types": [
+                "administrative_area_level_2",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Rivers",
+            "short_name": "RV",
+            "types": [
+                "administrative_area_level_1",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Nigeria",
+            "short_name": "NG",
+            "types": [
+                "country",
+                "political"
+            ]
+        },
+        {
+            "long_name": "500102",
+            "short_name": "500102",
+            "types": [
+                "postal_code"
+            ]
+        }
+    ],
+    "adr_address": "<span class=\"street-address\">Salvation Rd</span>, <span class=\"locality\">Choba</span> <span class=\"postal-code\">500102</span>, <span class=\"region\">Rivers</span>, <span class=\"country-name\">Nigeria</span>",
+    "formatted_address": "Salvation Rd, Choba 500102, Rivers, Nigeria",
+    "geometry": {
+        "location": {
+            "lat": 4.8807144,
+            "lng": 6.9364947
+        },
+        "viewport": {
+            "south": 4.877408999999974,
+            "west": 6.934944669708497,
+            "north": 4.884141200000025,
+            "east": 6.937642630291502
+        }
+    },
+    "icon": "https://maps.gstatic.com/mapfiles/place_api/icons/v1/png_71/geocode-71.png",
+    "icon_background_color": "#7B9EB0",
+    "icon_mask_base_uri": "https://maps.gstatic.com/mapfiles/place_api/icons/v2/generic_pinlet",
+    "name": "Salvation Road",
+    "place_id": "EitTYWx2YXRpb24gUmQsIENob2JhIDUwMDEwMiwgUml2ZXJzLCBOaWdlcmlhIi4qLAoUChIJt3lWrG7QaRARawbjR5kJ_s4SFAoSCcd0qVhq0GkQEaKr5y4JmfdB",
+    "reference": "EitTYWx2YXRpb24gUmQsIENob2JhIDUwMDEwMiwgUml2ZXJzLCBOaWdlcmlhIi4qLAoUChIJt3lWrG7QaRARawbjR5kJ_s4SFAoSCcd0qVhq0GkQEaKr5y4JmfdB",
+    "types": [
+        "route"
+    ],
+    "url": "https://maps.google.com/?q=Salvation+Rd,+Choba+500102,+Rivers,+Nigeria&ftid=0x1069d06eac5679b7:0xcefe099947e3066b",
+    "utc_offset": 60,
+    "vicinity": "Salvation Rd, Choba",
+    "html_attributions": [],
+    "utc_offset_minutes": 60
+},
+
+{
+    "address_components": [
+        {
+            "long_name": "Eleme junction",
+            "short_name": "Eleme junction",
+            "types": [
+                "premise"
+            ]
+        },
+        {
+            "long_name": "KM 17",
+            "short_name": "KM 17",
+            "types": [
+                "street_number"
+            ]
+        },
+        {
+            "long_name": "Ahoada East - West Road",
+            "short_name": "Ahoada East - West Rd",
+            "types": [
+                "route"
+            ]
+        },
+        {
+            "long_name": "Umurolu",
+            "short_name": "Umurolu",
+            "types": [
+                "political",
+                "sublocality",
+                "sublocality_level_1"
+            ]
+        },
+        {
+            "long_name": "Port Harcourt",
+            "short_name": "Port Harcourt",
+            "types": [
+                "locality",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Rumuokwu (2b)",
+            "short_name": "Rumuokwu (2b)",
+            "types": [
+                "administrative_area_level_3",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Obio/Akpor",
+            "short_name": "Obio/Akpor",
+            "types": [
+                "administrative_area_level_2",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Rivers",
+            "short_name": "RV",
+            "types": [
+                "administrative_area_level_1",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Nigeria",
+            "short_name": "NG",
+            "types": [
+                "country",
+                "political"
+            ]
+        },
+        {
+            "long_name": "500102",
+            "short_name": "500102",
+            "types": [
+                "postal_code"
+            ]
+        }
+    ],
+    "adr_address": "Eleme junction, <span class=\"street-address\">KM 17 Ahoada East - West Rd</span>, <span class=\"extended-address\">Umurolu</span>, <span class=\"locality\">Port Harcourt</span> <span class=\"postal-code\">500102</span>, <span class=\"region\">Rivers</span>, <span class=\"country-name\">Nigeria</span>",
+    "formatted_address": "Eleme junction, KM 17 Ahoada East - West Rd, Umurolu, Port Harcourt 500102, Rivers, Nigeria",
+    "geometry": {
+        "location": {
+            "lat": 4.855484199999999,
+            "lng": 7.0680049
+        },
+        "viewport": {
+            "south": 4.853884069708498,
+            "west": 7.066611819708498,
+            "north": 4.856582030291502,
+            "east": 7.069309780291503
+        }
+    },
+    "icon": "https://maps.gstatic.com/mapfiles/place_api/icons/v1/png_71/geocode-71.png",
+    "icon_background_color": "#7B9EB0",
+    "icon_mask_base_uri": "https://maps.gstatic.com/mapfiles/place_api/icons/v2/generic_pinlet",
+    "name": "Eleme junction",
+    "place_id": "ChIJ4-PNt2HNaRARHeXNiQwxtoM",
+    "reference": "ChIJ4-PNt2HNaRARHeXNiQwxtoM",
+    "types": [
+        "premise",
+        "street_address"
+    ],
+    "url": "https://maps.google.com/?cid=9490827194651239709",
+    "utc_offset": 60,
+    "vicinity": "KM 17 Ahoada East - West Rd, Port Harcourt",
+    "html_attributions": [],
+    "utc_offset_minutes": 60
+},
+
+
+{
+    "address_components": [
+        {
+            "long_name": "VWPF+2XP",
+            "short_name": "VWPF+2XP",
+            "types": [
+                "plus_code"
+            ]
+        },
+        {
+            "long_name": "Alakahia",
+            "short_name": "Alakahia",
+            "types": [
+                "locality",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Choba",
+            "short_name": "Choba",
+            "types": [
+                "administrative_area_level_3",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Obio/Akpor",
+            "short_name": "Obio/Akpor",
+            "types": [
+                "administrative_area_level_2",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Rivers",
+            "short_name": "RV",
+            "types": [
+                "administrative_area_level_1",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Nigeria",
+            "short_name": "NG",
+            "types": [
+                "country",
+                "political"
+            ]
+        },
+        {
+            "long_name": "500102",
+            "short_name": "500102",
+            "types": [
+                "postal_code"
+            ]
+        }
+    ],
+    "adr_address": "VWPF+2XP, <span class=\"locality\">Alakahia</span> <span class=\"postal-code\">500102</span>, <span class=\"region\">Rivers</span>, <span class=\"country-name\">Nigeria</span>",
+    "business_status": "OPERATIONAL",
+    "formatted_address": "VWPF+2XP, Alakahia 500102, Rivers, Nigeria",
+    "formatted_phone_number": "0814 942 2655",
+    "geometry": {
+        "location": {
+            "lat": 4.8850902,
+            "lng": 6.924938699999999
+        },
+        "viewport": {
+            "south": 4.883779369708498,
+            "west": 6.923520669708497,
+            "north": 4.886477330291503,
+            "east": 6.926218630291502
+        }
+    },
+    "icon": "https://maps.gstatic.com/mapfiles/place_api/icons/v1/png_71/school-71.png",
+    "icon_background_color": "#7B9EB0",
+    "icon_mask_base_uri": "https://maps.gstatic.com/mapfiles/place_api/icons/v2/school_pinlet",
+    "international_phone_number": "+234 814 942 2655",
+    "name": "Alakahia Primary school",
+    "photos": [
+        {
+            "height": 4624,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/116159871474429714183\">Beautiful Heart Lois F.O</a>"
+            ],
+            "width": 3468
+        },
+        {
+            "height": 2064,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/106429987042302413728\">Dora Uwemedimo</a>"
+            ],
+            "width": 1548
+        },
+        {
+            "height": 1280,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/106275380355104681170\">Salvation Isaac-Wali</a>"
+            ],
+            "width": 960
+        }
+    ],
+    "place_id": "ChIJbbAFbfPRaRAROI3Ydcnusfw",
+    "reference": "ChIJbbAFbfPRaRAROI3Ydcnusfw",
+    "types": [
+        "establishment",
+        "point_of_interest",
+        "school"
+    ],
+    "url": "https://maps.google.com/?cid=18208597317468589368",
+    "utc_offset": 60,
+    "vicinity": "VWPF+2XP, Alakahia",
+    "html_attributions": [],
+    "utc_offset_minutes": 60
+},
+
+
+{
+    "address_components": [
+        {
+            "long_name": "147",
+            "short_name": "147",
+            "types": [
+                "street_number"
+            ]
+        },
+        {
+            "long_name": "Adaelu road",
+            "short_name": "Adaelu road",
+            "types": [
+                "landmark"
+            ]
+        },
+        {
+            "long_name": "Mopol base",
+            "short_name": "Mopol base",
+            "types": [
+                "route"
+            ]
+        },
+        {
+            "long_name": "Abayi",
+            "short_name": "Abayi",
+            "types": [
+                "neighborhood",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Aba",
+            "short_name": "Aba",
+            "types": [
+                "locality",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Amasator",
+            "short_name": "Amasator",
+            "types": [
+                "administrative_area_level_3",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Osisioma Ngwa",
+            "short_name": "Osisioma Ngwa",
+            "types": [
+                "administrative_area_level_2",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Abia",
+            "short_name": "AB",
+            "types": [
+                "administrative_area_level_1",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Nigeria",
+            "short_name": "NG",
+            "types": [
+                "country",
+                "political"
+            ]
+        },
+        {
+            "long_name": "453115",
+            "short_name": "453115",
+            "types": [
+                "postal_code"
+            ]
+        }
+    ],
+    "adr_address": "<span class=\"street-address\">147 Mopol base</span>, off Adaelu road, <span class=\"extended-address\">Abayi</span>, <span class=\"locality\">Aba</span> <span class=\"postal-code\">453115</span>, <span class=\"region\">Abia</span>, <span class=\"country-name\">Nigeria</span>",
+    "business_status": "OPERATIONAL",
+    "current_opening_hours": {
+        "open_now": true,
+        "periods": [
+            {
+                "close": {
+                    "date": "2026-03-12",
+                    "day": 4,
+                    "time": "2359",
+                    "truncated": true
+                },
+                "open": {
+                    "date": "2026-03-06",
+                    "day": 5,
+                    "time": "0000",
+                    "truncated": true
+                }
+            }
+        ],
+        "weekday_text": [
+            "Monday: Open 24 hours",
+            "Tuesday: Open 24 hours",
+            "Wednesday: Open 24 hours",
+            "Thursday: Open 24 hours",
+            "Friday: Open 24 hours",
+            "Saturday: Open 24 hours",
+            "Sunday: Open 24 hours"
+        ]
+    },
+    "formatted_address": "147 Mopol base, off Adaelu road, Abayi, Aba 453115, Abia, Nigeria",
+    "formatted_phone_number": "0806 613 3195",
+    "geometry": {
+        "location": {
+            "lat": 5.1383218,
+            "lng": 7.347063500000001
+        },
+        "viewport": {
+            "south": 5.136801419708498,
+            "west": 7.345711519708497,
+            "north": 5.139499380291503,
+            "east": 7.348409480291502
+        }
+    },
+    "icon": "https://maps.gstatic.com/mapfiles/place_api/icons/v1/png_71/restaurant-71.png",
+    "icon_background_color": "#FF9E67",
+    "icon_mask_base_uri": "https://maps.gstatic.com/mapfiles/place_api/icons/v2/restaurant_pinlet",
+    "international_phone_number": "+234 806 613 3195",
+    "name": "Osisioma Junction",
+    "opening_hours": {
+        "open_now": true,
+        "periods": [
+            {
+                "open": {
+                    "day": 0,
+                    "time": "0000",
+                    "hours": 0,
+                    "minutes": 0,
+                    "nextDate": 1772924400000
+                }
+            }
+        ],
+        "weekday_text": [
+            "Monday: Open 24 hours",
+            "Tuesday: Open 24 hours",
+            "Wednesday: Open 24 hours",
+            "Thursday: Open 24 hours",
+            "Friday: Open 24 hours",
+            "Saturday: Open 24 hours",
+            "Sunday: Open 24 hours"
+        ]
+    },
+    "photos": [
+        {
+            "height": 1499,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/109554150341505086956\">Akinadewariz Olawale</a>"
+            ],
+            "width": 1125
+        },
+        {
+            "height": 4160,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/102924691080831071390\">Obiorah Chidubem</a>"
+            ],
+            "width": 3120
+        },
+        {
+            "height": 4160,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/102924691080831071390\">Obiorah Chidubem</a>"
+            ],
+            "width": 3120
+        },
+        {
+            "height": 3264,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/113497970578540683394\">John Moses</a>"
+            ],
+            "width": 2448
+        },
+        {
+            "height": 3264,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/113497970578540683394\">John Moses</a>"
+            ],
+            "width": 2448
+        },
+        {
+            "height": 4064,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/102322968623374986232\">Përry Plātû</a>"
+            ],
+            "width": 3048
+        },
+        {
+            "height": 4064,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/102322968623374986232\">Përry Plātû</a>"
+            ],
+            "width": 3048
+        },
+        {
+            "height": 3264,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/113497970578540683394\">John Moses</a>"
+            ],
+            "width": 2448
+        },
+        {
+            "height": 1280,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/113497970578540683394\">John Moses</a>"
+            ],
+            "width": 720
+        },
+        {
+            "height": 4064,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/102322968623374986232\">Përry Plātû</a>"
+            ],
+            "width": 3048
+        }
+    ],
+    "place_id": "ChIJXV_pIV-bQhARNliI64cYMUk",
+    "plus_code": {
+        "compound_code": "48QW+8R Aba, Nigeria",
+        "global_code": "6FQ948QW+8R"
+    },
+    "rating": 4.3,
+    "reference": "ChIJXV_pIV-bQhARNliI64cYMUk",
+    "reviews": [
+        {
+            "author_name": "Obiorah Chidubem",
+            "author_url": "https://www.google.com/maps/contrib/102924691080831071390/reviews",
+            "language": "en",
+            "original_language": "en",
+            "profile_photo_url": "https://lh3.googleusercontent.com/a-/ALV-UjWogJ1j5MWlpSQmcltmyP8rCJk0j1daclQbI4LGuXRDdKrdIVug=s128-c0x00000000-cc-rp-mo-ba4",
+            "rating": 4,
+            "relative_time_description": "2 years ago",
+            "text": "Towards my journey from umuahia to Aba, I gat to cross the osisioma junction that houses the Abia flyer over in aba. I can say that the flyer has beat down the rate of traffic at this juncture and has made it a junction with rush hour.",
+            "time": 1707496125,
+            "translated": false
+        },
+        {
+            "author_name": "Stanley Okeafor",
+            "author_url": "https://www.google.com/maps/contrib/108031953412808960343/reviews",
+            "language": "en",
+            "original_language": "en",
+            "profile_photo_url": "https://lh3.googleusercontent.com/a-/ALV-UjX1u7SbWdc1taqg0GRUenglbqa__E9p5JaSkhbm2IJKj3PDpZ8=s128-c0x00000000-cc-rp-mo-ba3",
+            "rating": 5,
+            "relative_time_description": "a month ago",
+            "text": "Good job as regards to the bridge construction and diversions.",
+            "time": 1769947520,
+            "translated": false
+        },
+        {
+            "author_name": "Odiscodigitals",
+            "author_url": "https://www.google.com/maps/contrib/109819102112667332109/reviews",
+            "language": "en",
+            "original_language": "en",
+            "profile_photo_url": "https://lh3.googleusercontent.com/a/ACg8ocJf-n2BJcX_FyqmOIl1PTZjpY9OOdNfo0cUeeOvVk2_l-fvrQ=s128-c0x00000000-cc-rp-mo",
+            "rating": 2,
+            "relative_time_description": "a month ago",
+            "text": "Nice place to spend time and do business",
+            "time": 1770134225,
+            "translated": false
+        },
+        {
+            "author_name": "Monsigia Macsat",
+            "author_url": "https://www.google.com/maps/contrib/113388290389363248957/reviews",
+            "language": "en",
+            "original_language": "en",
+            "profile_photo_url": "https://lh3.googleusercontent.com/a/ACg8ocIWEnlzE_KJnqBfl0K_cbfbWRWsI_uxiGMXbzMAaSLtynQ5iA=s128-c0x00000000-cc-rp-mo",
+            "rating": 5,
+            "relative_time_description": "3 months ago",
+            "text": "A very busy place where you can get local goods",
+            "time": 1763962446,
+            "translated": false
+        },
+        {
+            "author_name": "Clinton Morrison",
+            "author_url": "https://www.google.com/maps/contrib/115471557185047703754/reviews",
+            "language": "en",
+            "original_language": "en",
+            "profile_photo_url": "https://lh3.googleusercontent.com/a-/ALV-UjW_qksESKivX7YN8lHZR4CQNhLQdUCnbjs8aR6dQz4xhxyAvrs=s128-c0x00000000-cc-rp-mo",
+            "rating": 5,
+            "relative_time_description": "3 months ago",
+            "text": "You will get everything you need",
+            "time": 1762522276,
+            "translated": false
+        }
+    ],
+    "types": [
+        "establishment",
+        "food",
+        "point_of_interest",
+        "restaurant"
+    ],
+    "url": "https://maps.google.com/?cid=5274023610678794294",
+    "user_ratings_total": 47,
+    "utc_offset": 60,
+    "vicinity": "147 Mopol base, Adaelu road, Aba",
+    "html_attributions": [],
+    "utc_offset_minutes": 60
+},
+
+{
+    "address_components": [
+        {
+            "long_name": "Port Harcourt Road",
+            "short_name": "Port Harcourt Rd",
+            "types": [
+                "route"
+            ]
+        },
+        {
+            "long_name": "Aba",
+            "short_name": "Aba",
+            "types": [
+                "locality",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Aba South",
+            "short_name": "Aba South",
+            "types": [
+                "administrative_area_level_2",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Abia",
+            "short_name": "AB",
+            "types": [
+                "administrative_area_level_1",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Nigeria",
+            "short_name": "NG",
+            "types": [
+                "country",
+                "political"
+            ]
+        }
+    ],
+    "adr_address": "<span class=\"street-address\">Port Harcourt Rd</span>, <span class=\"locality\">Aba</span>, <span class=\"region\">Abia</span>, <span class=\"country-name\">Nigeria</span>",
+    "formatted_address": "Port Harcourt Rd, Aba, Abia, Nigeria",
+    "geometry": {
+        "location": {
+            "lat": 5.0835964,
+            "lng": 7.3444521
+        },
+        "viewport": {
+            "south": 5.065356299999974,
+            "west": 7.327484600000001,
+            "north": 5.100930300000024,
+            "east": 7.362186500000001
+        }
+    },
+    "icon": "https://maps.gstatic.com/mapfiles/place_api/icons/v1/png_71/geocode-71.png",
+    "icon_background_color": "#7B9EB0",
+    "icon_mask_base_uri": "https://maps.gstatic.com/mapfiles/place_api/icons/v2/generic_pinlet",
+    "name": "Port Harcourt Road",
+    "photos": [
+        {
+            "height": 1424,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/100117777906636533155\">munachi okorie</a>"
+            ],
+            "width": 1068
+        }
+    ],
+    "place_id": "EiRQb3J0IEhhcmNvdXJ0IFJkLCBBYmEsIEFiaWEsIE5pZ2VyaWEiLiosChQKEgm9fhzgGJxCEBFKvNhIK10UeBIUChIJ8_swjzCZQhARobyMDL9eNJg",
+    "reference": "EiRQb3J0IEhhcmNvdXJ0IFJkLCBBYmEsIEFiaWEsIE5pZ2VyaWEiLiosChQKEgm9fhzgGJxCEBFKvNhIK10UeBIUChIJ8_swjzCZQhARobyMDL9eNJg",
+    "types": [
+        "route"
+    ],
+    "url": "https://maps.google.com/?q=Port+Harcourt+Rd,+Aba,+Abia,+Nigeria&ftid=0x10429c18e01c7ebd:0x78145d2b48d8bc4a",
+    "utc_offset": 60,
+    "vicinity": "Port Harcourt Rd, Aba",
+    "html_attributions": [],
+    "utc_offset_minutes": 60
+},
+
+{
+    "address_components": [
+        {
+            "long_name": "Ariaria mkt, A line Aba",
+            "short_name": "",
+            "types": []
+        },
+        {
+            "long_name": "487M+FVC",
+            "short_name": "487M+FVC",
+            "types": [
+                "plus_code"
+            ]
+        },
+        {
+            "long_name": "Ariaria",
+            "short_name": "Ariaria",
+            "types": [
+                "neighborhood",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Aba",
+            "short_name": "Aba",
+            "types": [
+                "locality",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Amaitolu Mbutu Umuojima",
+            "short_name": "Amaitolu Mbutu Umuojima",
+            "types": [
+                "administrative_area_level_3",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Aba North",
+            "short_name": "Aba North",
+            "types": [
+                "administrative_area_level_2",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Abia",
+            "short_name": "AB",
+            "types": [
+                "administrative_area_level_1",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Nigeria",
+            "short_name": "NG",
+            "types": [
+                "country",
+                "political"
+            ]
+        },
+        {
+            "long_name": "450102",
+            "short_name": "450102",
+            "types": [
+                "postal_code"
+            ]
+        }
+    ],
+    "adr_address": "Ariaria mkt, A line Aba, 487M+FVC, <span class=\"extended-address\">Ariaria</span>, <span class=\"locality\">Aba</span> <span class=\"postal-code\">450102</span>, <span class=\"region\">Abia</span>, <span class=\"country-name\">Nigeria</span>",
+    "business_status": "OPERATIONAL",
+    "formatted_address": "Ariaria mkt, A line Aba, 487M+FVC, Ariaria, Aba 450102, Abia, Nigeria",
+    "geometry": {
+        "location": {
+            "lat": 5.1136793,
+            "lng": 7.3346508
+        },
+        "viewport": {
+            "south": 5.112166819708498,
+            "west": 7.333427019708498,
+            "north": 5.114864780291502,
+            "east": 7.336124980291502
+        }
+    },
+    "icon": "https://maps.gstatic.com/mapfiles/place_api/icons/v1/png_71/generic_business-71.png",
+    "icon_background_color": "#7B9EB0",
+    "icon_mask_base_uri": "https://maps.gstatic.com/mapfiles/place_api/icons/v2/generic_pinlet",
+    "name": "Ariaria international market, Aba",
+    "photos": [
+        {
+            "height": 3968,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/112962304733908810472\">JEPHTHAH UMEZURUIKE</a>"
+            ],
+            "width": 2976
+        },
+        {
+            "height": 3510,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/110184957632177333703\">Chika Nwankwo</a>"
+            ],
+            "width": 4680
+        },
+        {
+            "height": 1920,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/100619513767225358650\">Gabriel Okeke</a>"
+            ],
+            "width": 2560
+        },
+        {
+            "height": 3024,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/105776754565376439189\">Dandy Ahuruonye</a>"
+            ],
+            "width": 4032
+        },
+        {
+            "height": 457,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/102969865251289749017\">Joshua Sunday</a>"
+            ],
+            "width": 324
+        },
+        {
+            "height": 4080,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/109153609260074748578\">Itodo Kenneth</a>"
+            ],
+            "width": 1792
+        },
+        {
+            "height": 1080,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/116225239485136879868\">Uduak Okposin</a>"
+            ],
+            "width": 810
+        },
+        {
+            "height": 1500,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/112201436249593566736\">Loco Enterprise</a>"
+            ],
+            "width": 1125
+        },
+        {
+            "height": 1792,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/109153609260074748578\">Itodo Kenneth</a>"
+            ],
+            "width": 4080
+        },
+        {
+            "height": 1499,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/112201436249593566736\">Loco Enterprise</a>"
+            ],
+            "width": 1125
+        }
+    ],
+    "place_id": "ChIJP_jKQ5-bQhAR4Z-GjO8-Upk",
+    "rating": 4.3,
+    "reference": "ChIJP_jKQ5-bQhAR4Z-GjO8-Upk",
+    "reviews": [
+        {
+            "author_name": "Dandy Ahuruonye",
+            "author_url": "https://www.google.com/maps/contrib/105776754565376439189/reviews",
+            "language": "en",
+            "original_language": "en",
+            "profile_photo_url": "https://lh3.googleusercontent.com/a-/ALV-UjVJpq71NKcP46SSBh_TZHF5cC7YbBmYzNsvk9aJJQ4Esx9zKR8YSQ=s128-c0x00000000-cc-rp-mo-ba5",
+            "rating": 4,
+            "relative_time_description": "a month ago",
+            "text": "The rebuilding is speeding up, but there’s still a lot of work to be done",
+            "time": 1768400931,
+            "translated": false
+        },
+        {
+            "author_name": "Olubukola Adepoju",
+            "author_url": "https://www.google.com/maps/contrib/108976255861694855984/reviews",
+            "language": "en",
+            "original_language": "en",
+            "profile_photo_url": "https://lh3.googleusercontent.com/a-/ALV-UjXNzdWZ9_RwtpUXnSV54-T7SQwtnjW2s0y2mr3_MKRiLPgD_uXE=s128-c0x00000000-cc-rp-mo-ba5",
+            "rating": 4,
+            "relative_time_description": "2 weeks ago",
+            "text": "A large market with everything you can think of at very very great bargains if you know your way around",
+            "time": 1770947917,
+            "translated": false
+        },
+        {
+            "author_name": "Chinedu Okenna",
+            "author_url": "https://www.google.com/maps/contrib/113580360329569046179/reviews",
+            "language": "en",
+            "original_language": "en",
+            "profile_photo_url": "https://lh3.googleusercontent.com/a-/ALV-UjVpw555fMCB4TMcB4MX70nV-UWfmAtwcLIDMCFFk6sEUGBr3bk9=s128-c0x00000000-cc-rp-mo",
+            "rating": 5,
+            "relative_time_description": "a month ago",
+            "text": "You can get varieties of goods here",
+            "time": 1767741259,
+            "translated": false
+        },
+        {
+            "author_name": "Chiemela Ahuaza",
+            "author_url": "https://www.google.com/maps/contrib/117515225686224224495/reviews",
+            "language": "en",
+            "original_language": "en",
+            "profile_photo_url": "https://lh3.googleusercontent.com/a-/ALV-UjX6cQvNtSopGY6q9y4zxH8MPUfPT2dgR2SisTfEdf1tP0u4KDZl=s128-c0x00000000-cc-rp-mo-ba2",
+            "rating": 4,
+            "relative_time_description": "3 months ago",
+            "text": "Big market where you can get anything you need. From clothes to food items as well as kitchen utensils, plastics, souvenirs, drinks, bridal wear, and some building materials",
+            "time": 1763913422,
+            "translated": false
+        },
+        {
+            "author_name": "Chibuike Goodluck",
+            "author_url": "https://www.google.com/maps/contrib/102365878403781165309/reviews",
+            "language": "en",
+            "original_language": "en",
+            "profile_photo_url": "https://lh3.googleusercontent.com/a/ACg8ocIaFPnaS9qwCf7Vrl_9MvT1Pf81rUwNjZOcvKYHTtsj9cTdjw=s128-c0x00000000-cc-rp-mo",
+            "rating": 3,
+            "relative_time_description": "2 weeks ago",
+            "text": "It's good at A line\nBuy others are too poor",
+            "time": 1771078548,
+            "translated": false
+        }
+    ],
+    "types": [
+        "establishment",
+        "point_of_interest"
+    ],
+    "url": "https://maps.google.com/?cid=11047962034468986849",
+    "user_ratings_total": 99,
+    "utc_offset": 60,
+    "vicinity": "487M+FVC, Ariaria mkt, A line Aba, Aba",
+    "html_attributions": [],
+    "utc_offset_minutes": 60
+},
+
+{
+    "address_components": [
+        {
+            "long_name": "Umudike Road",
+            "short_name": "Umudike Rd",
+            "types": [
+                "route"
+            ]
+        },
+        {
+            "long_name": "Umudike",
+            "short_name": "Umudike",
+            "types": [
+                "locality",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Oboro II",
+            "short_name": "Oboro II",
+            "types": [
+                "administrative_area_level_3",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Ikwuano",
+            "short_name": "Ikwuano",
+            "types": [
+                "administrative_area_level_2",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Abia",
+            "short_name": "AB",
+            "types": [
+                "administrative_area_level_1",
+                "political"
+            ]
+        },
+        {
+            "long_name": "Nigeria",
+            "short_name": "NG",
+            "types": [
+                "country",
+                "political"
+            ]
+        },
+        {
+            "long_name": "440101",
+            "short_name": "440101",
+            "types": [
+                "postal_code"
+            ]
+        }
+    ],
+    "adr_address": "<span class=\"street-address\">Umudike Rd</span>, <span class=\"locality\">Umudike</span> <span class=\"postal-code\">440101</span>, <span class=\"region\">Abia</span>, <span class=\"country-name\">Nigeria</span>",
+    "business_status": "OPERATIONAL",
+    "current_opening_hours": {
+        "open_now": true,
+        "periods": [
+            {
+                "close": {
+                    "date": "2026-03-12",
+                    "day": 4,
+                    "time": "2359",
+                    "truncated": true
+                },
+                "open": {
+                    "date": "2026-03-06",
+                    "day": 5,
+                    "time": "0000",
+                    "truncated": true
+                }
+            }
+        ],
+        "weekday_text": [
+            "Monday: Open 24 hours",
+            "Tuesday: Open 24 hours",
+            "Wednesday: Open 24 hours",
+            "Thursday: Open 24 hours",
+            "Friday: Open 24 hours",
+            "Saturday: Open 24 hours",
+            "Sunday: Open 24 hours"
+        ]
+    },
+    "formatted_address": "Umudike Rd, Umudike 440101, Abia, Nigeria",
+    "formatted_phone_number": "0902 742 7974",
+    "geometry": {
+        "location": {
+            "lat": 5.480685299999999,
+            "lng": 7.5456896
+        },
+        "viewport": {
+            "south": 5.479337419708497,
+            "west": 7.544340369708497,
+            "north": 5.482035380291502,
+            "east": 7.547038330291501
+        }
+    },
+    "icon": "https://maps.gstatic.com/mapfiles/place_api/icons/v1/png_71/school-71.png",
+    "icon_background_color": "#7B9EB0",
+    "icon_mask_base_uri": "https://maps.gstatic.com/mapfiles/place_api/icons/v2/school_pinlet",
+    "international_phone_number": "+234 902 742 7974",
+    "name": "Michael Okpara University of Agriculture, Umudike",
+    "opening_hours": {
+        "open_now": true,
+        "periods": [
+            {
+                "open": {
+                    "day": 0,
+                    "time": "0000",
+                    "hours": 0,
+                    "minutes": 0,
+                    "nextDate": 1772924400000
+                }
+            }
+        ],
+        "weekday_text": [
+            "Monday: Open 24 hours",
+            "Tuesday: Open 24 hours",
+            "Wednesday: Open 24 hours",
+            "Thursday: Open 24 hours",
+            "Friday: Open 24 hours",
+            "Saturday: Open 24 hours",
+            "Sunday: Open 24 hours"
+        ]
+    },
+    "photos": [
+        {
+            "height": 415,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/106477810967706075346\">SIRKEN</a>"
+            ],
+            "width": 739
+        },
+        {
+            "height": 3000,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/109148247288655424147\">Charisma Emmanuel</a>"
+            ],
+            "width": 4000
+        },
+        {
+            "height": 1440,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/110777999652551301554\">Marvelous Okechukwu</a>"
+            ],
+            "width": 1088
+        },
+        {
+            "height": 720,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/109148247288655424147\">Charisma Emmanuel</a>"
+            ],
+            "width": 540
+        },
+        {
+            "height": 4160,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/116465043686710706789\">Hazel</a>"
+            ],
+            "width": 3120
+        },
+        {
+            "height": 4160,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/114840226161969279270\">Daniel Ugochukwu</a>"
+            ],
+            "width": 1872
+        },
+        {
+            "height": 2268,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/111240328382681818662\">Okechi Okore</a>"
+            ],
+            "width": 4032
+        },
+        {
+            "height": 924,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/109286409608531463454\">Michael Okpara University of Agriculture, Umudike</a>"
+            ],
+            "width": 720
+        },
+        {
+            "height": 3000,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/109148247288655424147\">Charisma Emmanuel</a>"
+            ],
+            "width": 4000
+        },
+        {
+            "height": 1440,
+            "html_attributions": [
+                "<a href=\"https://maps.google.com/maps/contrib/110777999652551301554\">Marvelous Okechukwu</a>"
+            ],
+            "width": 1088
+        }
+    ],
+    "place_id": "ChIJjcosMI3EQhARso2OD6YSzXA",
+    "plus_code": {
+        "compound_code": "FGJW+77 Umudike, Nigeria",
+        "global_code": "6FQ9FGJW+77"
+    },
+    "rating": 4.1,
+    "reference": "ChIJjcosMI3EQhARso2OD6YSzXA",
+    "reviews": [
+        {
+            "author_name": "ONYEDIWISE PHOTOGRAPHY STUDIO",
+            "author_url": "https://www.google.com/maps/contrib/104659234301892415225/reviews",
+            "language": "en",
+            "original_language": "en",
+            "profile_photo_url": "https://lh3.googleusercontent.com/a-/ALV-UjV5w_XIjK6IEGBSiwmEtNY_rSe1cADKk6sPmozq-AB2gifQNJjY=s128-c0x00000000-cc-rp-mo-ba5",
+            "rating": 5,
+            "relative_time_description": "6 months ago",
+            "text": "We did this documentary at Michael Okpara University of Agriculture Umudike doing the 2023 FEMALE STEM INTERNSHIP PROGRAMME, (ENERGISING EDUCATION PROGRAM BY (EEP) PHASE II.",
+            "time": 1754768552,
+            "translated": false
+        },
+        {
+            "author_name": "Oluseyi Lala",
+            "author_url": "https://www.google.com/maps/contrib/103658283304197347590/reviews",
+            "language": "en",
+            "original_language": "en",
+            "profile_photo_url": "https://lh3.googleusercontent.com/a-/ALV-UjVUMLvGdp64aViwyt5o3r6n2NyOiLl6Nu4GRFziMYtsAYF8nOcBcQ=s128-c0x00000000-cc-rp-mo-ba4",
+            "rating": 4,
+            "relative_time_description": "2 months ago",
+            "text": "Fantastic institution with a thriving Tech hub",
+            "time": 1765366375,
+            "translated": false
+        },
+        {
+            "author_name": "Charisma Emmanuel",
+            "author_url": "https://www.google.com/maps/contrib/109148247288655424147/reviews",
+            "language": "en",
+            "original_language": "en",
+            "profile_photo_url": "https://lh3.googleusercontent.com/a-/ALV-UjVIsai3gv4-ZMVpTS3Ci6TuWqhlYjG9VpQYuScEWOfNRT9CVBCT=s128-c0x00000000-cc-rp-mo-ba3",
+            "rating": 4,
+            "relative_time_description": "6 years ago",
+            "text": "So far so good, the school is nice. The school needs renovation, working street lights, more security officers, wall of Jericho fence, more buildings for learning and a better stadium.",
+            "time": 1557818117,
+            "translated": false
+        },
+        {
+            "author_name": "Felix Favor",
+            "author_url": "https://www.google.com/maps/contrib/109158326192722056858/reviews",
+            "language": "en",
+            "original_language": "en",
+            "profile_photo_url": "https://lh3.googleusercontent.com/a-/ALV-UjWXGOlh4L3HF8k5hqOlyDzgn_Iyv0w2lGWAtDJTiq3oDmbnRNgs=s128-c0x00000000-cc-rp-mo",
+            "rating": 5,
+            "relative_time_description": "6 months ago",
+            "text": "So Good and smooth, if not for anything, I'm in love with the people and the environment.",
+            "time": 1756160239,
+            "translated": false
+        },
+        {
+            "author_name": "Niyi Oyesiji",
+            "author_url": "https://www.google.com/maps/contrib/104789943072710542455/reviews",
+            "language": "en",
+            "original_language": "en",
+            "profile_photo_url": "https://lh3.googleusercontent.com/a-/ALV-UjXA2C7jXCO0Isj5xiIH0mvtc1DjermDvrBw_B4zH7lsK3GuuyBqHA=s128-c0x00000000-cc-rp-mo-ba6",
+            "rating": 5,
+            "relative_time_description": "4 years ago",
+            "text": "Michael Okpara University of Agriculture, Umudike is situated in Abia State. It was formerly known as Federal University of Agriculture, Umudike.",
+            "time": 1627811847,
+            "translated": false
+        }
+    ],
+    "types": [
+        "establishment",
+        "point_of_interest",
+        "school",
+        "university"
+    ],
+    "url": "https://maps.google.com/?cid=8128173406908485042",
+    "user_ratings_total": 406,
+    "utc_offset": 60,
+    "vicinity": "Umudike Rd, Umudike",
+    "website": "https://mouau.edu.ng/",
+    "html_attributions": [],
+    "utc_offset_minutes": 60
+}
+
+]

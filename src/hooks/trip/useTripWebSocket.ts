@@ -15,6 +15,7 @@ type UseTripWebSocketProps = {
   setTripRequestStatus: (status: "loading" | "accepted" | "no-driver" | "error" | null) => void;
   setTripRequestError: (err: string | null) => void;
   setDriver: (driver: any) => void;
+  setVehicle: (vehicle: any) => void;
   setScreen: (screen: string) => void;
   setDriverLocation: (loc: [number, number] | null) => void;
   showNotification: (msg: string, type: "info" | "success" | "warning" | "error") => void;
@@ -46,6 +47,7 @@ export const useTripWebSocket = ({
   setTripRequestStatus,
   setTripRequestError,
   setDriver,
+  setVehicle,
   setScreen,
   setDriverLocation,
   setPickup,
@@ -138,6 +140,7 @@ export const useTripWebSocket = ({
             setAirportPickupArea(trip.map_data.airport.pickup_area);
           }
           setDriver(trip.driver || null);
+          setVehicle(trip.vehicle || null);
           setPickup(trip.pickup_address || "");
           setDestination(trip.destination_address || "");
           setFareEstimate(
@@ -196,6 +199,7 @@ export const useTripWebSocket = ({
     },
     [
       setDriver,
+      setVehicle,
       setPickup,
       setDestination,
       setFareEstimate,
@@ -249,6 +253,7 @@ export const useTripWebSocket = ({
       console.log(
         `Attempting to connect to WebSocket for authenticated user: ${wsUrl}`
       );
+      
       const rws = new ReconnectingWebSocket(wsUrl, [], {
         connectionTimeout: 10000,
         maxRetries: 10,
@@ -297,8 +302,13 @@ export const useTripWebSocket = ({
               tripData.driver
             ) {
               console.log(
-                `${tripData.status.label} via WebSocket (page.tsx), updating UI with driver.`
+                `${tripData.status.label} via WebSocket (page.tsx), updating UI with driver.`, {
+                  fullPayload: tripData,
+                  driver: tripData.driver,
+                  vehicle: tripData.vehicle,}
               );
+
+              setVehicle(tripData.vehicle);
               setDriver(tripData.driver);
               console.log("Active Trip Id: ", activeTripId);
               setScreen("driver-assigned");
@@ -327,6 +337,7 @@ export const useTripWebSocket = ({
                 showNotification("Trip was cancelled successfully", "info");
                 setScreen("booking");
                 setDriver(null);
+                setVehicle(null);
                 preserveBookingContext();
               }
             } else {
@@ -417,6 +428,7 @@ export const useTripWebSocket = ({
       setTripRequestStatus,
       setTripRequestError,
       setDriver,
+      setVehicle,
       // setScreen,
       setDriverLocation,
       showNotification,
@@ -496,9 +508,10 @@ export const useTripWebSocket = ({
               tripData.driver
             ) {
               console.log(
-                `${tripData.status.label} via WebSocket (page.tsx), updating UI with driver.`
+                `${tripData.status.label} via WebSocket (page.tsx), updating UI with driver.`,  tripData, tripData.driver, tripData.vehicle
               );
               setDriver(tripData.driver);
+              setVehicle(tripData.vehicle);
               console.log("Active Trip Id: ", activeTripId);
               setScreen("driver-assigned");
               stopPollingTripStatus();
@@ -525,6 +538,7 @@ export const useTripWebSocket = ({
               } else if (tripData.status.value === "cancelled") {
                 showNotification("Trip was cancelled successfully", "info");
                 setDriver(null);
+                setVehicle(null);
                 setScreen("booking");
                 preserveBookingContext();
               }
@@ -616,6 +630,7 @@ export const useTripWebSocket = ({
       setTripRequestStatus,
       setTripRequestError,
       setDriver,
+      setVehicle,
       // setScreen,
       setDriverLocation,
       showNotification,

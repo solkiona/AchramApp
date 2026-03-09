@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, MapPin, Star } from "lucide-react";
-import { Driver } from "@/types/passenger";
+import { Driver , Vehicle} from "@/types/passenger";
 import ACHRAMFooter from "@/components/app/ui/ACHRAMFooter";
 import Image from "next/image";
 
@@ -10,6 +10,7 @@ type OnDoneHandler = () => void;
 interface TripCompleteScreenProps {
   fareEstimate: number | null;
   driver: Driver;
+  vehicle: Vehicle;
   pickup: string;
   destination: string;
   onRate?: () => void;
@@ -21,6 +22,7 @@ interface TripCompleteScreenProps {
 export default function TripCompleteScreen({
   fareEstimate,
   driver,
+  vehicle,
   pickup,
   destination,
   onRate,

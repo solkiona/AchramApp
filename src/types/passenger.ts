@@ -110,6 +110,39 @@ export interface Driver {
   rating: string;
 }
 
+
+export interface Vehicle {
+
+  id: string;
+  color: string;
+  photo: string;
+  is_active: boolean;
+  ownership: string;
+  plate_number: string;
+  has_extra_leg_room: boolean;
+  has_extra_trunk_space: boolean;
+  has_wheel_chair_access: boolean;
+  model: {
+      id: string;
+      name: string;
+      year: string
+      brand: {
+          id: string;
+          name: string;
+      },
+      fuel_type: {
+          label: string;
+          value: string;
+      };
+      vehicle_type: {
+          label: string;
+          value: string;
+      },
+      number_of_seats: number;
+  }
+}
+
+
 export interface Guest {
   id: string;
   name: string;

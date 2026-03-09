@@ -16,6 +16,7 @@ export interface PersistedState {
   destination: string;
   fareEstimate: number | null;
   driver: any | null;
+  vehicle: any| null;
   tripProgress: number;
   pickupCoords: [number, number] | null;
   destinationCoords: [number, number] | null;

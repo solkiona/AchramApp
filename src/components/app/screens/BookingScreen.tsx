@@ -323,6 +323,8 @@ export default function BookingScreen({
     let locality: string | null = null;
     let sublocality: string | null = null;
 
+    console.log('Place Object', place);
+
     place.address_components?.forEach((component) => {
       const types = component.types;
       if (types.includes("administrative_area_level_2")) {

@@ -13,6 +13,7 @@ type UseAppInitializationProps = {
   setBookAsGuest: (val: boolean) => void;
   setActiveTripId: (id: string | null) => void;
   setDriver: (driver: any) => void;
+  setVehicle: (vehicle: any) => void;
   setPickup: (pickup: string) => void;
   setDestination: (dest: string) => void;
   setFareEstimate: (val: number | null) => void;
@@ -44,6 +45,7 @@ export const useAppInitialization = ({
   setBookAsGuest,
   setActiveTripId,
   setDriver,
+  setVehicle,
   setPickup,
   setDestination,
   setFareEstimate,
@@ -143,6 +145,7 @@ export const useAppInitialization = ({
           );
           setActiveTripId(savedState.activeTripId);
           setDriver(savedState.driver);
+          setVehicle(savedState.vehicle);
           try {
             let response;
             if (savedState.bookAsGuest) {
@@ -201,6 +204,7 @@ export const useAppInitialization = ({
                 setAirportPickupArea(trip.map_data.airport.pickup_area);
               }
               setDriver(trip.driver || null);
+              setVehicle(trip.vehicle || null); 
               setPickup(trip.pickup_address || "");
               setActiveTripId(trip.id);
               setDestination(trip.destination_address || "");
@@ -314,6 +318,7 @@ export const useAppInitialization = ({
             savedState.guestId
           );
           setDriver(savedState.driver);
+          setVehicle(savedState.vehicle)
 
           try {
             const response = await apiClient.get(
@@ -339,6 +344,7 @@ export const useAppInitialization = ({
               setActiveTripId(trip.id);
               setGuestId(savedState.guestId);
               setDriver(trip.driver || null);
+              setVehicle(trip.vehicle || null);
               setPickup(trip.pickup_address || "");
               setDestination(trip.destination_address || "");
               setFareEstimate(
@@ -405,6 +411,7 @@ export const useAppInitialization = ({
               guestId: null,
               activeTripId: null,
               driver: null,
+              vehicle: null,
               verificationCode: null,
               tripProgress: 0,
               screen: "booking",
@@ -412,6 +419,7 @@ export const useAppInitialization = ({
             setGuestId(null);
             setActiveTripId(null);
             setDriver(null);
+            setVehicle(null);
             setVerificationCode(null);
             setTripProgress(0);
           }
@@ -442,6 +450,7 @@ export const useAppInitialization = ({
     setBookAsGuest,
     setActiveTripId,
     setDriver,
+    setVehicle,
     setPickup,
     setDestination,
     setFareEstimate,

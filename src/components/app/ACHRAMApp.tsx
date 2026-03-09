@@ -88,6 +88,7 @@ export default function ACHRAMApp() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
   const [fareIsFlatRate, setFareIsFlatRate] = useState<boolean | null>(null);
   const [driver, setDriver] = useState<any>(null);
+  const [vehicle, setVehicle] = useState<any>(null);
   const [tripProgress, setTripProgress] = useState<number>(0);
   const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(null);
   const [driverLocation, setDriverLocation] = useState<[number, number] | null>(null);
@@ -200,6 +201,7 @@ const [isStrictPreferences, setIsStrictPreferences] = useState<boolean>(false);
     setActiveTripId(null);
     setGuestId(null);
     setDriver(null);
+    setVehicle(null);
     setVerificationCode(null);
     setTripProgress(0);
     setFareEstimate(null);
@@ -224,6 +226,7 @@ const [isStrictPreferences, setIsStrictPreferences] = useState<boolean>(false);
     setActiveTripId,
     setGuestId,
     setDriver,
+    setVehicle,
     setVerificationCode,
     setTripProgress,
     setFareEstimate,
@@ -306,7 +309,7 @@ const handleRefreshLocation = useCallback(async () => {
       console.log('✅ Location refreshed successfully:', position);
       showNotification('Location updated successfully', 'success');
     } else {
-      showNotification('Could not update location. Please check permissions.', 'error');
+      showNotification('Location already fetched', 'error');
     }
   } catch (err) {
     console.error('Location refresh failed:', err);
@@ -364,6 +367,7 @@ const handleRefreshLocation = useCallback(async () => {
     setTripRequestStatus,
     setTripRequestError,
     setDriver,
+    setVehicle,
     setScreen,
     setPickup,
     setPickupCoords,
@@ -421,6 +425,7 @@ const handleRefreshLocation = useCallback(async () => {
     setGuestId,
     setScreen,
     setDriver,
+    setVehicle,
     setAirportPickupArea,
     preserveBookingContext,
     startWebSocketConnection,
@@ -454,6 +459,7 @@ const handleRefreshLocation = useCallback(async () => {
     setBookAsGuest,
     setActiveTripId,
     setDriver,
+    setVehicle,
     setPickup,
     setDestination,
     setFareEstimate,
@@ -861,6 +867,7 @@ useEffect(() => {
           setPollingIntervalId(null);
         }
         setDriver(null);
+        setVehicle(null);
         setActiveTripId(null);
         if (!isAuthenticated) {
           setGuestId(null);
@@ -1108,6 +1115,7 @@ if (!pickup || !pickupCodename) {
           console.log("Background sync: Fetched current trip status:", trip.status.value);
           if (trip.driver && JSON.stringify(trip.driver) !== JSON.stringify(driver)) {
             setDriver(trip.driver);
+            setVehicle(trip.vehicle);
           }
           if (trip.status.value === "active" && trip.progress !== tripProgress) {
             setTripProgress(trip.progress || 0);
@@ -1155,6 +1163,7 @@ if (!pickup || !pickupCodename) {
       tripProgress,
       verificationCode,
       setDriver,
+      setVehicle,
       setTripProgress,
       setVerificationCode,
       setScreen,
@@ -1218,6 +1227,7 @@ useEffect(()=>{
       
       setScreen(savedScreen);
       setDriver(savedState.driver || null);
+      setVehicle(savedState.vehicle)
       setTripProgress(savedState.tripProgress || 0);
       setVerificationCode(savedState.verificationCode || "");
 
@@ -1237,6 +1247,7 @@ useEffect(()=>{
     } else if (savedScreen === "trip-complete") {
       setScreen("trip-complete");
       setDriver(savedState.driver || null);
+      setVehicle(savedState.vehicle || null);
     } else {
       console.warn("Persisted screen state is inconsistent with activeTripId, going to booking.");
       setScreen("booking");
@@ -1248,6 +1259,7 @@ useEffect(()=>{
     // guestId,
     setScreen,
     setDriver,
+    setVehicle,
     setTripProgress,
     setVerificationCode,
     startWebSocketConnectionForAuthUser,
@@ -1416,6 +1428,7 @@ useEffect(()=>{
           console.log("Fetched trip details for resume from dashboard:", trip);
           setActiveTripId(trip.id);
           setDriver(trip.driver || null);
+          setVehicle(trip.vehicle);
           setTripProgress(trip.progress || 0);
           setVerificationCode(trip.verification_code || "");
           setPickup(trip.pickup_address || "");
@@ -1437,6 +1450,7 @@ useEffect(()=>{
           } else if (trip.status.value === "accepted") {
             setScreen("driver-assigned");
             setDriver(trip.driver);
+            setVehicle(trip.vehicle)
             setVerificationCode(trip.verification_code);
             if (isCurrentlyAuthenticated) {
               startWebSocketConnectionForAuthUser(trip.id);
@@ -1446,6 +1460,7 @@ useEffect(()=>{
           } else if (trip.status.value === "active") {
             setScreen("trip-progress");
             setDriver(trip.driver);
+            setVehicle(trip.vehicle)
             setTripProgress(trip.progress || 0);
             if (isCurrentlyAuthenticated) {
               startWebSocketConnectionForAuthUser(trip.id);
@@ -1455,6 +1470,7 @@ useEffect(()=>{
           } else if (trip.status.value === "completed") {
             setScreen("trip-complete");
             setDriver(trip.driver);
+            setVehicle(trip.vehicle);
             stopWebSocketConnection();
             if (pollingIntervalRef.current) {
               clearInterval(pollingIntervalRef.current);
@@ -1522,6 +1538,7 @@ useEffect(()=>{
       setScreen,
       setActiveTripId,
       setDriver,
+      setVehicle,
       setTripProgress,
       setVerificationCode,
       setPickup,
@@ -1952,6 +1969,7 @@ useEffect(() => {
         pickup={pickup}
         destination={destination}
         driver={driver}
+        vehicle={vehicle}
         verificationCode={verificationCode || ""}
         onShowDirections={() => setShowDirections(true)}
         onShowDriverVerification={() => setShowDriverVerification(true)}
@@ -1987,6 +2005,7 @@ useEffect(() => {
       <TripCompleteScreen
         fareEstimate={fareEstimate}
         driver={driver}
+        vehicle={vehicle}
         pickup={pickup}
         destination={destination}
         onRate={() => setShowRate(true)}
@@ -1999,6 +2018,7 @@ useEffect(() => {
           setDestination("");
           setFareEstimate(null);
           setDriver(null);
+          setVehicle(null);
           setTripProgress(0);
           setPickupCoords(null);
           setDestinationCoords(null);
@@ -2047,6 +2067,7 @@ useEffect(() => {
           setPickupCoords(null);
           setDestinationCoords(null);
           setDriver(null);
+          setVehicle(null);
           setTripProgress(0);
           setVerificationCode(null);
          

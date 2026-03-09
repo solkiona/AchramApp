@@ -6,3 +6,39 @@ offline- initial login attempt // Fixed
 
 
 To silently turnoff native android splash screen i changed android:theme="@style/AppTheme.NoActionBarLaunch" to just android:theme="@style/AppTheme.NoActionBar" in the AndroidManifest.xml file
+
+
+
+
+solomon's airport => 
+
+019ac497-3b9b-74d6-9924-4bd191996c2c
+                    
+019ac497-3b9b-74d6-9924-4bd191996c2c
+
+Murtala Mohamed Test =>
+{
+  "id": "019aba97-f3bf-780f-b800-6bc358bf2ad2",
+        019aba97-f3bf-780f-b800-6bc358bf2ad2
+  "name": "Murtala Muhammed ITest Airport",
+  "codename": "TEST",
+  
+}
+
+
+            "id": "019a2504-3f78-7dc9-ace6-a3f671e160cf",
+            019a2504-3f78-7dc9-ace6-a3f671e160cf
+            "name": "Murtala Muhammed International Airport",
+            "codename": "LOS-MM1",
+            "is_active": true,
+            "map_data": {
+                "location": {
+
+
+
+
+
+
+
+
+

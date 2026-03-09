@@ -11,7 +11,7 @@ import {
   Shield,
   Star,
 } from "lucide-react";
-import { Driver } from "@/types/passenger";
+import { Driver, Vehicle } from "@/types/passenger";
 import { useState, useEffect } from "react";
 import ACHRAMFooter from "@/components/app/ui/ACHRAMFooter";
 import Image from "next/image";
@@ -20,6 +20,7 @@ interface DriverAssignedScreenProps {
   pickup: string;
   destination: string;
   driver: Driver;
+  vehicle: Vehicle;
   verificationCode: string;
   onShowDirections: () => void;
   onShowDriverVerification: () => void;
@@ -38,6 +39,7 @@ export default function DriverAssignedScreen({
   pickup,
   destination,
   driver,
+  vehicle,
   verificationCode,
   onShowDirections,
   onShowDriverVerification,
@@ -55,6 +57,8 @@ export default function DriverAssignedScreen({
     return () => clearTimeout(timer);
   }, []);
 
+  console.log("Vehicle Object", vehicle, vehicle.photo);
+  
   return (
     <div className="bg-achrams-bg-primary flex flex-col relative flex-1">
       {driver ? (
@@ -117,13 +121,14 @@ export default function DriverAssignedScreen({
               </div>
 
               {/* Car Photo (if available) */}
-              {driver.car_photo && (
+              {vehicle.photo && (
                 <div className="mb-4 rounded-lg overflow-hidden border border-achrams-border">
                   <div className="relative w-full h-32">
                     <Image
-                      src={driver.car_photo}
-                      alt={`${driver.car_type} - ${driver.car_color}`}
+                      src={vehicle?.photo}
+                      alt={`${vehicle.model.fuel_type} - ${vehicle.color}`}
                       fill
+                      unoptimized={true}
                       className="object-cover"
                     />
                   </div>
@@ -133,10 +138,10 @@ export default function DriverAssignedScreen({
               {/* Car Details */}
               <div className="bg-achrams-bg-primary rounded-lg p-4 mb-4 border border-achrams-border">
                 <div className="text-sm text-achrams-text-secondary mb-1">
-                  {driver.car_type || "Vehicle"} • {driver.car_color || "Color"}
+                  {`${vehicle.model.brand.name} ${vehicle.model.name} ${vehicle.model.year}` || "Vehicle"} • {vehicle.color || "Color"}
                 </div>
                 <div className="text-2xl font-mono font-bold text-achrams-text-primary">
-                  {driver.plate_number || "—"}
+                  {vehicle.plate_number || "—"}
                 </div>
               </div>
 
