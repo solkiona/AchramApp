@@ -1005,7 +1005,7 @@ export default function BookingScreen({
       {/* Back to Categories */}
       <button
         onClick={handleBackToCategories}
-        className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+        className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
       >
         <ChevronLeft className="w-4 h-4" />
         Change vehicle category
@@ -1034,7 +1034,7 @@ export default function BookingScreen({
       </div> */}
 
       <div className={`p-4 ${isAuthenticated ? 'mb-24' : ''}`}>
-  {selectedCategory && fareEstimate && (
+  {/* {selectedCategory && fareEstimate && (
     <button
       onClick={handleBackToCategories}
       className="w-full bg-white border-2 border-achrams-border text-achrams-text-primary py-3.5 rounded-xl font-medium mb-2.5 hover:bg-achrams-bg-secondary transition-colors flex items-center justify-center gap-2"
@@ -1042,7 +1042,7 @@ export default function BookingScreen({
       <ChevronLeft className="w-4 h-4" />
       Back to Categories
     </button>
-  )}
+  )} */}
   <button
     onClick={onProceed}
     disabled={!fareEstimate || !selectedCategory}

@@ -2315,6 +2315,7 @@ useEffect(() => {
               console.log("page.tsx: Received login error from modal:", errorMessage);
               showNotification(errorMessage, "error");
             }}
+            setShowPasswordResetModal={setShowPasswordResetModal}
             showNotification={showNotification}
             onShowSignupPrompt={() => {
               setShowSignup(true);

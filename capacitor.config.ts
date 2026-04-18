@@ -8,7 +8,8 @@ const config: CapacitorConfig = {
   webDir: 'public', // Even if unused, Capacitor expects this
 
   server: {
-    url: 'https://ride.achrams.com.ng',
+    // url: 'https://ride.achrams.com.ng',
+    url: 'https://achram-app.vercel.app',
     errorPath: 'offline.html',
     androidScheme: 'https',
   },

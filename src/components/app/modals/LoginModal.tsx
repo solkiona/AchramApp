@@ -13,6 +13,7 @@ interface LoginModalProps {
   onShowSignupPrompt: () => void;
   showNotification: (message: string, type: "info" | "success" | "warning" | "error") => void;
   onRequires2FA: (email: string, password: string) => void;
+  setShowPasswordResetModal: (val: boolean)=> void;
 }
 
 export default function LoginModal({
@@ -23,6 +24,7 @@ export default function LoginModal({
   onShowSignupPrompt,
   onLoginError,
   showNotification,
+  setShowPasswordResetModal,
 
 }: LoginModalProps) {
   if (!isOpen) return null;
@@ -68,6 +70,11 @@ export default function LoginModal({
   //   }
   // };
 
+
+   const handleOpenPasswordReset = () => {
+    onClose();
+    setShowPasswordResetModal(true);
+  }
   const handleLogin = async () => {
     setError('');
     if (!email || !password) {
@@ -240,9 +247,16 @@ export default function LoginModal({
               onClose();
               onShowSignupPrompt();
             }}
-            className="text-sm text-achrams-primary-solid hover:underline"
+            className="text-sm text-achrams-primary-solid hover:underline cursor-pointer"
           >
             Don't have an account? Sign Up
+          </button>
+
+          <button
+            onClick={handleOpenPasswordReset}
+            className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer"
+          >
+            Forgot Password? Click to reset
           </button>
         </div>
 

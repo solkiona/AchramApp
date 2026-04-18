@@ -40,7 +40,7 @@ export default function ComingSoonModal({
       title = 'Support';
       IconComponent = Headphones;
       description = 'Need assistance? Get in touch with our support team.';
-      contactInfo = `Phone: +234 800 ACHRAMS\nEmail: support@achrams.com.ng`;
+      contactInfo = `Phone: +234 (0) 810 5527588\nEmail: achrams@exceliangroup.com.ng`;
       break;
     case 'alerts':
       title = 'Alerts';
@@ -113,11 +113,11 @@ export default function ComingSoonModal({
               <div className="text-sm text-achrams-text-secondary space-y-1">
                 <p className="flex items-center justify-center gap-2">
                   <Phone className="w-4 h-4" /> {/* Assuming Phone icon is imported */}
-                  +234 800 ACHRAMS
+                  +234 (0) 810 5527 588
                 </p>
                 <p className="flex items-center justify-center gap-2">
                   <Mail className="w-4 h-4" /> {/* Assuming Mail icon is imported */}
-                  support@achrams.com.ng
+                  achrams@exceliangroup.com.ng
                 </p>
               </div>
             </div>

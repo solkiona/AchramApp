@@ -319,6 +319,14 @@ export const useLocation = (): LocationResult => {
 
     const watchLocation = async () => {
       try {
+
+        const permission = await Geolocation.requestPermissions();
+
+        if (permission.location !== 'granted') {
+          setError('Location permission not granted');
+          return;
+        }
+
         const id = await Geolocation.watchPosition(
           { enableHighAccuracy: true, timeout: 10000, distanceFilter: 5 },
           (position) => {
