@@ -52,10 +52,12 @@ export const usePersistedAppState = (
       };
       console.log("Saving app state with screen:", screenToSave);
       saveAppState(stateToSave);
+
       if (isNavigatingToDashboard) {
         setIsNavigatingToDashboard(false);
       }
     }
+    
   }, [
     screen,
     pickup,

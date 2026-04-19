@@ -716,6 +716,7 @@ useEffect(() => {
     destination,
     fareEstimate,
     driver,
+    vehicle,
     tripProgress,
     pickupCoords,
     destinationCoords,

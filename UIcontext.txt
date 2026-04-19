@@ -260,6 +260,7 @@ type UseTripWebSocketProps = {
   setTripRequestStatus: (status: "loading" | "accepted" | "no-driver" | "error" | null) => void;
   setTripRequestError: (err: string | null) => void;
   setDriver: (driver: any) => void;
+  setVehicle: (vehicle: any) => void;
   setScreen: (screen: string) => void;
   setDriverLocation: (loc: [number, number] | null) => void;
   showNotification: (msg: string, type: "info" | "success" | "warning" | "error") => void;
@@ -291,6 +292,7 @@ export const useTripWebSocket = ({
   setTripRequestStatus,
   setTripRequestError,
   setDriver,
+  setVehicle,
   setScreen,
   setDriverLocation,
   setPickup,
@@ -309,6 +311,9 @@ export const useTripWebSocket = ({
   bookAsGuest,
   isAuthenticated,
 }: UseTripWebSocketProps) => {
+
+
+  const API_BASE = process.env.NEXT_PUBLIC_WS_HOST
 
   const bookAsGuestRef = useRef(bookAsGuest);
   const isAuthenticatedRef = useRef(isAuthenticated);
@@ -380,6 +385,7 @@ export const useTripWebSocket = ({
             setAirportPickupArea(trip.map_data.airport.pickup_area);
           }
           setDriver(trip.driver || null);
+          setVehicle(trip.vehicle || null);
           setPickup(trip.pickup_address || "");
           setDestination(trip.destination_address || "");
           setFareEstimate(
@@ -438,6 +444,7 @@ export const useTripWebSocket = ({
     },
     [
       setDriver,
+      setVehicle,
       setPickup,
       setDestination,
       setFareEstimate,
@@ -487,10 +494,11 @@ export const useTripWebSocket = ({
         console.log("Closing existing WebSocket connection.");
         webSocketConnectionRef.current.close();
       }
-      const wsUrl = `wss://api.achrams.com.ng/ws/v1/app?trip_id=${tripId}`;
+      const wsUrl = `wss://${API_BASE}/ws/v1/app?trip_id=${tripId}`;
       console.log(
         `Attempting to connect to WebSocket for authenticated user: ${wsUrl}`
       );
+      
       const rws = new ReconnectingWebSocket(wsUrl, [], {
         connectionTimeout: 10000,
         maxRetries: 10,
@@ -539,8 +547,13 @@ export const useTripWebSocket = ({
               tripData.driver
             ) {
               console.log(
-                `${tripData.status.label} via WebSocket (page.tsx), updating UI with driver.`
+                `${tripData.status.label} via WebSocket (page.tsx), updating UI with driver.`, {
+                  fullPayload: tripData,
+                  driver: tripData.driver,
+                  vehicle: tripData.vehicle,}
               );
+
+              setVehicle(tripData.vehicle);
               setDriver(tripData.driver);
               console.log("Active Trip Id: ", activeTripId);
               setScreen("driver-assigned");
@@ -569,6 +582,7 @@ export const useTripWebSocket = ({
                 showNotification("Trip was cancelled successfully", "info");
                 setScreen("booking");
                 setDriver(null);
+                setVehicle(null);
                 preserveBookingContext();
               }
             } else {
@@ -659,6 +673,7 @@ export const useTripWebSocket = ({
       setTripRequestStatus,
       setTripRequestError,
       setDriver,
+      setVehicle,
       // setScreen,
       setDriverLocation,
       showNotification,
@@ -689,7 +704,7 @@ export const useTripWebSocket = ({
         console.log("Closing existing WebSocket connection.");
         webSocketConnectionRef.current.close();
       }
-      const wsUrl = `wss://api.achrams.com.ng/ws/v1/app?guest_id=${guestId}`;
+      const wsUrl = `wss://${API_BASE}/ws/v1/app?guest_id=${guestId}`;
       console.log(`Attempting to connect to WebSocket for guest: ${wsUrl}`);
       const rws = new ReconnectingWebSocket(wsUrl, [], {
         connectionTimeout: 10000,
@@ -738,9 +753,10 @@ export const useTripWebSocket = ({
               tripData.driver
             ) {
               console.log(
-                `${tripData.status.label} via WebSocket (page.tsx), updating UI with driver.`
+                `${tripData.status.label} via WebSocket (page.tsx), updating UI with driver.`,  tripData, tripData.driver, tripData.vehicle
               );
               setDriver(tripData.driver);
+              setVehicle(tripData.vehicle);
               console.log("Active Trip Id: ", activeTripId);
               setScreen("driver-assigned");
               stopPollingTripStatus();
@@ -767,6 +783,7 @@ export const useTripWebSocket = ({
               } else if (tripData.status.value === "cancelled") {
                 showNotification("Trip was cancelled successfully", "info");
                 setDriver(null);
+                setVehicle(null);
                 setScreen("booking");
                 preserveBookingContext();
               }
@@ -858,6 +875,7 @@ export const useTripWebSocket = ({
       setTripRequestStatus,
       setTripRequestError,
       setDriver,
+      setVehicle,
       // setScreen,
       setDriverLocation,
       showNotification,
@@ -1002,6 +1020,7 @@ export const useGeolocation = (): GeolocationResult => {
     }
   };
 
+
   const requestPermission = useCallback((): Promise<GeolocationCoordinates | null> => {
     // If a request is already in progress, return the existing promise
     if (requestInProgress.current && pendingRequest.current) {
@@ -1100,8 +1119,8 @@ export const useGeolocation = (): GeolocationResult => {
         handleError,
         {
           enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 5000,
+          timeout: 30000,
+          maximumAge: 10000,
         }
       );
     });
@@ -1113,78 +1132,6 @@ export const useGeolocation = (): GeolocationResult => {
   return { coords, error, loading, requestPermission };
 };
 
-
-
-// // src/hooks/useGeolocation.ts
-// import { useState, useEffect } from 'react';
-
-// export interface GeolocationCoordinates {
-//   latitude: number;
-//   longitude: number;
-// }
-
-// export interface GeolocationResult {
-//   coords: GeolocationCoordinates | null;
-//   error: string | null;
-//   loading: boolean; 
-//   requestPermission: () => Promise<GeolocationCoordinates | null>;
-// }
-
-// export const useGeolocation = (): GeolocationResult => {
-//   const [coords, setCoords] = useState<GeolocationCoordinates | null>(null);
-//   const [error, setError] = useState<string | null>(null);
-//   const [loading, setLoading] = useState<boolean>(false); 
-
-//   const requestPermission = (): Promise<GeolocationCoordinates | null> => {
-  
-//     return new Promise((resolve, reject) => {
-//       if (!navigator.geolocation) {
-//         const errorMsg = 'Geolocation is not supported by this browser.';
-//         setError(errorMsg);
-//         setLoading(false); 
-//         reject(errorMsg);
-//         return;
-//       }
-
-      
-//       setLoading(true);
-//       setError(null); 
-//       setCoords(null); 
-
-//       navigator.geolocation.getCurrentPosition(
-//         (position) => {
-          
-//           const { latitude, longitude } = position.coords;
-//           const newCoords = { latitude, longitude };
-//           setCoords(newCoords);
-//           setError(null); 
-//           setLoading(false); 
-//           resolve(newCoords); 
-//         },
-//         (err) => {
-         
-//           let message = 'Unable to retrieve your location.';
-//           if (err.code === 1) message = 'Location access denied.';
-//           else if (err.code === 2) message = 'Location unavailable.';
-//           else if (err.code === 3) message = 'Location request timed out.';
-
-//           setError(message);
-//           setLoading(false); 
-//           console.error("Geolocation error:", message); 
-//           reject(message); 
-//         },
-//         {
-//           enableHighAccuracy: true,
-//           timeout: 10000,
-//           maximumAge: 0,
-//         }
-//       );
-//     });
-//   };
-
-  
-//   return { coords, error, loading, requestPermission };
-// };
 
 ----- FILE: src/hooks/booking/useBooking.ts -----
 import { useCallback } from "react";
@@ -1391,6 +1338,7 @@ export const useBooking = ({
         sourceDomain,
 
       );
+
       console.log("Request Data:", tripData);
       if (typeof window !== "undefined" && window.sessionStorage) {
         sessionStorage.setItem("tripData", JSON.stringify(tripData));
@@ -1429,6 +1377,8 @@ export const useBooking = ({
         }
         
         response = await apiClient.post("/trips", tripData, undefined, undefined, true);
+
+        console.log('Trip Data', tripData)
       } else {
 
         
@@ -1555,6 +1505,7 @@ export const useBooking = ({
     selectedCategory,
     numberOfSeats,
     isStrictPreferences,
+    sourceDomain,
   ]);
 
   return { handleRequestRide };
@@ -1882,6 +1833,14 @@ export const useLocation = (): LocationResult => {
 
     const watchLocation = async () => {
       try {
+
+        const permission = await Geolocation.requestPermissions();
+
+        if (permission.location !== 'granted') {
+          setError('Location permission not granted');
+          return;
+        }
+
         const id = await Geolocation.watchPosition(
           { enableHighAccuracy: true, timeout: 10000, distanceFilter: 5 },
           (position) => {
@@ -1960,6 +1919,7 @@ type UseAppInitializationProps = {
   setBookAsGuest: (val: boolean) => void;
   setActiveTripId: (id: string | null) => void;
   setDriver: (driver: any) => void;
+  setVehicle: (vehicle: any) => void;
   setPickup: (pickup: string) => void;
   setDestination: (dest: string) => void;
   setFareEstimate: (val: number | null) => void;
@@ -1991,6 +1951,7 @@ export const useAppInitialization = ({
   setBookAsGuest,
   setActiveTripId,
   setDriver,
+  setVehicle,
   setPickup,
   setDestination,
   setFareEstimate,
@@ -2090,6 +2051,7 @@ export const useAppInitialization = ({
           );
           setActiveTripId(savedState.activeTripId);
           setDriver(savedState.driver);
+          setVehicle(savedState.vehicle);
           try {
             let response;
             if (savedState.bookAsGuest) {
@@ -2148,6 +2110,7 @@ export const useAppInitialization = ({
                 setAirportPickupArea(trip.map_data.airport.pickup_area);
               }
               setDriver(trip.driver || null);
+              setVehicle(trip.vehicle || null); 
               setPickup(trip.pickup_address || "");
               setActiveTripId(trip.id);
               setDestination(trip.destination_address || "");
@@ -2261,6 +2224,7 @@ export const useAppInitialization = ({
             savedState.guestId
           );
           setDriver(savedState.driver);
+          setVehicle(savedState.vehicle)
 
           try {
             const response = await apiClient.get(
@@ -2286,6 +2250,7 @@ export const useAppInitialization = ({
               setActiveTripId(trip.id);
               setGuestId(savedState.guestId);
               setDriver(trip.driver || null);
+              setVehicle(trip.vehicle || null);
               setPickup(trip.pickup_address || "");
               setDestination(trip.destination_address || "");
               setFareEstimate(
@@ -2352,6 +2317,7 @@ export const useAppInitialization = ({
               guestId: null,
               activeTripId: null,
               driver: null,
+              vehicle: null,
               verificationCode: null,
               tripProgress: 0,
               screen: "booking",
@@ -2359,6 +2325,7 @@ export const useAppInitialization = ({
             setGuestId(null);
             setActiveTripId(null);
             setDriver(null);
+            setVehicle(null);
             setVerificationCode(null);
             setTripProgress(0);
           }
@@ -2389,6 +2356,7 @@ export const useAppInitialization = ({
     setBookAsGuest,
     setActiveTripId,
     setDriver,
+    setVehicle,
     setPickup,
     setDestination,
     setFareEstimate,
@@ -2431,6 +2399,7 @@ export const usePersistedAppState = (
   destination: string,
   fareEstimate: number | null,
   driver: any | null,
+  vehicle: any | null,
   tripProgress: number,
   pickupCoords: [number, number] | null,
   destinationCoords: [number, number] | null,
@@ -2442,7 +2411,7 @@ export const usePersistedAppState = (
   selectedCategory: string | null,
   numberOfSeats: number,
   isStrictPreferences: boolean,
-  fareIsFlatRate: boolean,
+  fareIsFlatRate: boolean | null,
 ) => {
   useEffect(() => {
     if (hasHydrated && screen !== null) {
@@ -2454,6 +2423,7 @@ export const usePersistedAppState = (
         destination,
         fareEstimate,
         driver,
+        vehicle,
         tripProgress,
         pickupCoords,
         destinationCoords,
@@ -2478,6 +2448,7 @@ export const usePersistedAppState = (
     destination,
     fareEstimate,
     driver,
+    vehicle,
     tripProgress,
     pickupCoords,
     destinationCoords,
@@ -2492,6 +2463,7 @@ export const usePersistedAppState = (
     selectedCategory,
     numberOfSeats,
     isStrictPreferences,
+    fareIsFlatRate,
   ]);
 };
 
@@ -6700,6 +6672,7 @@ export interface PersistedState {
   destination: string;
   fareEstimate: number | null;
   driver: any | null;
+  vehicle: any| null;
   tripProgress: number;
   pickupCoords: [number, number] | null;
   destinationCoords: [number, number] | null;
@@ -6847,6 +6820,39 @@ export interface Driver {
   has_wheel_chair_access: boolean;
   rating: string;
 }
+
+
+export interface Vehicle {
+
+  id: string;
+  color: string;
+  photo: string;
+  is_active: boolean;
+  ownership: string;
+  plate_number: string;
+  has_extra_leg_room: boolean;
+  has_extra_trunk_space: boolean;
+  has_wheel_chair_access: boolean;
+  model: {
+      id: string;
+      name: string;
+      year: string
+      brand: {
+          id: string;
+          name: string;
+      },
+      fuel_type: {
+          label: string;
+          value: string;
+      };
+      vehicle_type: {
+          label: string;
+          value: string;
+      },
+      number_of_seats: number;
+  }
+}
+
 
 export interface Guest {
   id: string;
@@ -8046,6 +8052,8 @@ interface PassengerDetailsModalProps {
   getBookingFieldError: (fieldName: string) => string | undefined;
   setTripRequestStatus: (status: string | null) => void;
   setTripRequestError: (error: string | null) => void;
+
+
   numberOfSeats: number;
   setNumberOfSeats: (val: number) => void;
   isStrictPreferences: boolean;
@@ -8076,6 +8084,7 @@ export default function PassengerDetailsModal({
   isStrictPreferences,
   setIsStrictPreferences,
   selectedCategory,
+  fareEstimate,
 }: PassengerDetailsModalProps) {
   const [showRequirements, setShowRequirements] = useState(false);
 
@@ -8251,35 +8260,36 @@ export default function PassengerDetailsModal({
               <span className="text-achrams-text-primary">Elderly passenger</span>
             </label>
             {/* NEW: Seat Selector */}
-<div className="mb-4">
-  <label className="block text-sm font-medium text-achrams-text-primary mb-2">
-    Number of Seats
-  </label>
-  <div className="flex items-center gap-4">
-    <button
-      type="button"
-      onClick={() => setNumberOfSeats(Math.max(1, numberOfSeats - 1))}
-      className="w-10 h-10 rounded-lg bg-achrams-bg-secondary border border-achrams-border flex items-center justify-center hover:bg-achrams-bg-primary transition-colors"
-      disabled={numberOfSeats <= 1}
-    >
-      <Minus className="w-5 h-5 text-achrams-text-primary" />
-    </button>
-    <span className="text-lg font-semibold text-achrams-text-primary w-8 text-center">
-      {numberOfSeats}
-    </span>
-    <button
-      type="button"
-      onClick={() => setNumberOfSeats(Math.min(8, numberOfSeats + 1))}
-      className="w-10 h-10 rounded-lg bg-achrams-bg-secondary border border-achrams-border flex items-center justify-center hover:bg-achrams-bg-primary transition-colors"
-      disabled={numberOfSeats >= 8}
-    >
-      <Plus className="w-5 h-5 text-achrams-text-primary" />
-    </button>
-  </div>
-  <p className="text-xs text-achrams-text-secondary mt-1">
-    Maximum 8 seats per booking
-  </p>
-</div>
+            
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-achrams-text-primary mb-2">
+              Number of Seats
+            </label>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setNumberOfSeats(Math.max(1, numberOfSeats - 1))}
+                className="w-10 h-10 rounded-lg bg-achrams-bg-secondary border border-achrams-border flex items-center justify-center hover:bg-achrams-bg-primary transition-colors"
+                disabled={numberOfSeats <= 1}
+              >
+                <Minus className="w-5 h-5 text-achrams-text-primary" />
+              </button>
+              <span className="text-lg font-semibold text-achrams-text-primary w-8 text-center">
+                {numberOfSeats}
+              </span>
+              <button
+                type="button"
+                onClick={() => setNumberOfSeats(Math.min(8, numberOfSeats + 1))}
+                className="w-10 h-10 rounded-lg bg-achrams-bg-secondary border border-achrams-border flex items-center justify-center hover:bg-achrams-bg-primary transition-colors"
+                disabled={numberOfSeats >= 8}
+              >
+                <Plus className="w-5 h-5 text-achrams-text-primary" />
+              </button>
+            </div>
+            <p className="text-xs text-achrams-text-secondary mt-1">
+              Maximum 8 seats per booking
+            </p>
+          </div>
 
 {/* NEW: Strict Preferences Toggle */}
 
@@ -9729,7 +9739,7 @@ export default function ComingSoonModal({
       title = 'Support';
       IconComponent = Headphones;
       description = 'Need assistance? Get in touch with our support team.';
-      contactInfo = `Phone: +234 800 ACHRAMS\nEmail: support@achrams.com.ng`;
+      contactInfo = `Phone: +234 (0) 810 5527588\nEmail: achrams@exceliangroup.com.ng`;
       break;
     case 'alerts':
       title = 'Alerts';
@@ -9802,11 +9812,11 @@ export default function ComingSoonModal({
               <div className="text-sm text-achrams-text-secondary space-y-1">
                 <p className="flex items-center justify-center gap-2">
                   <Phone className="w-4 h-4" /> {/* Assuming Phone icon is imported */}
-                  +234 800 ACHRAMS
+                  +234 (0) 810 5527 588
                 </p>
                 <p className="flex items-center justify-center gap-2">
                   <Mail className="w-4 h-4" /> {/* Assuming Mail icon is imported */}
-                  support@achrams.com.ng
+                  achrams@exceliangroup.com.ng
                 </p>
               </div>
             </div>
@@ -10844,6 +10854,7 @@ interface LoginModalProps {
   onShowSignupPrompt: () => void;
   showNotification: (message: string, type: "info" | "success" | "warning" | "error") => void;
   onRequires2FA: (email: string, password: string) => void;
+  setShowPasswordResetModal: (val: boolean)=> void;
 }
 
 export default function LoginModal({
@@ -10854,6 +10865,7 @@ export default function LoginModal({
   onShowSignupPrompt,
   onLoginError,
   showNotification,
+  setShowPasswordResetModal,
 
 }: LoginModalProps) {
   if (!isOpen) return null;
@@ -10899,6 +10911,11 @@ export default function LoginModal({
   //   }
   // };
 
+
+   const handleOpenPasswordReset = () => {
+    onClose();
+    setShowPasswordResetModal(true);
+  }
   const handleLogin = async () => {
     setError('');
     if (!email || !password) {
@@ -11071,9 +11088,16 @@ export default function LoginModal({
               onClose();
               onShowSignupPrompt();
             }}
-            className="text-sm text-achrams-primary-solid hover:underline"
+            className="text-sm text-achrams-primary-solid hover:underline cursor-pointer"
           >
             Don't have an account? Sign Up
+          </button>
+
+          <button
+            onClick={handleOpenPasswordReset}
+            className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer"
+          >
+            Forgot Password? Click to reset
           </button>
         </div>
 
@@ -13938,6 +13962,7 @@ export default function ACHRAMApp() {
   const [fareEstimate, setFareEstimate] = useState<number | null>(null);
   const [fareIsFlatRate, setFareIsFlatRate] = useState<boolean | null>(null);
   const [driver, setDriver] = useState<any>(null);
+  const [vehicle, setVehicle] = useState<any>(null);
   const [tripProgress, setTripProgress] = useState<number>(0);
   const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(null);
   const [driverLocation, setDriverLocation] = useState<[number, number] | null>(null);
@@ -14038,8 +14063,10 @@ const [numberOfSeats, setNumberOfSeats] = useState<number>(1);
 const [isStrictPreferences, setIsStrictPreferences] = useState<boolean>(false);
 
 // Constant for source domain
-const SOURCE_DOMAIN = "ride.achrams.com.ng";
 
+ const sourceDomain = typeof window !== 'undefined' 
+    ? window.location.hostname 
+    : 'ride.achrams.com.ng';
 
 
   const preserveBookingContext = useCallback(() => {
@@ -14048,6 +14075,7 @@ const SOURCE_DOMAIN = "ride.achrams.com.ng";
     setActiveTripId(null);
     setGuestId(null);
     setDriver(null);
+    setVehicle(null);
     setVerificationCode(null);
     setTripProgress(0);
     setFareEstimate(null);
@@ -14072,6 +14100,7 @@ const SOURCE_DOMAIN = "ride.achrams.com.ng";
     setActiveTripId,
     setGuestId,
     setDriver,
+    setVehicle,
     setVerificationCode,
     setTripProgress,
     setFareEstimate,
@@ -14111,59 +14140,58 @@ useEffect(() => {
 }, []);
 
 
+// useEffect(() => {
+//   if (screen === 'dashboard' || screen === 'trip-progress' || screen === 'driver-assigned' || screen === 'booking') {
+//     requestPermission(); // ← Only when relevant
+//   }
+// }, [screen, requestPermission]);
+
+
 useEffect(() => {
+  const shouldRequestLocation = () => {
+    // Check if we already have valid coordinates
+    if (passengerLiveLocation && 
+        passengerLiveLocation.length === 2 && 
+        typeof passengerLiveLocation[0] === 'number' && 
+        typeof passengerLiveLocation[1] === 'number' &&
+        !isNaN(passengerLiveLocation[0]) && 
+        !isNaN(passengerLiveLocation[1])) {
+      console.log('✅ Valid coordinates already exist:', passengerLiveLocation);
+      return false; // Don't request permission
+    }
+    
+    console.log('⚠️ No valid coordinates, requesting permission...');
+    return true; // Request permission
+  };
+  
   if (screen === 'dashboard' || screen === 'trip-progress' || screen === 'driver-assigned') {
-    requestPermission(); // ← Only when relevant
+    if (shouldRequestLocation()) {
+      requestPermission();
+    }
   }
-}, [screen, requestPermission]);
+}, [screen, requestPermission, passengerLiveLocation]);
 
 
-  // useEffect(() => {
-  //   if (screen !== "driver-assigned" && screen !== "trip-progress" && screen !== "dashboard") return;
-  //   let watchId: number;
 
+const handleRefreshLocation = useCallback(async () => {
+  console.log('🔄 Manually refreshing location...');
+  showNotification('Updating your location...', 'info');
+  
+  try {
+    const position = await requestPermission();
+    if (position) {
+      console.log('✅ Location refreshed successfully:', position);
+      showNotification('Location updated successfully', 'success');
+    } else {
+      showNotification('Location already fetched', 'error');
+    }
+  } catch (err) {
+    console.error('Location refresh failed:', err);
+    showNotification('Failed to refresh location', 'error');
+  }
+}, [requestPermission, showNotification]);
 
-  //   const startWatchingLocation = async () => {
-  //     if (!navigator.geolocation) return;
-  //     try {
-  //       const initialPosition = await new Promise<GeolocationPosition>((resolve, reject) => {
-  //         navigator.geolocation.getCurrentPosition(resolve, reject, {
-  //           enableHighAccuracy: true,
-  //           maximumAge: 5000,
-  //           timeout: 20000,
-  //         });
-  //       });
-  //       const { longitude, latitude } = initialPosition.coords;
-  //       setPassengerLiveLocation([latitude, longitude]);
-  //       console.log("Initial accurate location:", [longitude, latitude]);
-  //       watchId = navigator.geolocation.watchPosition(
-  //         (position) => {
-  //           const { longitude, latitude, accuracy } = position.coords;
-  //           if (accuracy <= 50) {
-  //             setPassengerLiveLocation([latitude, longitude]);
-  //             console.log("Updated location:", [longitude, latitude]);
-  //           }
-  //         },
-  //         (error) => {
-  //           console.error("Error watching location:", error);
-  //         },
-  //         {
-  //           enableHighAccuracy: true,
-  //           maximumAge: 0,
-  //           timeout: 15000,
-  //         }
-  //       );
-  //     } catch (error) {
-  //       console.error("Failed to get initial location:", error);
-  //     }
-  //   };
-  //   startWatchingLocation();
-  //   return () => {
-  //     if (watchId) {
-  //       navigator.geolocation.clearWatch(watchId);
-  //     }
-  //   };
-  // }, [screen]);
+  
 
   const activeTripForDashboard = useMemo(() => {
     if (activeTripId) {
@@ -14213,6 +14241,7 @@ useEffect(() => {
     setTripRequestStatus,
     setTripRequestError,
     setDriver,
+    setVehicle,
     setScreen,
     setPickup,
     setPickupCoords,
@@ -14270,12 +14299,17 @@ useEffect(() => {
     setGuestId,
     setScreen,
     setDriver,
+    setVehicle,
     setAirportPickupArea,
     preserveBookingContext,
     startWebSocketConnection,
     startWebSocketConnectionForAuthUser,
     bookTripRetry: false,
     setBookTripRetry: () => {},
+    selectedCategory,
+    numberOfSeats,
+    isStrictPreferences,
+    sourceDomain, 
   });
 
   useDriverTracking({
@@ -14299,6 +14333,7 @@ useEffect(() => {
     setBookAsGuest,
     setActiveTripId,
     setDriver,
+    setVehicle,
     setPickup,
     setDestination,
     setFareEstimate,
@@ -14562,7 +14597,11 @@ useEffect(() => {
     activeTripId,
     guestId,
     bookAsGuest,
-    setIsNavigatingToDashboard
+    setIsNavigatingToDashboard,
+    selectedCategory,
+    numberOfSeats,
+    isStrictPreferences,
+    fareIsFlatRate,
   );
 
   const handleRegistrationSuccess = (email: string) => {
@@ -14702,6 +14741,7 @@ useEffect(() => {
           setPollingIntervalId(null);
         }
         setDriver(null);
+        setVehicle(null);
         setActiveTripId(null);
         if (!isAuthenticated) {
           setGuestId(null);
@@ -14949,6 +14989,7 @@ if (!pickup || !pickupCodename) {
           console.log("Background sync: Fetched current trip status:", trip.status.value);
           if (trip.driver && JSON.stringify(trip.driver) !== JSON.stringify(driver)) {
             setDriver(trip.driver);
+            setVehicle(trip.vehicle);
           }
           if (trip.status.value === "active" && trip.progress !== tripProgress) {
             setTripProgress(trip.progress || 0);
@@ -14996,6 +15037,7 @@ if (!pickup || !pickupCodename) {
       tripProgress,
       verificationCode,
       setDriver,
+      setVehicle,
       setTripProgress,
       setVerificationCode,
       setScreen,
@@ -15059,6 +15101,7 @@ useEffect(()=>{
       
       setScreen(savedScreen);
       setDriver(savedState.driver || null);
+      setVehicle(savedState.vehicle)
       setTripProgress(savedState.tripProgress || 0);
       setVerificationCode(savedState.verificationCode || "");
 
@@ -15078,6 +15121,7 @@ useEffect(()=>{
     } else if (savedScreen === "trip-complete") {
       setScreen("trip-complete");
       setDriver(savedState.driver || null);
+      setVehicle(savedState.vehicle || null);
     } else {
       console.warn("Persisted screen state is inconsistent with activeTripId, going to booking.");
       setScreen("booking");
@@ -15089,6 +15133,7 @@ useEffect(()=>{
     // guestId,
     setScreen,
     setDriver,
+    setVehicle,
     setTripProgress,
     setVerificationCode,
     startWebSocketConnectionForAuthUser,
@@ -15257,6 +15302,7 @@ useEffect(()=>{
           console.log("Fetched trip details for resume from dashboard:", trip);
           setActiveTripId(trip.id);
           setDriver(trip.driver || null);
+          setVehicle(trip.vehicle);
           setTripProgress(trip.progress || 0);
           setVerificationCode(trip.verification_code || "");
           setPickup(trip.pickup_address || "");
@@ -15278,6 +15324,7 @@ useEffect(()=>{
           } else if (trip.status.value === "accepted") {
             setScreen("driver-assigned");
             setDriver(trip.driver);
+            setVehicle(trip.vehicle)
             setVerificationCode(trip.verification_code);
             if (isCurrentlyAuthenticated) {
               startWebSocketConnectionForAuthUser(trip.id);
@@ -15287,6 +15334,7 @@ useEffect(()=>{
           } else if (trip.status.value === "active") {
             setScreen("trip-progress");
             setDriver(trip.driver);
+            setVehicle(trip.vehicle)
             setTripProgress(trip.progress || 0);
             if (isCurrentlyAuthenticated) {
               startWebSocketConnectionForAuthUser(trip.id);
@@ -15296,6 +15344,7 @@ useEffect(()=>{
           } else if (trip.status.value === "completed") {
             setScreen("trip-complete");
             setDriver(trip.driver);
+            setVehicle(trip.vehicle);
             stopWebSocketConnection();
             if (pollingIntervalRef.current) {
               clearInterval(pollingIntervalRef.current);
@@ -15363,6 +15412,7 @@ useEffect(()=>{
       setScreen,
       setActiveTripId,
       setDriver,
+      setVehicle,
       setTripProgress,
       setVerificationCode,
       setPickup,
@@ -15780,6 +15830,9 @@ useEffect(() => {
         setNumberOfSeats={setNumberOfSeats}
         isStrictPreferences={isStrictPreferences}
         setIsStrictPreferences={setIsStrictPreferences}
+
+        passengerLiveLocation={passengerLiveLocation} // NEW
+        onRefreshLocation={handleRefreshLocation} // NEW
       />
     );
   } else if (screen === "assigning") {
@@ -15790,6 +15843,7 @@ useEffect(() => {
         pickup={pickup}
         destination={destination}
         driver={driver}
+        vehicle={vehicle}
         verificationCode={verificationCode || ""}
         onShowDirections={() => setShowDirections(true)}
         onShowDriverVerification={() => setShowDriverVerification(true)}
@@ -15825,6 +15879,7 @@ useEffect(() => {
       <TripCompleteScreen
         fareEstimate={fareEstimate}
         driver={driver}
+        vehicle={vehicle}
         pickup={pickup}
         destination={destination}
         onRate={() => setShowRate(true)}
@@ -15837,6 +15892,7 @@ useEffect(() => {
           setDestination("");
           setFareEstimate(null);
           setDriver(null);
+          setVehicle(null);
           setTripProgress(0);
           setPickupCoords(null);
           setDestinationCoords(null);
@@ -15885,8 +15941,10 @@ useEffect(() => {
           setPickupCoords(null);
           setDestinationCoords(null);
           setDriver(null);
+          setVehicle(null);
           setTripProgress(0);
           setVerificationCode(null);
+         
         }}
         onShowWallet={() => setShowWallet(true)}
         onShowSettings={() => setShowSettings(true)}
@@ -15902,6 +15960,7 @@ useEffect(() => {
         onShowActiveTrip={handleResumeActiveTrip}
         recentTripData={recentTripData}
         onResumeRecentTrip={handleResumeTripById}
+        handleRefreshLocation={handleRefreshLocation}
       />
     );
   } else if (showTripHistory) {
@@ -15991,6 +16050,13 @@ useEffect(() => {
             bookAsGuest={bookAsGuest}
             setTripRequestStatus={setTripRequestStatus}
             setTripRequestError={setTripRequestError}
+
+            numberOfSeats={numberOfSeats}
+            setNumberOfSeats={setNumberOfSeats}
+            isStrictPreferences={isStrictPreferences}
+            setIsStrictPreferences={setIsStrictPreferences}
+            selectedCategory={selectedCategory}
+            fareEstimate={fareEstimate}
           />
           {hasHydrated && !['trip-progress', 'trip-complete', 'booking', 'dashboard'].includes(screen) &&(
             <DirectionsModal
@@ -16123,6 +16189,7 @@ useEffect(() => {
               console.log("page.tsx: Received login error from modal:", errorMessage);
               showNotification(errorMessage, "error");
             }}
+            setShowPasswordResetModal={setShowPasswordResetModal}
             showNotification={showNotification}
             onShowSignupPrompt={() => {
               setShowSignup(true);
@@ -17717,6 +17784,8 @@ interface BookingScreenProps {
   setNumberOfSeats: (val: number) => void;
   isStrictPreferences: boolean;
   setIsStrictPreferences: (val: boolean) => void;
+  passengerLiveLocation: [number, number] | null; 
+  onRefreshLocation?: () => void; // NEW: Optional refresh handler
 }
 
 const losCoords: [number, number] = [3.330058, 6.568287];
@@ -17785,6 +17854,8 @@ export default function BookingScreen({
   setNumberOfSeats,
   isStrictPreferences,
   setIsStrictPreferences,
+  passengerLiveLocation, 
+  onRefreshLocation,
 }: BookingScreenProps) {
   const [pickupOpen, setPickupOpen] = useState(false);
   const [destOpen, setDestOpen] = useState(false);
@@ -17952,6 +18023,8 @@ export default function BookingScreen({
     let lga: string | null = null;
     let locality: string | null = null;
     let sublocality: string | null = null;
+
+    console.log('Place Object', place);
 
     place.address_components?.forEach((component) => {
       const types = component.types;
@@ -18136,69 +18209,145 @@ export default function BookingScreen({
     destinationInputRef.current?.focus();
   }, []);
 
+  // const handleUseCurrentLocation = useCallback(async () => {
+  //   if (error?.includes("denied")) {
+  //     setShowLocationSettingsModal(true);
+  //     setPickupOpen(false);
+  //     return;
+  //   }
+
+  //   setIsFetchingLocation(true);
+  //   setPickupOpen(false);
+
+  //   try {
+  //     const position = await requestPermission();
+  //     if (!position) throw new Error("No coordinates");
+
+  //     const { latitude, longitude } = position;
+  //     console.log(
+  //       "DEBUG: handleUseCurrentLocation - Got geolocation:",
+  //       longitude,
+  //       latitude,
+  //     );
+
+  //     const coords = [longitude, latitude] as [number, number];
+
+  //     geolocationCoordsRef.current = coords;
+
+  //     const airports = await findNearestAirport(longitude, latitude);
+
+  //     console.log(
+  //       "DEBUG: handleUseCurrentLocation - Found airports:",
+  //       airports,
+  //     );
+  //     if (airports && airports.length > 0) {
+  //       if (airports.length === 1) {
+  //         console.log(
+  //           "DEBUG: handleUseCurrentLocation - Setting single airport:",
+  //           airports[0].name,
+  //           "with coords:",
+  //           [longitude, latitude],
+  //         );
+
+  //         setPickupLocationData({
+  //           name: airports[0].name,
+  //           coords: [longitude, latitude],
+  //           id: airports[0].id,
+  //           codename: airports[0].codename,
+  //         });
+  //       } else {
+  //         setAirportsToSelect(airports);
+  //         setShowAirportSelectionModal(true);
+  //       }
+  //     } else {
+  //       setShowOutsideServiceModal(true);
+  //     }
+  //   } catch (err) {
+  //     console.error("Location fetch failed:", err);
+  //     showNotification(
+  //       `Location fetch failed, Kindly search your location  `,
+  //       "error",
+  //     );
+  //   } finally {
+  //     setIsFetchingLocation(false);
+  //   }
+  // }, [error, requestPermission]);
+
+
   const handleUseCurrentLocation = useCallback(async () => {
-    if (error?.includes("denied")) {
-      setShowLocationSettingsModal(true);
-      setPickupOpen(false);
-      return;
-    }
-
-    setIsFetchingLocation(true);
+  // FIRST: Check if we already have valid coordinates from parent
+  if (passengerLiveLocation && 
+      passengerLiveLocation.length === 2 && 
+      !isNaN(passengerLiveLocation[0]) && 
+      !isNaN(passengerLiveLocation[1])) {
+    console.log('✅ Using existing coordinates:', passengerLiveLocation);
+    
+    // Use existing coordinates to find airports
+    const [lat, lng] = passengerLiveLocation;
+    const airports = await findNearestAirport(lng, lat);
     setPickupOpen(false);
-
-    try {
-      const position = await requestPermission();
-      if (!position) throw new Error("No coordinates");
-
-      const { latitude, longitude } = position;
-      console.log(
-        "DEBUG: handleUseCurrentLocation - Got geolocation:",
-        longitude,
-        latitude,
-      );
-
-      const coords = [longitude, latitude] as [number, number];
-
-      geolocationCoordsRef.current = coords;
-
-      const airports = await findNearestAirport(longitude, latitude);
-
-      console.log(
-        "DEBUG: handleUseCurrentLocation - Found airports:",
-        airports,
-      );
-      if (airports && airports.length > 0) {
-        if (airports.length === 1) {
-          console.log(
-            "DEBUG: handleUseCurrentLocation - Setting single airport:",
-            airports[0].name,
-            "with coords:",
-            [longitude, latitude],
-          );
-
-          setPickupLocationData({
-            name: airports[0].name,
-            coords: [longitude, latitude],
-            id: airports[0].id,
-            codename: airports[0].codename,
-          });
-        } else {
-          setAirportsToSelect(airports);
-          setShowAirportSelectionModal(true);
-        }
+    
+    if (airports && airports.length > 0) {
+      if (airports.length === 1) {
+        setPickupLocationData({
+          name: airports[0].name,
+          coords: [lng, lat],
+          id: airports[0].id,
+          codename: airports[0].codename,
+        });
       } else {
-        setShowOutsideServiceModal(true);
+        setAirportsToSelect(airports);
+        setShowAirportSelectionModal(true);
+        geolocationCoordsRef.current = [lng, lat];
       }
-    } catch (err) {
-      console.error("Location fetch failed:", err);
-      showNotification(
-        `Location fetch failed, Kindly search your location  `,
-        "error",
-      );
-    } finally {
-      setIsFetchingLocation(false);
+      return; // Exit early, no need to request permission
     }
-  }, [error, requestPermission]);
+  }
+  
+  // SECOND: If no existing coordinates, request fresh location
+  console.log('⚠️ No existing coordinates, requesting fresh location...');
+  
+  if (error?.includes("denied")) {
+    setShowLocationSettingsModal(true);
+    setPickupOpen(false);
+    return;
+  }
+  
+  setIsFetchingLocation(true);
+  setPickupOpen(false);
+  
+  try {
+    const position = await requestPermission();
+    if (!position) throw new Error("No coordinates");
+    
+    const { latitude, longitude } = position;
+    const coords = [longitude, latitude] as [number, number];
+    geolocationCoordsRef.current = coords;
+    
+    const airports = await findNearestAirport(longitude, latitude);
+    
+    if (airports && airports.length > 0) {
+      if (airports.length === 1) {
+        setPickupLocationData({
+          name: airports[0].name,
+          coords,
+          id: airports[0].id,
+          codename: airports[0].codename,
+        });
+      } else {
+        setAirportsToSelect(airports);
+        setShowAirportSelectionModal(true);
+      }
+    } else {
+      setShowOutsideServiceModal(true);
+    }
+  } catch (err) {
+    console.error("Location fetch failed:", err);
+    showNotification('Location fetch failed. Please search manually.', 'error');
+  } finally {
+    setIsFetchingLocation(false);
+  }
+}, [error, requestPermission, passengerLiveLocation]); // ← Add passengerLiveLocation to deps
 
   const handleAirportSelectedFromModal = useCallback((airport: Airport) => {
     const geolocationCoords = geolocationCoordsRef.current;
@@ -18557,7 +18706,7 @@ export default function BookingScreen({
       {/* Back to Categories */}
       <button
         onClick={handleBackToCategories}
-        className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+        className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
       >
         <ChevronLeft className="w-4 h-4" />
         Change vehicle category
@@ -18586,7 +18735,7 @@ export default function BookingScreen({
       </div> */}
 
       <div className={`p-4 ${isAuthenticated ? 'mb-24' : ''}`}>
-  {selectedCategory && fareEstimate && (
+  {/* {selectedCategory && fareEstimate && (
     <button
       onClick={handleBackToCategories}
       className="w-full bg-white border-2 border-achrams-border text-achrams-text-primary py-3.5 rounded-xl font-medium mb-2.5 hover:bg-achrams-bg-secondary transition-colors flex items-center justify-center gap-2"
@@ -18594,7 +18743,7 @@ export default function BookingScreen({
       <ChevronLeft className="w-4 h-4" />
       Back to Categories
     </button>
-  )}
+  )} */}
   <button
     onClick={onProceed}
     disabled={!fareEstimate || !selectedCategory}
@@ -18736,7 +18885,7 @@ import {
   Shield,
   Star,
 } from "lucide-react";
-import { Driver } from "@/types/passenger";
+import { Driver, Vehicle } from "@/types/passenger";
 import { useState, useEffect } from "react";
 import ACHRAMFooter from "@/components/app/ui/ACHRAMFooter";
 import Image from "next/image";
@@ -18745,6 +18894,7 @@ interface DriverAssignedScreenProps {
   pickup: string;
   destination: string;
   driver: Driver;
+  vehicle: Vehicle;
   verificationCode: string;
   onShowDirections: () => void;
   onShowDriverVerification: () => void;
@@ -18763,6 +18913,7 @@ export default function DriverAssignedScreen({
   pickup,
   destination,
   driver,
+  vehicle,
   verificationCode,
   onShowDirections,
   onShowDriverVerification,
@@ -18780,6 +18931,8 @@ export default function DriverAssignedScreen({
     return () => clearTimeout(timer);
   }, []);
 
+  console.log("Vehicle Object", vehicle, vehicle.photo);
+  
   return (
     <div className="bg-achrams-bg-primary flex flex-col relative flex-1">
       {driver ? (
@@ -18842,13 +18995,14 @@ export default function DriverAssignedScreen({
               </div>
 
               {/* Car Photo (if available) */}
-              {driver.car_photo && (
+              {vehicle.photo && (
                 <div className="mb-4 rounded-lg overflow-hidden border border-achrams-border">
                   <div className="relative w-full h-32">
                     <Image
-                      src={driver.car_photo}
-                      alt={`${driver.car_type} - ${driver.car_color}`}
+                      src={vehicle?.photo}
+                      alt={`${vehicle.model.fuel_type} - ${vehicle.color}`}
                       fill
+                      unoptimized={true}
                       className="object-cover"
                     />
                   </div>
@@ -18858,10 +19012,10 @@ export default function DriverAssignedScreen({
               {/* Car Details */}
               <div className="bg-achrams-bg-primary rounded-lg p-4 mb-4 border border-achrams-border">
                 <div className="text-sm text-achrams-text-secondary mb-1">
-                  {driver.car_type || "Vehicle"} • {driver.car_color || "Color"}
+                  {`${vehicle.model.brand.name} ${vehicle.model.name} ${vehicle.model.year}` || "Vehicle"} • {vehicle.color || "Color"}
                 </div>
                 <div className="text-2xl font-mono font-bold text-achrams-text-primary">
-                  {driver.plate_number || "—"}
+                  {vehicle.plate_number || "—"}
                 </div>
               </div>
 
@@ -19272,7 +19426,7 @@ export default function TripHistoryModal({
 "use client";
 
 import { Check, MapPin, Star } from "lucide-react";
-import { Driver } from "@/types/passenger";
+import { Driver , Vehicle} from "@/types/passenger";
 import ACHRAMFooter from "@/components/app/ui/ACHRAMFooter";
 import Image from "next/image";
 
@@ -19281,6 +19435,7 @@ type OnDoneHandler = () => void;
 interface TripCompleteScreenProps {
   fareEstimate: number | null;
   driver: Driver;
+  vehicle: Vehicle;
   pickup: string;
   destination: string;
   onRate?: () => void;
@@ -19292,6 +19447,7 @@ interface TripCompleteScreenProps {
 export default function TripCompleteScreen({
   fareEstimate,
   driver,
+  vehicle,
   pickup,
   destination,
   onRate,
@@ -19719,7 +19875,8 @@ import {
   Bell,
   Heart,
   Utensils,
-  Bed, // If available, otherwise use Plane for hotels
+  Bed,
+  RefreshCw, // If available, otherwise use Plane for hotels
   // Add other icons if needed
 } from "lucide-react";
 import BottomNavBar from "../ui/BottomNavBar";
@@ -19759,6 +19916,7 @@ interface DashboardProps {
   weatherLoading: boolean;
   weatherError: string | null;
   showNotification: (message: string, type: "info" | "success" | "warning" | "error") => void;
+  handleRefreshLocation: () => void;
 }
 export default function DashboardScreen({
   onBookNewTrip,
@@ -19769,6 +19927,7 @@ export default function DashboardScreen({
   onShowTripHistory,
   onShowWallet, // NEW: Handler for wallet button
   onShowSettings,
+  handleRefreshLocation,
   onShowActiveTrip,
   accountData,
   onResumeRecentTrip,
@@ -19891,6 +20050,19 @@ export default function DashboardScreen({
                 </p>
               </div>
               <Plane className="w-6 h-6 text-emerald-600" />
+            </div>
+
+
+             <div className="flex items-center gap-2">
+              {/* NEW: Refresh location button */}
+              <button
+                onClick={handleRefreshLocation} // Pass this from parent
+                className="p-2 hover:bg-white/50 rounded-lg transition-colors"
+                title="Refresh location"
+              >
+                <RefreshCw className="w-5 h-5 text-emerald-600" />
+              </button>
+              {/* <Plane className="w-6 h-6 text-emerald-600" /> */}
             </div>
 
             {/* NEW: Weather Display Card - Handle loading, error, and data */}
@@ -21240,45 +21412,25 @@ export const formatPhoneNumber = (input: string): string => {
 };
 
 ----- FILE: src/lib/booking/buildTripData.ts -----
-import { Requirements, PassengerData, VehicleCategory } from "@/types/booking";
+// src/lib/booking/buildTripData.ts
+import { Requirements, PassengerData, VehicleCategory, BookingData } from "@/types/booking";
 
-interface BuildTripDataParams {
-  fareEstimate: number | null;
-  pickup: string;
-  destination: string;
-  pickupCoords: [number, number] | null;
-  destinationCoords: [number, number] | null;
-  passengerData: PassengerData;
-  requirements: Requirements;
-  airportId: string;
-  bookAsGuest: boolean;
-  isAuthenticated: boolean;
-  formatPhoneNumber: (input: string) => string;
-  // NEW: Add new booking fields
-  selectedCategory: VehicleCategory | null;
-  numberOfSeats: number;
-  isStrictPreferences: boolean;
-  sourceDomain: string;
-}
-
-export const buildTripData = ({
-fareEstimate,
-  pickup,
-  destination,
-  pickupCoords,
-  destinationCoords,
-  passengerData,
-  requirements,
-  airportId,
-  bookAsGuest,
-  isAuthenticated,
-  formatPhoneNumber,
-  selectedCategory,
-  numberOfSeats,
-  isStrictPreferences,
-  sourceDomain,
-}: BuildTripDataParams
-
+export const buildTripData = (
+  fareEstimate: number | null,
+  pickup: string,
+  destination: string,
+  pickupCoords: [number, number] | null,
+  destinationCoords: [number, number] | null,
+  passengerData: PassengerData,
+  requirements: Requirements,
+  airportId: string,
+  bookAsGuest: boolean,
+  isAuthenticated: boolean,
+  formatPhoneNumber: (input: string) => string,
+  selectedCategory: VehicleCategory | null,
+  numberOfSeats: number,
+  isStrictPreferences: boolean,
+  sourceDomain: string,
 ) => {
   return {
     amount: {
@@ -21286,11 +21438,6 @@ fareEstimate,
       currency: "NGN",
     },
     airport: airportId,
-    source_domain: sourceDomain,
-    category: selectedCategory || 'e_hailing',
-    number_of_seats: numberOfSeats,
-    is_strict_preferences: isStrictPreferences,
-    
     ...(bookAsGuest || !isAuthenticated
       ? {
           guest_name: passengerData.name,
@@ -21305,6 +21452,11 @@ fareEstimate,
     pickup_location: pickupCoords,
     destination_address: destination,
     destination_location: destinationCoords,
+    // NEW: Booking preferences
+    category: selectedCategory,
+    number_of_seats: numberOfSeats,
+    is_strict_preferences: isStrictPreferences,
+    source_domain: sourceDomain,
   };
 };
 
