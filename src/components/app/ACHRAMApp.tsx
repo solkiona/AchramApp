@@ -1767,8 +1767,6 @@ useEffect(()=>{
     }
 
 
-
-
 useEffect(() => {
   const initStatusBar = async () => {
     if (Capacitor.isNativePlatform()) {

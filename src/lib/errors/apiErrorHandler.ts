@@ -94,3 +94,4 @@ export const useApiErrorHandler = () => {
 
   return { generalError, fieldErrors, handleApiError, clearErrors };
 };
+

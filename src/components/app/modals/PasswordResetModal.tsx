@@ -1,7 +1,8 @@
 // src/components/app/modals/PasswordResetModal.tsx
 import { useState, useEffect } from 'react';
-import { X, Mail, Loader2, CheckCircle } from 'lucide-react';
+import { X, Mail, Loader2, CheckCircle, EyeOff, Eye } from 'lucide-react';
 import { apiClient } from '@/lib/api';
+import  {useApiErrorHandler} from '@/lib/errors/apiErrorHandler';
 
 interface PasswordResetModalProps {
   isOpen: boolean;
@@ -23,6 +24,9 @@ export default function PasswordResetModal({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const { fieldErrors, generalError, handleApiError} = useApiErrorHandler();
 
   // Reset state when modal opens
   useEffect(() => {
@@ -60,11 +64,13 @@ export default function PasswordResetModal({
         setStep('otp');
         setCountdown(60); // 60 seconds before resend allowed
       } else {
-        showNotification(response.message || "Failed to send reset email.", "error");
+        const message = handleApiError(response);
+        showNotification(generalError || response.message || "Failed to send reset email.", "error");
       }
     } catch (err: any) {
       console.error("Error sending reset email:", err);
-      showNotification(err.response?.data?.message || "An error occurred while sending the reset email.", "error");
+      handleApiError(err)
+      showNotification( generalError || err.response?.data?.message || "An error occurred while sending the reset email.", "error");
     } finally {
       setLoading(false);
     }
@@ -109,7 +115,8 @@ export default function PasswordResetModal({
       }
     } catch (err: any) {
       console.error("Error resetting password:", err);
-      showNotification(err.response?.data?.message || "An error occurred while resetting the password.", "error");
+      handleApiError(err);
+      showNotification(generalError || err.response?.data?.message || "An error occurred while resetting the password.", "error");
     } finally {
       setLoading(false);
     }
@@ -142,14 +149,14 @@ export default function PasswordResetModal({
         {/* Step 1: Enter Email */}
         {step === 'email' && (
           <div className="space-y-4">
-            <div className="p-3 bg-gray-50 rounded-xl border border-achrams-border">
-              <label className="block text-xs text-achrams-text-secondary font-medium mb-1">Email</label>
+            <div className="pt-3">
+              {/* <label className="block text-xs text-achrams-text-secondary font-medium mb-1">Email</label> */}
               <input
                 type="email"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
-                className="w-full bg-transparent text-achrams-text-primary font-semibold focus:outline-none"
-                placeholder="your.email@example.com"
+                className="w-full px-4 py-3 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border pr-10"
+                placeholder="johndoe@example.com"
                 disabled={loading}
               />
             </div>
@@ -160,6 +167,11 @@ export default function PasswordResetModal({
                 loading ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
+              {fieldErrors.email && (
+                <p className="text-red-500">
+                  {fieldErrors.email[0]}
+                </p>
+              )}
               {loading ? (
                 <div className="flex items-center justify-center">
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -225,29 +237,45 @@ export default function PasswordResetModal({
         )}
 
         {/* Step 3: Enter New Password */}
-        {step === 'newPassword' && (
+        {/* step === 'newPassword' */}
+        { step === 'newPassword' && (
           <div className="space-y-4">
-            <div className="p-3 bg-gray-50 rounded-xl border border-achrams-border">
-              <label className="block text-xs text-achrams-text-secondary font-medium mb-1">New Password</label>
+            <div className="pt-3 relative">
+              {/* <label className="block text-xs text-achrams-text-secondary font-small mb-1">New Password</label> */}
               <input
-                type="password"
+                type={showPassword ?"text" : "password"}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full bg-transparent text-achrams-text-primary font-semibold focus:outline-none"
+                className="w-full px-4 py-3 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border pr-10"
                 placeholder="Enter new password"
                 disabled={loading}
               />
+              <button
+              type="button"
+              onClick={() => setShowPassword(prev => !prev)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-achrams-text-secondary hover:text-achrams-text-primary"
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+            
             </div>
-            <div className="p-3 bg-gray-50 rounded-xl border border-achrams-border">
-              <label className="block text-xs text-achrams-text-secondary font-medium mb-1">Confirm Password</label>
+            <div className="pt-3 relative">
+              {/* <label className="block text-xs text-achrams-text-secondary font-medium mb-1">Confirm Password</label> */}
               <input
-                type="password"
+                type={showPassword ?"text" : "password"}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-transparent text-achrams-text-primary font-semibold focus:outline-none"
+                className="w-full px-4 py-3 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border pr-10"
                 placeholder="Confirm new password"
                 disabled={loading}
               />
+
+              {fieldErrors.password && (
+                <p className="text-red-500">
+                  {fieldErrors.password[0]}
+                </p>
+              )}
+              
             </div>
             <button
               onClick={handleResetPassword}

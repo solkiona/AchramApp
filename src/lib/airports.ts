@@ -2,6 +2,7 @@
 import { apiClient } from '@/services/apiClient';
 import { normalizeApiError } from "@/lib/errors/normalizeApiError";
 
+
 export interface Airport {
   id: string;
   name: string;
@@ -13,8 +14,10 @@ export const findNearestAirport = async (
   longitude: number,
   latitude: number
 ): Promise<Airport[] | null> => {
-  try {
 
+   
+
+  try {
     // Please not that I had to swap longitude for latitude, this was done for a reason. The api useGeolocation makes use of latitude and longitude, but the backend uses longitude and latitude
     const response = await apiClient.get(`/airports/by-location/?lon=${longitude}&lat=${latitude}`);
     console.log('{latitude, longitude}', {latitude, longitude})
@@ -25,8 +28,10 @@ export const findNearestAirport = async (
     console.log("No airports found near coordinates:", longitude, latitude); 
     return null;
   } catch (err) {
+    
     console.error('Failed to find airport by location:', err);
-    throw new Error(normalizeApiError(err)[0]);
+    
+    // throw new Error(normalizeApiError(err)[0]);
   }
 };
 
