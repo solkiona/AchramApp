@@ -308,6 +308,29 @@ useEffect(() => {
   }, []);
 
 
+const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    if (Capacitor.getPlatform() !== 'ios') return;
+    
+    Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+    Keyboard.setScroll({ isDisabled: true });
+
+    const show = Keyboard.addListener('keyboardWillShow', (info) => {
+      setKeyboardHeight(info.keyboardHeight);
+    });
+    const hide = Keyboard.addListener('keyboardWillHide', () => {
+      setKeyboardHeight(0);
+    });
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+
+
+useEffect(()=>{
+  console.log(keyboardHeight)
+}, [keyboardHeight])
+
+
 
 useEffect(() => {
   const shouldRequestLocation = () => {
@@ -2185,6 +2208,7 @@ useEffect(() => {
             relative
             [font-feature-settings:'ss01']
             border border-red-600
+            overflow-y-auto
           "
         >
 
@@ -2358,6 +2382,7 @@ useEffect(() => {
               setShowSignup(true);
               setShowLogin(false);
             }}
+            keyboardHeight={keyboardHeight}
           />
           {show2FAOtpModal && pendingLoginCreds && (
             <LoginOTPModal

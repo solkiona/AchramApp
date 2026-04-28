@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react';
 // import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import GoogleColor from '@/components/icons/GoogleColor';
-import { useKeyboardOffset } from '@/hooks/useKeyboardOffset';
-import { Keyboard } from '@capacitor/keyboard';
+
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -16,6 +15,7 @@ interface LoginModalProps {
   showNotification: (message: string, type: "info" | "success" | "warning" | "error") => void;
   onRequires2FA: (email: string, password: string) => void;
   setShowPasswordResetModal: (val: boolean)=> void;
+  keyboardHeight: any;
 }
 
 export default function LoginModal({
@@ -27,6 +27,7 @@ export default function LoginModal({
   onLoginError,
   showNotification,
   setShowPasswordResetModal,
+  keyboardHeight,
 
 }: LoginModalProps) {
   if (!isOpen) return null;
@@ -43,19 +44,7 @@ export default function LoginModal({
   // const keyboardOffset = 335
 
   // PassengerDetailsModal.tsx
-const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-useEffect(() => {
-  if (!isOpen) return;
-  const show = Keyboard.addListener('keyboardWillShow', (info) => setKeyboardHeight(info.keyboardHeight));
-  const hide = Keyboard.addListener('keyboardWillHide', () => setKeyboardHeight(0));
-  return () => { show.remove(); hide.remove(); };
-}, [isOpen]);
-
-
-useEffect(()=>{
-  console.log(keyboardHeight)
-}, [keyboardHeight])
 
   // const handleLogin = async () => {
   //   setError('');
@@ -165,9 +154,11 @@ useEffect(()=>{
 
   return (
     <div className=" absolute inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50"
-    style={{ paddingBottom: `${keyboardHeight}px` }}
+    
     >
-      <div className="bg-white max-w-md mx-auto w-full rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border">
+      <div className="bg-white max-w-md mx-auto w-full rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border"
+      style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      >
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-xl font-bold text-achrams-text-primary">Sign In to your account</h3>
           <button
