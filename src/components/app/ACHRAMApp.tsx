@@ -310,6 +310,8 @@ useEffect(() => {
 
 const [keyboardHeight, setKeyboardHeight] = useState(0);
 
+
+
   useEffect(() => {
     if (Capacitor.getPlatform() !== 'ios') return;
     
@@ -2244,6 +2246,7 @@ useEffect(() => {
             setIsStrictPreferences={setIsStrictPreferences}
             selectedCategory={selectedCategory}
             fareEstimate={fareEstimate}
+            keyboardHeight={keyboardHeight}
           />
           {hasHydrated && !['trip-progress', 'trip-complete', 'booking', 'dashboard'].includes(screen) &&(
             <DirectionsModal
@@ -2273,10 +2276,12 @@ useEffect(() => {
             tripId={activeTripId || ""}
             isAuthenticated={isAuthenticated}
             bookAsGuest={bookAsGuest}
+            keyboardHeight={keyboardHeight}
           />
           {!token && showSignup && (
             <SignupPromptModal
               isOpen={showSignup}
+              keyboardHeight={keyboardHeight}
               passengerData={passengerData}
               onClose={() => setShowSignup(false)}
               onVerifyEmail={handleSignupInitiateSuccess}
@@ -2470,6 +2475,7 @@ useEffect(() => {
         onClose={() => setShowPasswordResetModal(false)}
         showNotification={showNotification}
         email={accountData?.email ?? ""}
+        keyboardHeight={keyboardHeight}
       />
       <AccountDeletionModal
         isOpen={showAccountDeletionModal}

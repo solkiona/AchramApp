@@ -27,6 +27,7 @@ interface PanicModalProps {
   tripId: string;
   isAuthenticated: boolean;
   bookAsGuest: boolean;
+  keyboardHeight: any;
 }
 
 export default function PanicModal({
@@ -38,6 +39,7 @@ export default function PanicModal({
   tripId,
   isAuthenticated,
   bookAsGuest,
+  keyboardHeight,
 }: PanicModalProps) {
   const [selected, setSelected] = useState<string | null>(null);
   // NEW: State for the custom reason when "Other" is selected
@@ -143,6 +145,9 @@ export default function PanicModal({
       {/* Click outside to close */}
       <div
         className="w-full max-w-md bg-white rounded-2xl shadow-lg overflow-hidden sm:rounded-3xl transform transition-all duration-300"
+
+        style={{ transform: `translateY(-${keyboardHeight}px)` }}
+
         onClick={(e) => e.stopPropagation()} // prevent closing on inner click
       >
         {sent ? (

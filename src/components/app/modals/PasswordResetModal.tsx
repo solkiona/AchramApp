@@ -9,6 +9,7 @@ interface PasswordResetModalProps {
   onClose: () => void;
   showNotification: (message: string, type: "info" | "success" | "warning" | "error") => void;
   email: string; // Pass the user's email to pre-fill
+  keyboardHeight: any;
 }
 
 export default function PasswordResetModal({
@@ -16,6 +17,7 @@ export default function PasswordResetModal({
   onClose,
   showNotification,
   email,
+  keyboardHeight,
 }: PasswordResetModalProps) {
   const [step, setStep] = useState<'email' | 'otp' | 'newPassword' | 'success'>('email');
   const [emailInput, setEmailInput] = useState(email ?? ''); // Pre-fill with user's email
@@ -134,7 +136,10 @@ export default function PasswordResetModal({
 
   return (
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50">
-      <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl p-6 border-t border-achrams-border">
+      <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl p-6 border-t border-achrams-border"
+      
+      style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      >
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-achrams-text-primary">Reset Password</h3>
           <button

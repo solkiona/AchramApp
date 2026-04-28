@@ -9,12 +9,14 @@ export default function LoginOTPModal({
   onSubmit, // Function to call when OTP is submitted
   email, // Email to display in the modal
   showNotification,
+  keyboardHeight,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (otp: string) => void; // Function to submit the OTP code
   email: string; // Email address for display
   showNotification: (message: string, type: "info" | "success" | "warning" | "error") => void;
+  keyboardHeight: any;
 }) {
   const [otp, setOtp] = useState(['', '', '', '', '', '']); // 6-digit OTP
   const [loading, setLoading] = useState(false); // Loading state for submission
@@ -77,7 +79,9 @@ export default function LoginOTPModal({
 
   return (
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50">
-      <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl p-6 animate-slideUp border-t border-achrams-border overflow-y-auto">
+      <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp border-t border-achrams-border overflow-y-auto"
+      style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      >
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-xl font-bold text-achrams-text-primary text-center mx-auto">Verify 2FA</h3>
           <button

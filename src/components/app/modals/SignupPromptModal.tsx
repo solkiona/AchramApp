@@ -24,6 +24,7 @@ interface SignupPromptModalProps {
   onVerifyEmail: (data: FullSignupData, countdown: number) => void;
   onOpenLoginModal: () => void;
   PHPAirportLocation: string | null;
+  keyboardHeight: any;
 }
 
 export default function SignupPromptModal({
@@ -33,6 +34,7 @@ export default function SignupPromptModal({
   onVerifyEmail, // Renamed to reflect its new purpose
   onOpenLoginModal,
   PHPAirportLocation,
+  keyboardHeight,
 }: SignupPromptModalProps) {
 
   const { generalError, fieldErrors, handleApiError, clearErrors } = useApiErrorHandler();
@@ -261,8 +263,10 @@ export default function SignupPromptModal({
                           !!nameError || !!emailError || !!phoneError || !!passwordError || !!confirmPasswordError;
 
   return (
-    <div className="absolute inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50">
-      <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border">
+    <div className="fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50">
+      <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border"
+      style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      >
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-xl font-bold text-achrams-text-primary">Create your account</h3>
           <button
