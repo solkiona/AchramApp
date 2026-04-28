@@ -53,7 +53,9 @@ useEffect(() => {
 }, [isOpen]);
 
 
-alert(keyboardHeight);
+useEffect(()=>{
+  console.log(keyboardHeight)
+}, [keyboardHeight])
 
   // const handleLogin = async () => {
   //   setError('');
