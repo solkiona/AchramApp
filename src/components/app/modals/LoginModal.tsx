@@ -4,6 +4,7 @@ import { useState } from 'react';
 // import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import GoogleColor from '@/components/icons/GoogleColor';
+import { useKeyboardOffset } from '@/hooks/useKeyboardOffset';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -37,6 +38,8 @@ export default function LoginModal({
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
+
+  const keyboardOffset = useKeyboardOffset();
 
   // const handleLogin = async () => {
   //   setError('');
@@ -142,8 +145,12 @@ export default function LoginModal({
       }, 2000);
   };
 
+  
+
   return (
-    <div className=" absolute inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50">
+    <div className=" absolute inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50"
+    style={{ transform: `translateY(-${keyboardOffset}px)` }}
+    >
       <div className="bg-white max-w-md mx-auto w-full rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border">
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-xl font-bold text-achrams-text-primary">Sign In to your account</h3>
