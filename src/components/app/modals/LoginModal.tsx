@@ -265,11 +265,12 @@ export default function LoginModal({
           >
             Don't have an account? Sign Up
           </button>
-
+            <br />
           <button
             onClick={handleOpenPasswordReset}
             className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer"
           >
+            
             Forgot Password? Click to reset
           </button>
         </div>
