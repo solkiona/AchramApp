@@ -40,6 +40,7 @@ export default function LoginModal({
   const [loadingGoogle, setLoadingGoogle] = useState(false);
 
   const keyboardOffset = useKeyboardOffset();
+  if(keyboardOffset) console.log(keyboardOffset);
 
   // const handleLogin = async () => {
   //   setError('');
@@ -149,7 +150,7 @@ export default function LoginModal({
 
   return (
     <div className=" absolute inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50"
-    style={{ transform: `translateY(-${keyboardOffset}px)` }}
+    style={{ paddingBottom: `${keyboardOffset}px` }}
     >
       <div className="bg-white max-w-md mx-auto w-full rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border">
         <div className="flex justify-between items-center mb-2">
