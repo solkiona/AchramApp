@@ -35,6 +35,11 @@ Murtala Mohamed Test =>
                 "location": {
 
 
+ios > Pod > Pods > Target Support Files > Pod runner > Pods runner frameworks.sh
+```bash
+symlink line 44
+```
+
 
 
 
