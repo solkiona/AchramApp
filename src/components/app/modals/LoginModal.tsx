@@ -1,10 +1,11 @@
 // // src/components/app/modals/LoginModal.tsx
 import { X, Loader, Mail, Chrome, Eye, EyeOff } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 // import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import GoogleColor from '@/components/icons/GoogleColor';
 import { useKeyboardOffset } from '@/hooks/useKeyboardOffset';
+import { Keyboard } from '@capacitor/keyboard';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -39,8 +40,20 @@ export default function LoginModal({
   const [loading, setLoading] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
 
-  const keyboardOffset = useKeyboardOffset();
-  if(keyboardOffset) console.log('keyboard offset: ', keyboardOffset);
+  // const keyboardOffset = 335
+
+  // PassengerDetailsModal.tsx
+const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+useEffect(() => {
+  if (!isOpen) return;
+  const show = Keyboard.addListener('keyboardWillShow', (info) => setKeyboardHeight(info.keyboardHeight));
+  const hide = Keyboard.addListener('keyboardWillHide', () => setKeyboardHeight(0));
+  return () => { show.remove(); hide.remove(); };
+}, [isOpen]);
+
+
+alert(keyboardHeight);
 
   // const handleLogin = async () => {
   //   setError('');
@@ -150,7 +163,7 @@ export default function LoginModal({
 
   return (
     <div className=" absolute inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50"
-    style={{ paddingBottom: `${keyboardOffset}px` }}
+    style={{ paddingBottom: `${keyboardHeight}px` }}
     >
       <div className="bg-white max-w-md mx-auto w-full rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border">
         <div className="flex justify-between items-center mb-2">
