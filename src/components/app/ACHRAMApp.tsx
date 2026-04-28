@@ -2173,10 +2173,10 @@ useEffect(() => {
 
   return (
     <>
-      <div className="min-h-screen flex items-center justify-center ">
+      <div className="min-h-dvh flex items-center justify-center ">
         <div
           className="
-            min-h-screen h-dvh
+            min-h-dvh h-dvh
             w-full max-w-[430px] mx-auto
             bg-white
             flex flex-col
@@ -2184,7 +2184,7 @@ useEffect(() => {
             antialiased
             relative
             [font-feature-settings:'ss01']
-            
+            border border-red-600
           "
         >
 
