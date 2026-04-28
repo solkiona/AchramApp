@@ -40,7 +40,7 @@ export default function LoginModal({
   const [loadingGoogle, setLoadingGoogle] = useState(false);
 
   const keyboardOffset = useKeyboardOffset();
-  if(keyboardOffset) console.log(keyboardOffset);
+  if(keyboardOffset) console.log('keyboard offset: ', keyboardOffset);
 
   // const handleLogin = async () => {
   //   setError('');
