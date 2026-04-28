@@ -2182,6 +2182,7 @@ useEffect(() => {
             flex flex-col
             text-sm
             antialiased
+            relative
             [font-feature-settings:'ss01']
           "
         >
