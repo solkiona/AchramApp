@@ -23,17 +23,27 @@ export const useBiometricAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const checkAvailability = useCallback(async (): Promise<boolean> => {
+    setIsLoading(true);
     try {
-      const result = await BiometricAuth.checkBiometry();
-      setBiometryResult(result);
+      // Add timeout to prevent hanging on web
+      const result = await Promise.race([
+        BiometricAuth.checkBiometry(),
+        new Promise<CheckBiometryResult>((_, reject) => 
+          setTimeout(() => reject(new Error('Biometric check timeout')), 3000)
+        )
+      ]);
+      setBiometryResult(result as CheckBiometryResult);
       
-      // ✅ CORRECT: positional args (key, convertDate?, sync?)
       const token = await SecureStorage.get('biometric_enabled');
       setIsEnabled(token === 'true');
-      return result.isAvailable;
+      return (result as CheckBiometryResult).isAvailable;
     } catch {
+      // ← CRITICAL: Fail gracefully on web or errors
       setBiometryResult(null);
+      setIsEnabled(false);
       return false;
+    } finally {
+      setIsLoading(false); // ← Always stop loading, even on error
     }
   }, []);
 

@@ -1890,10 +1890,14 @@ useEffect(() => {
 
 
 
-  if (!hasHydrated || isAuthLoading || !initComplete) {
+  if (!hasHydrated || isAuthLoading || !initComplete ) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-achrams-bg-primary z-50">
-        <div className="absolute inset-0 bg-gradient-to-br from-achrams-primary-solid/5 via-achrams-secondary-solid/5 to-achrams-bg-primary"></div>
+      <div 
+      suppressHydrationWarning
+      className="fixed inset-0 flex items-center justify-center bg-achrams-bg-primary z-50">
+        <div 
+        suppressHydrationWarning
+        className="absolute inset-0 bg-gradient-to-br from-achrams-primary-solid/5 via-achrams-secondary-solid/5 to-achrams-bg-primary"></div>
         <div className="relative z-10 flex flex-col items-center space-y-6">
           <div className="relative">
             <div
