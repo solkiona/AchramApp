@@ -40,6 +40,9 @@ ios > Pod > Pods > Target Support Files > Pod runner > Pods runner frameworks.sh
 symlink line 44
 ```
 
+version 1.0
+build 2
+
 
 
 

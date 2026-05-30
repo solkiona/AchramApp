@@ -1,5 +1,5 @@
 // // src/components/app/modals/LoginModal.tsx
-import { X, Loader, Mail, Chrome, Eye, EyeOff } from 'lucide-react';
+import { X, Loader, Mail, Chrome, Eye, EyeOff, Fingerprint } from 'lucide-react';
 import { useEffect, useState } from 'react';
 // import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,7 +32,14 @@ export default function LoginModal({
 }: LoginModalProps) {
   if (!isOpen) return null;
 
-  const { login: updateAuthContext } = useAuth(); // Get the login function from context
+  const { 
+    login: updateAuthContext,
+    isBiometricAvailable,
+    isBiometricEnabled,
+    loginWithBiometric,
+    checkBiometricAvailability,
+    isLoading: authLoading,
+   } = useAuth(); // Get the login function from context
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,48 +48,24 @@ export default function LoginModal({
   const [loading, setLoading] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
 
-  // const keyboardOffset = 335
-
-  // PassengerDetailsModal.tsx
-
-
-  // const handleLogin = async () => {
-  //   setError('');
-  //   if (!email || !password) {
-  //     setError('Please fill in all fields.');
-  //     return;
-  //   }
-
-  //   setLoading(true);
-  //   try {
-  //     // Call the login function from AuthContext, which handles the API call and state updates
-  //     const loginSuccessful = await updateAuthContext(email, password);
-
-  //     if (loginSuccessful) {
-  //       onClose();
-  //       onLoginSuccess(); // Parent (page.tsx) can handle navigation or UI updates
-  //     } else {
-  //       // The login function in AuthContext should have handled setting an error,
-  //       // or we can set a generic one here if needed.
-  //       setError('Login failed. Please check your credentials.');
-  //     }
-  //   } catch (err: any) {
-  //       console.error("Login Error caught in LoginModal:", err);
-  //       let errorMessage = 'An unexpected error occurred.';
-  //       if (err.message) {
-  //           errorMessage = err.message;
-  //       }
-  //       setError(errorMessage);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+  const [bioLoading, setBioLoading] = useState(false);
+  
+  // Check biometric availability when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      checkBiometricAvailability();
+    }
+  }, [isOpen, checkBiometricAvailability]);
 
 
-   const handleOpenPasswordReset = () => {
+
+  const handleOpenPasswordReset = () => {
     onClose();
     setShowPasswordResetModal(true);
   }
+
+
+
   const handleLogin = async () => {
     setError('');
     if (!email || !password) {
@@ -140,6 +123,32 @@ export default function LoginModal({
     }
   };
 
+
+
+  // NEW: Handle biometric login
+  const handleBiometricLogin = async () => {
+    setBioLoading(true);
+    setError('');
+    try {
+      const success = await loginWithBiometric();
+      if (success) {
+        showNotification("Welcome back!", "success");
+        onClose();
+        onLoginSuccess();
+      } else {
+        setError("Biometric authentication failed. Please use your password.");
+        showNotification("Biometric login failed", "error");
+      }
+    } catch (err: any) {
+      console.error("Biometric login error:", err);
+      setError("Biometric authentication failed.");
+      showNotification("Biometric login failed", "error");
+    } finally {
+      setBioLoading(false);
+    }
+  };
+
+
   // Placeholder for Google login function
   const handleGoogleLogin = () => {
       setLoadingGoogle(true);
@@ -163,12 +172,41 @@ export default function LoginModal({
           <h3 className="text-xl font-bold text-achrams-text-primary">Sign In to your account</h3>
           <button
             onClick={onClose}
-            disabled={loading || loadingGoogle}
+            disabled={loading || loadingGoogle || bioLoading}
             className="text-achrams-text-secondary hover:text-achrams-text-primary transition-colors disabled:opacity-50"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
+
+
+        {/* NEW: Biometric Login Button - Show if available and enabled */}
+        {isBiometricAvailable && isBiometricEnabled && (
+          <button
+            onClick={handleBiometricLogin}
+            disabled={bioLoading}
+            className="w-full py-3 mb-4 flex items-center justify-center gap-2 bg-achrams-bg-secondary rounded-xl border border-achrams-border hover:bg-achrams-bg-primary transition-all"
+          >
+            {bioLoading ? (
+              <Loader className="w-5 h-5 animate-spin text-achrams-primary-solid" />
+            ) : (
+              <>
+                <Fingerprint className="w-5 h-5 text-achrams-primary-solid" />
+                <span className="font-medium text-achrams-text-primary">Login with Biometrics</span>
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Divider */}
+        {isBiometricAvailable && isBiometricEnabled && (
+          <div className="relative flex items-center mb-4">
+            <div className="flex-grow border-t border-achrams-border"></div>
+            <span className="flex-shrink mx-4 text-achrams-text-secondary text-sm">or</span>
+            <div className="flex-grow border-t border-achrams-border"></div>
+          </div>
+        )}
+
 
         {/* Email/Password Login Form */}
         <div className="space-y-4 mb-6">
@@ -277,7 +315,7 @@ export default function LoginModal({
 
         <button
           onClick={onClose}
-          disabled={loading || loadingGoogle}
+          disabled={loading || loadingGoogle || bioLoading}
           className="w-full mt-4 text-achrams-text-secondary font-medium hover:text-achrams-text-primary transition-colors disabled:opacity-50"
         >
           Cancel

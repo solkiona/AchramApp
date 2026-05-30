@@ -6,6 +6,7 @@ import { apiClient } from '@/lib/api'; // Assuming apiClient is available or pas
 import PasswordResetModal from "@/components/app/modals/PasswordResetModal"
 import AccountDeletionModal from "@/components/app/modals/AccountDeletionModal"
 
+import {useAuth} from '@/contexts/AuthContext'
 
 
 interface ProfileModalProps {
@@ -53,6 +54,16 @@ export default function ProfileModal({
 
   const [isSaving, setIsSaving] = useState(false);
   const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(accountData?.profile_photo || null);
+
+
+
+const { 
+  isBiometricAvailable,
+  isBiometricEnabled,
+  enableBiometricLogin,
+  disableBiometricLogin,
+} = useAuth();
+
 
   // NEW: Ref for file input
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -448,6 +459,8 @@ export default function ProfileModal({
             {/* NEW: 2FA Status Card when not editing */}
             <div className="mb-6">
               <h4 className="font-bold text-achrams-text-primary mb-3 text-sm">Security</h4>
+
+
               <div className="p-3 bg-gray-50 rounded-xl border border-achrams-border flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -462,6 +475,61 @@ export default function ProfileModal({
                 </div>
                 {/* Optionally, show an 'Edit' button here to trigger the 2FA toggle directly, or keep it in edit mode */}
               </div>
+
+              {/* NEW: Biometric Login Toggle */}
+              {isBiometricAvailable && (
+                <div className="mb-6">
+                  <h4 className="font-bold text-achrams-text-primary mb-3 text-sm">Security</h4>
+                  <div className="p-3 bg-gray-50 rounded-xl border border-achrams-border flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Fingerprint className="w-4 h-4 text-emerald-600" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-achrams-text-primary">Biometric Login</div>
+                        <div className="text-xs text-achrams-text-secondary">
+                          {isBiometricEnabled 
+                            ? "Login with fingerprint or face" 
+                            : "Enable for faster login"}
+                        </div>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex h-6 w-11 items-center rounded-full cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isBiometricEnabled}
+                        onChange={async (e) => {
+                          if (e.target.checked) {
+                            // Enable biometrics
+                            const success = await enableBiometricLogin();
+                            if (success) {
+                              showNotification("Biometric login enabled", "success");
+                            } else {
+                              showNotification("Failed to enable biometrics", "error");
+                              // Revert toggle state
+                            }
+                          } else {
+                            // Disable biometrics
+                            await disableBiometricLogin();
+                            showNotification("Biometric login disabled", "info");
+                          }
+                        }}
+                        className="sr-only peer"
+                      />
+                      <span className={`block w-11 h-6 rounded-full transition-colors ${
+                        isBiometricEnabled ? 'bg-emerald-600' : 'bg-gray-300'
+                      }`}></span>
+                      <span className={`absolute left-1 top-1 bg-white rounded-full w-4 h-4 transition-transform ${
+                        isBiometricEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                      }`}></span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+
+
+
             </div>
             </>
           )}

@@ -2399,6 +2399,7 @@ useEffect(() => {
               onSubmit={handle2FAOtpSubmit}
               email={pendingLoginCreds.email}
               showNotification={showNotification}
+              keyboardHeight={keyboardHeight}
             />
           )}
           {showEnable2FA && (
@@ -2461,6 +2462,7 @@ useEffect(() => {
               guestId={isAuthenticated && !bookAsGuest ? null : guestId}
               bookAsGuest={bookAsGuest}
               isAuthenticated={isAuthenticated}
+              keyboardHeight={keyboardHeight}
             />
           )}
           <MessageWindowModal
