@@ -28,8 +28,18 @@ const nextConfig: NextConfig = {
 
   experimental: {
     // reactCompiler: false,
+    forceSwcTransforms: true,
+  
   },
+
+  transpilePackages: [
+    '@aparajita/capacitor-biometric-auth',
+    '@aparajita/capacitor-secure-storage',
+    '@capacitor/core',
+    '@capacitor/keyboard',
+  ],
   //output: 'export', // <-- COMMENTED SINCE WE ARE USING DYNAMIC ROUTING 
+  
 };
 
 // PWA Configuration

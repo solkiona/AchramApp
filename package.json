@@ -37,6 +37,14 @@
     "reconnecting-websocket": "^4.4.0",
     "zod": "^4.1.13"
   },
+
+  "browserslist": [
+    "Chrome >= 60",
+    "Android >= 7",
+    "last 2 versions",
+    "not dead"
+  ],
+  
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.17",
     "@types/next-pwa": "^5.6.9",

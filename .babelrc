@@ -1,0 +1,15 @@
+{
+  "presets": [
+    ["next/babel", {
+      "preset-env": {
+        "targets": {
+          "chrome": "60",
+          "android": "60",
+          "ios": "12"
+        },
+        "useBuiltIns": "usage",
+        "corejs": 3
+      }
+    }]
+  ]
+}
