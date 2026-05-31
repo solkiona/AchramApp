@@ -28,7 +28,6 @@ const nextConfig: NextConfig = {
 
   experimental: {
     // reactCompiler: false,
-    forceSwcTransforms: true,
   
   },
 
