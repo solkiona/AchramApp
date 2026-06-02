@@ -220,8 +220,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
    
   const checkAuthStatus = useCallback(async () => {
-  if (isNative) return false; // never auto-login on native
+  // Native must go through BiometricGate, never auto-login via token/cookie
+  if (isNative) {
+    setIsLoading(false);
+    return false;
+  }
 
+  console.log("AuthContext: Checking authentication status via cookie...");
   setIsLoading(true);
   try {
     const response = await apiClient.get(
@@ -234,9 +239,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (response.status === 'success') {
       setIsAuthenticated(true);
+      // populate user for web
       try {
         const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
-        if (me.status === 'success') setUser(me.data?? null);
+        if (me.status === 'success') setUser(me.data ?? null);
       } catch {}
       return true;
     } else {
@@ -245,7 +251,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setToken(null);
       return false;
     }
-  } catch {
+  } catch (err) {
     setIsAuthenticated(false);
     setUser(null);
     setToken(null);
