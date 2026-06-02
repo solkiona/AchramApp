@@ -266,6 +266,15 @@ useEffect(() => {
   };
 }, []);
 
+useEffect(() => {
+  const onUnauth = () => {
+    setScreen('booking');
+    // optional: clear booking state, close modals, etc.
+  };
+  window.addEventListener('auth:unauthorized', onUnauth);
+  return () => window.removeEventListener('auth:unauthorized', onUnauth);
+}, [setScreen]);
+
 
 // useEffect(() => {
 //   if (screen === 'dashboard' || screen === 'trip-progress' || screen === 'driver-assigned' || screen === 'booking') {

@@ -214,7 +214,7 @@ useEffect(() => {
       await SecureStorage.remove('auth_token');
       await SecureStorage.remove('refresh_token');
     }
-    router.replace('/');
+     window.dispatchEvent(new CustomEvent('auth:unauthorized'));
   });
 }, [mounted, router]);
 
