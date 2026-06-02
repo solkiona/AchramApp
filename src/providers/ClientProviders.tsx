@@ -3,6 +3,7 @@
 
 import { AuthProvider } from '@/contexts/AuthContext';
 import QueryProvider from './QueryProvider'; // Assume this exists
+import { BiometricGate } from '@/app/BiometricGate';
 
 interface ClientProvidersProps {
   children: React.ReactNode;
@@ -11,9 +12,13 @@ interface ClientProvidersProps {
 export default function ClientProviders({ children }: ClientProvidersProps) {
   return (
     <AuthProvider>
+      <BiometricGate>
+
       <QueryProvider>
         {children}
       </QueryProvider>
+
+      </BiometricGate>
     </AuthProvider>
   );
 }

@@ -1,3 +1,4 @@
+// src/hooks/useBiometricAuth.ts
 import { useState, useCallback } from 'react';
 import {
   BiometricAuth,
@@ -8,6 +9,9 @@ import {
   BiometryType
 } from '@aparajita/capacitor-biometric-auth';
 import { SecureStorage } from '@aparajita/capacitor-secure-storage';
+import { Capacitor } from '@capacitor/core';
+
+const isNative = Capacitor.isNativePlatform();
 
 export interface BiometricResult {
   success: boolean;
@@ -15,24 +19,33 @@ export interface BiometricResult {
   biometryType?: BiometryType;
 }
 
+const KEYS = {
+  access: 'auth_token',
+  refresh: 'refresh_token',
+  enabled: 'biometric_enabled',
+};
+
 export const useBiometricAuth = () => {
   const [biometryResult, setBiometryResult] = useState<CheckBiometryResult | null>(null);
-  const [isEnabled, setIsEnabled] = useState<boolean>(false);
+  const [isEnabled, setIsEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const checkAvailability = useCallback(async (): Promise<boolean> => {
+  const checkAvailability = useCallback(async () => {
     setIsLoading(true);
+      if (!isNative) {
+    setBiometryResult(null);
+    setIsEnabled(false);
+    return false;
+  }
+
     try {
       const result = await BiometricAuth.checkBiometry();
-      console.log('BIO: checkBiometry', JSON.stringify(result));
       setBiometryResult(result);
-
-      const enabled = await SecureStorage.get('biometric_enabled');
-      console.log('BIO: biometric_enabled =', enabled);
+      const enabled = await SecureStorage.get(KEYS.enabled);
       setIsEnabled(enabled === 'true');
       return result.isAvailable;
     } catch (e) {
-      console.error('BIO: checkAvailability error', e);
+      console.error('BIO checkAvailability error', e);
       setBiometryResult(null);
       setIsEnabled(false);
       return false;
@@ -43,103 +56,94 @@ export const useBiometricAuth = () => {
 
   const authenticate = useCallback(async (): Promise<BiometricResult> => {
     setIsLoading(true);
+    if (!isNative) return { success: false, error: 'Not supported on web' };
     try {
-      const options: AuthenticateOptions = {
-        reason: 'Authenticate to securely access your ACHRAMS account',
+      await BiometricAuth.authenticate({
+        reason: 'Unlock ACHRAMS',
         cancelTitle: 'Cancel',
         allowDeviceCredential: true,
         iosFallbackTitle: 'Use Passcode',
         androidTitle: 'ACHRAMS Security',
         androidSubtitle: 'Verify your identity',
         androidConfirmationRequired: false,
-      };
-
-      await BiometricAuth.authenticate(options);
-      console.log('BIO: authenticate success');
+      });
       return { success: true, biometryType: biometryResult?.biometryType };
-    } catch (error: unknown) {
-      console.error('BIO: authenticate error', error);
-      if (error instanceof BiometryError) {
-        const errorMap: Record<BiometryErrorType, string> = {
-          [BiometryErrorType.userCancel]: 'Cancelled by user',
-          [BiometryErrorType.systemCancel]: 'Authentication interrupted',
-          [BiometryErrorType.biometryLockout]: 'Too many attempts. Try again later.',
-          [BiometryErrorType.biometryNotAvailable]: 'Biometrics not available on this device',
-          [BiometryErrorType.biometryNotEnrolled]: 'No biometrics enrolled. Please set up in device settings.',
-          [BiometryErrorType.passcodeNotSet]: 'Device passcode not set. Please enable in settings.',
-          [BiometryErrorType.authenticationFailed]: 'Authentication failed. Please try again.',
-          [BiometryErrorType.userFallback]: 'User chose to use fallback method',
-          [BiometryErrorType.noDeviceCredential]: 'No device credential available',
-          [BiometryErrorType.invalidContext]: 'Invalid authentication context',
-          [BiometryErrorType.notInteractive]: 'Authentication not interactive',
-          [BiometryErrorType.appCancel]: 'Authentication cancelled by app',
+    } catch (e) {
+      console.error('BIO authenticate error', e);
+      if (e instanceof BiometryError) {
+        const map: Record<BiometryErrorType, string> = {
+          [BiometryErrorType.userCancel]: 'Cancelled',
+          [BiometryErrorType.systemCancel]: 'Interrupted',
+          [BiometryErrorType.biometryLockout]: 'Too many attempts',
+          [BiometryErrorType.biometryNotAvailable]: 'Not available',
+          [BiometryErrorType.biometryNotEnrolled]: 'Not enrolled',
+          [BiometryErrorType.passcodeNotSet]: 'Passcode not set',
+          [BiometryErrorType.authenticationFailed]: 'Failed',
+          [BiometryErrorType.userFallback]: 'Fallback chosen',
+          [BiometryErrorType.noDeviceCredential]: 'No device credential',
+          [BiometryErrorType.invalidContext]: 'Invalid context',
+          [BiometryErrorType.notInteractive]: 'Not interactive',
+          [BiometryErrorType.appCancel]: 'Cancelled by app',
           [BiometryErrorType.none]: 'Unknown error',
         };
-        return {
-          success: false,
-          error: errorMap[error.code] || error.message || 'Authentication failed',
-          biometryType: biometryResult?.biometryType
-        };
+        return { success: false, error: map[e.code] || e.message };
       }
-      return {
-        success: false,
-        error: error instanceof Error? error.message : 'Authentication failed',
-        biometryType: biometryResult?.biometryType
-      };
+      return { success: false, error: e instanceof Error? e.message : 'Failed' };
     } finally {
       setIsLoading(false);
     }
   }, [biometryResult]);
 
-  const enableBiometricLogin = useCallback(async (token: string, refreshToken?: string) => {
+  const enableBiometricLogin = useCallback(async (accessToken: string, refreshToken?: string) => {
+     if (!isNative) return false;
+     
     try {
-      console.log('BIO: enableBiometricLogin start');
-      await SecureStorage.set('auth_token', token);
-      if (refreshToken) {
-        await SecureStorage.set('refresh_token', refreshToken);
-      }
-      await SecureStorage.set('biometric_enabled', 'true');
+      await SecureStorage.set(KEYS.access, accessToken);
+      if (refreshToken) await SecureStorage.set(KEYS.refresh, refreshToken);
+      await SecureStorage.set(KEYS.enabled, 'true');
       setIsEnabled(true);
-      console.log('BIO: enableBiometricLogin success');
       return true;
     } catch (e) {
-      console.error('BIO: enableBiometricLogin error', e);
+      console.error('BIO enable error', e);
       return false;
     }
   }, []);
 
   const getSecureCredentials = useCallback(async () => {
     try {
-      const [token, refreshToken, enabled] = await Promise.all([
-        SecureStorage.get('auth_token'),
-        SecureStorage.get('refresh_token'),
-        SecureStorage.get('biometric_enabled')
+      const [access, refresh, enabled] = await Promise.all([
+        SecureStorage.get(KEYS.access),
+        SecureStorage.get(KEYS.refresh),
+        SecureStorage.get(KEYS.enabled),
       ]);
       return {
-        token: token as string | null,
-        refreshToken: refreshToken as string | null,
-        enabled: enabled === 'true'
+        accessToken: access as string | null,
+        refreshToken: refresh as string | null,
+        enabled: enabled === 'true',
       };
     } catch (e) {
-      console.error('BIO: getSecureCredentials error', e);
-      return { token: null, refreshToken: null, enabled: false };
+      console.error('BIO getCredentials error', e);
+      return { accessToken: null, refreshToken: null, enabled: false };
     }
   }, []);
 
   const disableBiometricLogin = useCallback(async () => {
     try {
-      console.log('BIO: disableBiometricLogin');
       await Promise.all([
-        SecureStorage.remove('auth_token'),
-        SecureStorage.remove('refresh_token'),
-        SecureStorage.set('biometric_enabled', 'false')
+        SecureStorage.remove(KEYS.access),
+        SecureStorage.remove(KEYS.refresh),
+        SecureStorage.set(KEYS.enabled, 'false'),
       ]);
       setIsEnabled(false);
       return true;
     } catch (e) {
-      console.error('BIO: disableBiometricLogin error', e);
+      console.error('BIO disable error', e);
       return false;
     }
+  }, []);
+
+  const updateStoredAccessToken = useCallback(async (accessToken: string) => {
+    await SecureStorage.set(KEYS.access, accessToken);
   }, []);
 
   return {
@@ -151,5 +155,6 @@ export const useBiometricAuth = () => {
     enableBiometricLogin,
     getSecureCredentials,
     disableBiometricLogin,
+    updateStoredAccessToken,
   };
 };

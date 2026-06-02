@@ -163,8 +163,9 @@
 // };
 
 
+// src/context/AuthProvider.tsx
 'use client';
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { apiClient } from '@/lib/api';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 
@@ -173,15 +174,13 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; requires2FA?: boolean; message?: string }>;
-  logout: () => void;
-  checkAuthStatus: () => Promise<void>;
   isBiometricAvailable: boolean | null;
   isBiometricEnabled: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; requires2FA?: boolean; message?: string }>;
+  logout: () => Promise<void>;
   loginWithBiometric: () => Promise<boolean>;
   enableBiometricLogin: () => Promise<boolean>;
   disableBiometricLogin: () => Promise<void>;
-  checkBiometricAvailability: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -195,165 +194,131 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const biometric = useBiometricAuth();
 
+  useEffect(() => setMounted(true), []);
+
+  // Hydrate token from secure storage on first mount
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    if (!mounted) return;
+    biometric.getSecureCredentials().then(c => {
+      if (c.accessToken) setToken(c.accessToken);
+    });
+    biometric.checkAvailability();
+  }, [mounted, biometric]);
 
- const { checkAvailability } = biometric;
-
-useEffect(() => {
-  if (!mounted) return;
-  checkAvailability();
-}, [mounted, checkAvailability]);
-
-  const checkAuthStatus = useCallback(async () => {
-    console.log('AuthContext: checkAuthStatus');
+  const refreshAccessToken = useCallback(async (refreshToken: string) => {
     try {
-      const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true);
-      if (response.status === 'success') {
-        setIsAuthenticated(true);
-        setUser(response.data);
-      } else {
-        setIsAuthenticated(false);
-        setUser(null);
-        setToken(null);
+      const res = await apiClient.post('/auth/refresh', { refresh: refreshToken });
+      if (res.status === 'success' && res.data?.token) {
+        setToken(res.data.token);
+        await biometric.updateStoredAccessToken(res.data.token);
+        return res.data.token as string;
       }
-    } catch (err) {
-      console.error('AuthContext: checkAuthStatus error', err);
-      setIsAuthenticated(false);
-      setUser(null);
-      setToken(null);
-    } finally {
-      setIsLoading(false);
+    } catch (e) {
+      console.error('refresh failed', e);
     }
-  }, []);
+    return null;
+  }, [biometric]);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const loginResponse = await apiClient.post('/auth/passenger/login', { email, password }, undefined, undefined, true);
-
-      if (loginResponse.status === 'success' && loginResponse.data?.token) {
-        const newToken = loginResponse.data.token as string;
-        const refresh = loginResponse.data.refresh as string | undefined;
-
-        setToken(newToken);
-        setUser(loginResponse.data.user?? null);
+      const res = await apiClient.post('/auth/passenger/login', { email, password });
+      if (res.status === 'success' && res.data?.token) {
+        setToken(res.data.token);
+        setUser(res.data.user?? null);
         setIsAuthenticated(true);
         setIsLoading(false);
-
-        // Optionally auto-enable if user already opted in
-        if (biometric.isEnabled) {
-          await biometric.enableBiometricLogin(newToken, refresh);
-        }
-
         return { success: true };
       }
-
-      if (loginResponse.status === 'success' && loginResponse.data?.two_factor === true) {
+      if (res.status === 'success' && res.data?.two_factor) {
         setIsLoading(false);
         return { success: true, requires2FA: true };
       }
-
-      const errorMessage = loginResponse.details?.non_field_errors?.[0] || loginResponse.message || 'Login failed.';
       setIsLoading(false);
-      return { success: false, message: errorMessage };
-    } catch (err) {
-      console.error('AuthContext: login error', err);
+      return { success: false, message: res.message || 'Login failed' };
+    } catch (e) {
       setIsLoading(false);
-      return { success: false, message: 'An error occurred during login.' };
+      return { success: false, message: 'Login error' };
     }
   };
 
   const logout = async () => {
-    try {
-      await apiClient.post('/auth/logout', {}, undefined, undefined, true);
-    } catch (err) {
-      console.error('AuthContext: logout error', err);
-    } finally {
-      setUser(null);
-      setToken(null);
-      setIsAuthenticated(false);
-      if (mounted) {
-        await biometric.disableBiometricLogin();
-      }
-    }
+    try { await apiClient.post('/auth/logout', {}); } catch {}
+    setUser(null);
+    setToken(null);
+    setIsAuthenticated(false);
+    await biometric.disableBiometricLogin();
   };
 
-  const loginWithBiometric = useCallback(async (): Promise<boolean> => {
-    if (!mounted) return false;
-    const bioResult = await biometric.authenticate();
-    if (!bioResult.success) return false;
+  const loginWithBiometric = useCallback(async () => {
+    const auth = await biometric.authenticate();
+    if (!auth.success) return false;
 
-    const credentials = await biometric.getSecureCredentials();
-    if (!credentials.token) {
-      console.error('loginWithBiometric: no stored token');
-      return false;
-    }
+    const creds = await biometric.getSecureCredentials();
+    if (!creds.accessToken) return false;
 
-    setToken(credentials.token);
+    setToken(creds.accessToken);
+    setIsAuthenticated(true);
+
+    // Optionally fetch user profile
     try {
-      const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true);
-      if (response.status === 'success') {
-        setIsAuthenticated(true);
-        setUser(response.data);
-        return true;
-      } else {
-        await biometric.disableBiometricLogin();
-        return false;
-      }
-    } catch (err) {
-      console.error('loginWithBiometric error', err);
-      await biometric.disableBiometricLogin();
-      return false;
-    }
-  }, [mounted, biometric]);
+      const me = await apiClient.get('/auth/passenger/me');
+      if (me.status === 'success') setUser(me.data);
+    } catch {}
 
-  const enableBiometricLogin = useCallback(async (): Promise<boolean> => {
-    if (!mounted) {
-      console.error('enableBiometricLogin: not mounted');
-      return false;
-    }
-    if (!token) {
-      console.error('enableBiometricLogin: no token in memory. Login with password first.');
-      return false;
-    }
-    return await biometric.enableBiometricLogin(token);
-  }, [mounted, token, biometric]);
+    return true;
+  }, [biometric]);
 
-  const disableBiometricLogin = useCallback(async (): Promise<void> => {
-    if (!mounted) return;
+  const enableBiometricLogin = useCallback(async () => {
+    // Ensure we have a token in memory, hydrate if needed
+    let t = token;
+    if (!t) {
+      const creds = await biometric.getSecureCredentials();
+      t = creds.accessToken;
+      if (t) setToken(t);
+    }
+    if (!t) return false;
+
+    const creds = await biometric.getSecureCredentials();
+    return await biometric.enableBiometricLogin(t, creds.refreshToken?? undefined);
+  }, [token, biometric]);
+
+  const disableBiometricLogin = useCallback(async () => {
     await biometric.disableBiometricLogin();
-  }, [mounted, biometric]);
+  }, [biometric]);
+
+  // If we have a token but no user, try to load profile once
+  useEffect(() => {
+    if (token &&!user && isAuthenticated) {
+      apiClient.get('/auth/passenger/me').then(r => {
+        if (r.status === 'success') setUser(r.data);
+      }).catch(() => {});
+    }
+  }, [token, user, isAuthenticated]);
 
   useEffect(() => {
-    checkAuthStatus();
-  }, [checkAuthStatus]);
+    setIsLoading(false);
+  }, []);
 
+  const value = useMemo(() => ({
+    user,
+    token,
+    isAuthenticated,
+    isLoading,
+    isBiometricAvailable: mounted? (biometric.biometryResult?.isAvailable?? null) : null,
+    isBiometricEnabled: mounted? biometric.isEnabled : false,
+    login,
+    logout,
+    loginWithBiometric,
+    enableBiometricLogin,
+    disableBiometricLogin,
+  }), [user, token, isAuthenticated, isLoading, mounted, biometric.biometryResult, biometric.isEnabled, loginWithBiometric, enableBiometricLogin, disableBiometricLogin]);
 
-  const contextValue: AuthContextType = useMemo(() => ({
-  user,
-  token,
-  isAuthenticated,
-  isLoading,
-  login,
-  logout,
-  checkAuthStatus,
-  isBiometricAvailable: mounted? (biometric.biometryResult?.isAvailable?? null) : null,
-  isBiometricEnabled: mounted? biometric.isEnabled : false,
-  loginWithBiometric,
-  enableBiometricLogin,
-  disableBiometricLogin,
-  checkBiometricAvailability: biometric.checkAvailability,
-}), [user, token, isAuthenticated, isLoading, mounted, biometric.biometryResult, biometric.isEnabled, loginWithBiometric, enableBiometricLogin, disableBiometricLogin]);
-
-  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
 };
