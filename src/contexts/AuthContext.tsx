@@ -166,6 +166,7 @@
 'use client';
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { SecureStorage } from '@aparajita/capacitor-secure-storage';
 import { apiClient } from '@/lib/api';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 
@@ -198,7 +199,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => setMounted(true), []);
 
-  // Hydrate from secure storage once on mount, native only
+  // Hydrate token from vault on mount, native only
   useEffect(() => {
     if (!mounted ||!isNative) return;
     biometric.getSecureCredentials().then(c => {
@@ -212,11 +213,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const res = await apiClient.post('/auth/passenger/login', { email, password }, undefined, undefined, true);
+      const res = await apiClient.post('/auth/passenger/login', { email, password });
       if (res.status === 'success' && res.data?.token) {
-        setToken(res.data.token);
-        setUser(res.data.user?? null);
+        console.log(res.data?.token)
+        const access = res.data.token as string;
+        const refresh = res.data.refresh as string | undefined;
+
+        setToken(access);
         setIsAuthenticated(true);
+
+        // Native: store tokens immediately so first profile fetch works
+        if (isNative) {
+          await SecureStorage.set('auth_token', access);
+          if (refresh) await SecureStorage.set('refresh_token', refresh);
+        }
+
+        // Fetch profile using the token we just received
+        try {
+          const me = await apiClient.get('/auth/passenger/me', access, false, undefined, true);
+          if (me.status === 'success') setUser(me.data?? null);
+        } catch {}
+
         setIsLoading(false);
         return { success: true };
       }
@@ -233,11 +250,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const logout = useCallback(async () => {
-    try { await apiClient.post('/auth/logout', {}, token, undefined, true); } catch {}
+    try { await apiClient.post('/auth/logout', {}); } catch {}
     setUser(null);
     setToken(null);
     setIsAuthenticated(false);
-    if (isNative) await biometric.disableBiometricLogin();
+    if (isNative) {
+      await biometric.disableBiometricLogin();
+      await SecureStorage.remove('auth_token');
+      await SecureStorage.remove('refresh_token');
+    }
   }, [biometric]);
 
   const loginWithBiometric = useCallback(async () => {
@@ -251,10 +272,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setToken(creds.accessToken);
     setIsAuthenticated(true);
 
-    // optional: load profile
     try {
-      const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
-      if (me.status === 'success') setUser(me.data);
+      const me = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
+      if (me.status === 'success') setUser(me.data?? null);
     } catch {}
     return true;
   }, [biometric]);
@@ -269,7 +289,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     if (!t) return false;
     const creds = await biometric.getSecureCredentials();
-    return await biometric.enableBiometricLogin(t, creds.refreshToken?? undefined);
+    const ok = await biometric.enableBiometricLogin(t, creds.refreshToken?? undefined);
+    return ok;
   }, [token, biometric]);
 
   const disableBiometricLogin = useCallback(async () => {
