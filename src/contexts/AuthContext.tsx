@@ -200,52 +200,74 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => setMounted(true), []);
 
-  // Hydrate token from vault on mount, native only
-  useEffect(() => {
-    if (!mounted ||!isNative) return;
+ // Hydrate token from vault on native
+useEffect(() => {
+  if (!mounted) return;
+  if (isNative) {
     biometric.getSecureCredentials().then(c => {
       if (c.accessToken) setToken(c.accessToken);
     });
     biometric.checkAvailability();
-    // run once
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted]);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [mounted]);
+
+// Run session check on mount
+useEffect(() => {
+  if (!mounted) return;
+  // Native with biometrics enabled will be handled by BiometricGate
+  // Still run check for web, and for native when biometrics is off
+  if (!isNative ||!biometric.isEnabled) {
+    checkAuthStatus();
+  } else {
+    setIsLoading(false);
+  }
+}, [mounted, biometric.isEnabled]);
 
 
    
-  const checkAuthStatus = useCallback(
-    
-    async () => {
-    console.log("AuthContext: Checking authentication status via API call to /auth/passenger/authenticated...");
-    // setIsLoading(true); // Don't set loading here if login function already handles it, or manage carefully to avoid conflicts
-    try {
-      // Call the authenticated check API using apiClient, indicating it's an auth request relying on cookies
-      const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true); // isAuthRequest = true
+  const checkAuthStatus = useCallback(async () => {
+  console.log("AuthContext: Checking authentication status...");
+  setIsLoading(true);
+  try {
+    // Pass current token so native gets Authorization header
+    const response = await apiClient.get(
+      '/auth/passenger/authenticated',
+      token?? undefined,
+      false,
+      undefined,
+      true
+    );
 
-      if (response.status === 'success') {
-        console.log("AuthContext: Authentication verified via API call. User is logged in.");
-        setIsAuthenticated(true);
-        // Optional: Fetch user details here if needed, or rely on initial state from login
-        // setUser(response.data.user);
-        // setToken(response.data.token); // Store if returned
-      } else {
-        console.log("AuthContext: API responded with non-success status during auth check (likely 401). User is not authenticated.", response);
-        setIsAuthenticated(false);
-        setUser(null);
-        setToken(null);
-      }
-    } catch (err: any) {
-      console.error("AuthContext: Error checking authentication status via API call:", err);
-      // Consider the user unauthenticated on error
+    if (response.status === 'success') {
+      setIsAuthenticated(true);
+      // fetch profile to populate user
+      try {
+        const me = await apiClient.get(
+          '/auth/passenger/me',
+          token?? undefined,
+          false,
+          undefined,
+          true
+        );
+        if (me.status === 'success') setUser(me.data?? null);
+      } catch {}
+      return true;
+    } else {
       setIsAuthenticated(false);
       setUser(null);
-      setToken(null);
-    } finally {
-      setIsLoading(false); // Stop loading state after auth check completes
+      if (!isNative) setToken(null);
+      return false;
     }
+  } catch (err) {
+    setIsAuthenticated(false);
+    setUser(null);
+    if (!isNative) setToken(null);
+    return false;
+  } finally {
+    setIsLoading(false);
   }
-    ,[])
-    
+}, [token]);
     
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
