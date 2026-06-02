@@ -213,7 +213,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const res = await apiClient.post('/auth/passenger/login', { email, password });
+      const res = await apiClient.post('/auth/passenger/login', { email, password }, undefined, undefined, true);
       if (res.status === 'success' && res.data?.token) {
         console.log(res.data?.token)
         const access = res.data.token as string;
@@ -250,7 +250,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const logout = useCallback(async () => {
-    try { await apiClient.post('/auth/logout', {}); } catch {}
+    try { await apiClient.post('/auth/logout', {}, token, undefined, true); } catch {}
     setUser(null);
     setToken(null);
     setIsAuthenticated(false);
