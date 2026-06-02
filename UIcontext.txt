@@ -5,6 +5,7 @@
 import { AuthProvider } from '@/contexts/AuthContext';
 import QueryProvider from './QueryProvider'; // Assume this exists
 
+
 interface ClientProvidersProps {
   children: React.ReactNode;
 }
@@ -1159,7 +1160,7 @@ export function useKeyboardOffset() {
 ----- FILE: src/hooks/useBiometricAuth.ts -----
 // src/hooks/useBiometricAuth.ts
 import { useState, useCallback } from 'react';
-import { 
+import {
   BiometricAuth,
   CheckBiometryResult,
   BiometryError,
@@ -1167,8 +1168,10 @@ import {
   AuthenticateOptions,
   BiometryType
 } from '@aparajita/capacitor-biometric-auth';
-// ✅ CORRECT: Import SecureStorage (the instance), NOT SecureStoragePlugin (the type)
 import { SecureStorage } from '@aparajita/capacitor-secure-storage';
+import { Capacitor } from '@capacitor/core';
+
+const isNative = Capacitor.isNativePlatform();
 
 export interface BiometricResult {
   success: boolean;
@@ -1176,137 +1179,131 @@ export interface BiometricResult {
   biometryType?: BiometryType;
 }
 
+const KEYS = {
+  access: 'auth_token',
+  refresh: 'refresh_token',
+  enabled: 'biometric_enabled',
+};
+
 export const useBiometricAuth = () => {
   const [biometryResult, setBiometryResult] = useState<CheckBiometryResult | null>(null);
-  const [isEnabled, setIsEnabled] = useState<boolean>(false);
+  const [isEnabled, setIsEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const checkAvailability = useCallback(async (): Promise<boolean> => {
+  const checkAvailability = useCallback(async () => {
     setIsLoading(true);
+      if (!isNative) {
+    setBiometryResult(null);
+    setIsEnabled(false);
+    return false;
+  }
+
     try {
-      // Add timeout to prevent hanging on web
-      const result = await Promise.race([
-        BiometricAuth.checkBiometry(),
-        new Promise<CheckBiometryResult>((_, reject) => 
-          setTimeout(() => reject(new Error('Biometric check timeout')), 3000)
-        )
-      ]);
-      setBiometryResult(result as CheckBiometryResult);
-      
-      const token = await SecureStorage.get('biometric_enabled');
-      setIsEnabled(token === 'true');
-      return (result as CheckBiometryResult).isAvailable;
-    } catch {
-      // ← CRITICAL: Fail gracefully on web or errors
+      const result = await BiometricAuth.checkBiometry();
+      setBiometryResult(result);
+      const enabled = await SecureStorage.get(KEYS.enabled);
+      setIsEnabled(enabled === 'true');
+      return result.isAvailable;
+    } catch (e) {
+      console.error('BIO checkAvailability error', e);
       setBiometryResult(null);
       setIsEnabled(false);
       return false;
     } finally {
-      setIsLoading(false); // ← Always stop loading, even on error
+      setIsLoading(false);
     }
   }, []);
 
   const authenticate = useCallback(async (): Promise<BiometricResult> => {
     setIsLoading(true);
+    if (!isNative) return { success: false, error: 'Not supported on web' };
     try {
-      const options: AuthenticateOptions = {
-        reason: 'Authenticate to securely access your ACHRAMS account',
+      await BiometricAuth.authenticate({
+        reason: 'Unlock ACHRAMS',
         cancelTitle: 'Cancel',
         allowDeviceCredential: true,
         iosFallbackTitle: 'Use Passcode',
         androidTitle: 'ACHRAMS Security',
         androidSubtitle: 'Verify your identity',
-        androidConfirmationRequired: true,
-      };
-
-      // ✅ authenticate() returns Promise<void> on success, rejects with BiometryError on failure
-      await BiometricAuth.authenticate(options);
-      
-      return { 
-        success: true,
-        biometryType: biometryResult?.biometryType
-      };
-    } catch (error: unknown) {
-      if (error instanceof BiometryError) {
-        const errorMap: Record<BiometryErrorType, string> = {
-          [BiometryErrorType.userCancel]: 'Cancelled by user',
-          [BiometryErrorType.systemCancel]: 'Authentication interrupted',
-          [BiometryErrorType.biometryLockout]: 'Too many attempts. Try again later.',
-          [BiometryErrorType.biometryNotAvailable]: 'Biometrics not available on this device',
-          [BiometryErrorType.biometryNotEnrolled]: 'No biometrics enrolled. Please set up in device settings.',
-          [BiometryErrorType.passcodeNotSet]: 'Device passcode not set. Please enable in settings.',
-          [BiometryErrorType.authenticationFailed]: 'Authentication failed. Please try again.',
-          [BiometryErrorType.userFallback]: 'User chose to use fallback method',
-          [BiometryErrorType.noDeviceCredential]: 'No device credential available',
-          [BiometryErrorType.invalidContext]: 'Invalid authentication context',
-          [BiometryErrorType.notInteractive]: 'Authentication not interactive',
-          [BiometryErrorType.appCancel]: 'Authentication cancelled by app',
+        androidConfirmationRequired: false,
+      });
+      return { success: true, biometryType: biometryResult?.biometryType };
+    } catch (e) {
+      console.error('BIO authenticate error', e);
+      if (e instanceof BiometryError) {
+        const map: Record<BiometryErrorType, string> = {
+          [BiometryErrorType.userCancel]: 'Cancelled',
+          [BiometryErrorType.systemCancel]: 'Interrupted',
+          [BiometryErrorType.biometryLockout]: 'Too many attempts',
+          [BiometryErrorType.biometryNotAvailable]: 'Not available',
+          [BiometryErrorType.biometryNotEnrolled]: 'Not enrolled',
+          [BiometryErrorType.passcodeNotSet]: 'Passcode not set',
+          [BiometryErrorType.authenticationFailed]: 'Failed',
+          [BiometryErrorType.userFallback]: 'Fallback chosen',
+          [BiometryErrorType.noDeviceCredential]: 'No device credential',
+          [BiometryErrorType.invalidContext]: 'Invalid context',
+          [BiometryErrorType.notInteractive]: 'Not interactive',
+          [BiometryErrorType.appCancel]: 'Cancelled by app',
           [BiometryErrorType.none]: 'Unknown error',
         };
-        
-        return { 
-          success: false, 
-          error: errorMap[error.code] || error.message || 'Authentication failed',
-          biometryType: biometryResult?.biometryType
-        };
+        return { success: false, error: map[e.code] || e.message };
       }
-      
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Authentication failed',
-        biometryType: biometryResult?.biometryType
-      };
+      return { success: false, error: e instanceof Error? e.message : 'Failed' };
     } finally {
       setIsLoading(false);
     }
   }, [biometryResult]);
 
-  const enableBiometricLogin = useCallback(async (token: string, refreshToken?: string) => {
+  const enableBiometricLogin = useCallback(async (accessToken: string, refreshToken?: string) => {
+     if (!isNative) return false;
+     
     try {
-      // ✅ CORRECT: SecureStorage.set(key, data, convertDate?, sync?, access?)
-      await SecureStorage.set('auth_token', token);
-      if (refreshToken) {
-        await SecureStorage.set('refresh_token', refreshToken);
-      }
-      await SecureStorage.set('biometric_enabled', 'true');
+      await SecureStorage.set(KEYS.access, accessToken);
+      if (refreshToken) await SecureStorage.set(KEYS.refresh, refreshToken);
+      await SecureStorage.set(KEYS.enabled, 'true');
       setIsEnabled(true);
       return true;
-    } catch {
+    } catch (e) {
+      console.error('BIO enable error', e);
       return false;
     }
   }, []);
 
   const getSecureCredentials = useCallback(async () => {
     try {
-      // ✅ CORRECT: SecureStorage.get(key, convertDate?, sync?)
-      const [token, refreshToken, enabled] = await Promise.all([
-        SecureStorage.get('auth_token'),
-        SecureStorage.get('refresh_token'),
-        SecureStorage.get('biometric_enabled')
+      const [access, refresh, enabled] = await Promise.all([
+        SecureStorage.get(KEYS.access),
+        SecureStorage.get(KEYS.refresh),
+        SecureStorage.get(KEYS.enabled),
       ]);
       return {
-        token: token as string | null,
-        refreshToken: refreshToken as string | null,
-        enabled: enabled === 'true'
+        accessToken: access as string | null,
+        refreshToken: refresh as string | null,
+        enabled: enabled === 'true',
       };
-    } catch {
-      return { token: null, refreshToken: null, enabled: false };
+    } catch (e) {
+      console.error('BIO getCredentials error', e);
+      return { accessToken: null, refreshToken: null, enabled: false };
     }
   }, []);
 
   const disableBiometricLogin = useCallback(async () => {
     try {
-      // ✅ CORRECT: SecureStorage.remove(key, sync?)
       await Promise.all([
-        SecureStorage.remove('auth_token'),
-        SecureStorage.remove('refresh_token'),
-        SecureStorage.set('biometric_enabled', 'false')
+        SecureStorage.remove(KEYS.access),
+        SecureStorage.remove(KEYS.refresh),
+        SecureStorage.set(KEYS.enabled, 'false'),
       ]);
       setIsEnabled(false);
       return true;
-    } catch {
+    } catch (e) {
+      console.error('BIO disable error', e);
       return false;
     }
+  }, []);
+
+  const updateStoredAccessToken = useCallback(async (accessToken: string) => {
+    await SecureStorage.set(KEYS.access, accessToken);
   }, []);
 
   return {
@@ -1318,6 +1315,7 @@ export const useBiometricAuth = () => {
     enableBiometricLogin,
     getSecureCredentials,
     disableBiometricLogin,
+    updateStoredAccessToken,
   };
 };
 
@@ -6631,24 +6629,27 @@ useEffect(() => {
 
 
 'use client';
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { SecureStorage } from '@aparajita/capacitor-secure-storage';
 import { apiClient } from '@/lib/api';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
+
+const isNative = Capacitor.isNativePlatform();
 
 interface AuthContextType {
   user: any | null;
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; requires2FA?: boolean; message?: string }>;
-  logout: () => void;
-  checkAuthStatus: () => Promise<void>;
   isBiometricAvailable: boolean | null;
   isBiometricEnabled: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; requires2FA?: boolean; message?: string }>;
+  checkAuthStatus: () => Promise<boolean>;
+  logout: () => Promise<void>;
   loginWithBiometric: () => Promise<boolean>;
   enableBiometricLogin: () => Promise<boolean>;
   disableBiometricLogin: () => Promise<void>;
-  checkBiometricAvailability: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -6658,168 +6659,189 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [mounted, setMounted] = useState(false); // <- KEY: track if we're client-side
+  const [mounted, setMounted] = useState(false);
 
-  // Only init biometric hook AFTER mount to avoid SSR mismatch
-  const biometricHook = useBiometricAuth();
+  const biometric = useBiometricAuth();
 
-  // Destructure with defaults that match server render
-  const {
-    biometryResult = null,
-    isEnabled: isBiometricEnabled = false,
-    isLoading: isBioLoading = false,
-    checkAvailability = async () => false,
-    authenticate: bioAuthenticate = async () => ({ success: false }),
-    enableBiometricLogin: bioEnable = async () => false,
-    getSecureCredentials = async () => ({}),
-    disableBiometricLogin: bioDisable = async () => {},
-  } = mounted? biometricHook : {}; // <- Only use real values after mount
+  useEffect(() => setMounted(true), []);
 
-  // Set mounted after first render
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+ useEffect(() => {
+  if (!mounted) return;
 
-  // Check biometric availability ONLY on client, AFTER mount
-  useEffect(() => {
-    if (!mounted) return; // <- Don't run on server
-    checkAvailability().catch(() => {
-      console.log('Biometric availability check failed (non-critical)');
+  if (isNative) {
+    // Native: hydrate token for later use, but do NOT set isAuthenticated
+    biometric.getSecureCredentials().then(c => {
+      if (c.accessToken) setToken(c.accessToken);
     });
-  }, [mounted, checkAvailability]);
+    biometric.checkAvailability();
+    setIsLoading(false);
+    return;
+  }
 
+  // Web only: verify httpOnly cookie
+  checkAuthStatus();
+}, [mounted]);
+
+
+   
   const checkAuthStatus = useCallback(async () => {
-    console.log("AuthContext: Checking authentication status...");
-    try {
-      const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true);
-      if (response.status === 'success') {
-        setIsAuthenticated(true);
-        setUser(response.data);
-      } else {
-        setIsAuthenticated(false);
-        setUser(null);
-        setToken(null);
-      }
-    } catch (err: any) {
-      console.error("AuthContext: Error checking auth status:", err);
+  // Native must go through BiometricGate, never auto-login via token/cookie
+  if (isNative) {
+    setIsLoading(false);
+    return false;
+  }
+
+  console.log("AuthContext: Checking authentication status via cookie...");
+  setIsLoading(true);
+  try {
+    const response = await apiClient.get(
+      '/auth/passenger/authenticated',
+      undefined,
+      false,
+      undefined,
+      true
+    );
+
+    if (response.status === 'success') {
+      setIsAuthenticated(true);
+      // populate user for web
+      try {
+        const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
+        if (me.status === 'success') setUser(me.data ?? null);
+      } catch {}
+      return true;
+    } else {
       setIsAuthenticated(false);
       setUser(null);
       setToken(null);
-    } finally {
-      setIsLoading(false); // <- Only auth loading, never blocked by biometric
-    }
-  }, []);
-
-  const login = async (email: string, password: string) => {
-    setIsLoading(true);
-    try {
-      const loginResponse = await apiClient.post('/auth/passenger/login', { email, password }, undefined, undefined, true);
-
-      if (loginResponse.status === 'success' && loginResponse.data?.token) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        await checkAuthStatus();
-
-        // Biometric enable is fire-and-forget, doesn't block
-        if (mounted && isBiometricEnabled) {
-          bioEnable(loginResponse.data.token, loginResponse.data.refresh).catch(() => {});
-        }
-        return { success: true };
-      } else if (loginResponse.status === 'success' && loginResponse.data?.two_factor === true) {
-        setIsLoading(false);
-        return { success: true, requires2FA: true };
-      } else {
-        const errorMessage = loginResponse.details?.non_field_errors?.[0] || loginResponse.message || "Login failed.";
-        setIsLoading(false);
-        return { success: false, message: errorMessage };
-      }
-    } catch (err: any) {
-      setIsLoading(false);
-      return { success: false, message: "An error occurred during login." };
-    }
-  };
-
-  const logout = async () => {
-    try {
-      await apiClient.post('/auth/logout', {}, undefined, undefined, true);
-    } catch (err) {
-      console.error("AuthContext: Logout API error:", err);
-    } finally {
-      setUser(null);
-      setToken(null);
-      setIsAuthenticated(false);
-      if (mounted) bioDisable().catch(() => {});
-    }
-  };
-
-  const loginWithBiometric = useCallback(async (): Promise<boolean> => {
-    if (!mounted) return false; // <- Guard: no SSR calls
-    const bioResult = await bioAuthenticate();
-    if (!bioResult.success) return false;
-
-    const credentials = await getSecureCredentials();
-    if (!credentials.token) return false;
-
-    try {
-      const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true);
-      if (response.status === 'success') {
-        setIsAuthenticated(true);
-        setUser(response.data);
-        return true;
-      } else {
-        await bioDisable();
-        return false;
-      }
-    } catch (err) {
-      await bioDisable();
       return false;
     }
-  }, [mounted, bioAuthenticate, getSecureCredentials, bioDisable]);
+  } catch (err) {
+    setIsAuthenticated(false);
+    setUser(null);
+    setToken(null);
+    return false;
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
+    
+  const login = useCallback(async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const res = await apiClient.post('/auth/passenger/login', { email, password }, undefined, undefined, true);
+      if (res.status === 'success' && res.data?.token) {
+        console.log(res.data?.token)
+        const access = res.data.token as string;
+        const refresh = res.data.refresh as string | undefined;
 
-  const enableBiometricLogin = useCallback(async (): Promise<boolean> => {
-    if (!mounted ||!token) return false;
-    return await bioEnable(token);
-  }, [mounted, token, bioEnable]);
+        setToken(access);
+        setIsAuthenticated(true);
 
-  const disableBiometricLogin = useCallback(async (): Promise<void> => {
-    if (!mounted) return;
-    await bioDisable();
-  }, [mounted, bioDisable]);
+        // Native: store tokens immediately so first profile fetch works
+        if (isNative) {
+          await SecureStorage.set('auth_token', access);
+          if (refresh) await SecureStorage.set('refresh_token', refresh);
+        }
 
-  // Initial auth check - runs once
+        // Fetch profile using the token we just received
+        try {
+          const me = await apiClient.get('/auth/passenger/me', access, false, undefined, true);
+          if (me.status === 'success') setUser(me.data?? null);
+        } catch {}
+
+        setIsLoading(false);
+        return { success: true };
+      }
+      if (res.status === 'success' && res.data?.two_factor) {
+        setIsLoading(false);
+        return { success: true, requires2FA: true };
+      }
+      setIsLoading(false);
+      return { success: false, message: res.message || 'Login failed' };
+    } catch {
+      setIsLoading(false);
+      return { success: false, message: 'Login error' };
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    try { await apiClient.post('/auth/logout', {}, token ?? undefined, undefined, true); } catch {}
+    setUser(null);
+    setToken(null);
+    setIsAuthenticated(false);
+    if (isNative) {
+      await biometric.disableBiometricLogin();
+      await SecureStorage.remove('auth_token');
+      await SecureStorage.remove('refresh_token');
+    }
+  }, [biometric]);
+
+  const loginWithBiometric = useCallback(async () => {
+    if (!isNative) return false;
+    const auth = await biometric.authenticate();
+    if (!auth.success) return false;
+
+    const creds = await biometric.getSecureCredentials();
+    if (!creds.accessToken) return false;
+
+    setToken(creds.accessToken);
+    setIsAuthenticated(true);
+
+    try {
+      const me = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
+      if (me.status === 'success') setUser(me.data?? null);
+    } catch {}
+    return true;
+  }, [biometric]);
+
+  const enableBiometricLogin = useCallback(async () => {
+    if (!isNative) return false;
+    let t = token;
+    if (!t) {
+      const creds = await biometric.getSecureCredentials();
+      t = creds.accessToken;
+      if (t) setToken(t);
+    }
+    if (!t) return false;
+    const creds = await biometric.getSecureCredentials();
+    const ok = await biometric.enableBiometricLogin(t, creds.refreshToken?? undefined);
+    return ok;
+  }, [token, biometric]);
+
+  const disableBiometricLogin = useCallback(async () => {
+    if (isNative) await biometric.disableBiometricLogin();
+  }, [biometric]);
+
   useEffect(() => {
-    checkAuthStatus();
-  }, [checkAuthStatus]);
+    setIsLoading(false);
+  }, []);
 
-  const contextValue: AuthContextType = {
+  const isBiometricAvailable = isNative && mounted? (biometric.biometryResult?.isAvailable?? null) : null;
+  const isBiometricEnabled = isNative && mounted? biometric.isEnabled : false;
+
+  const value = useMemo(() => ({
     user,
     token,
     isAuthenticated,
-    isLoading, // <- This is ONLY auth loading now
+    isLoading,
+    isBiometricAvailable,
+    isBiometricEnabled,
+    checkAuthStatus,
     login,
     logout,
-    checkAuthStatus,
-    // Return safe defaults until mounted, then real values
-    isBiometricAvailable: mounted? (biometryResult?.isAvailable?? null) : null,
-    isBiometricEnabled: mounted? isBiometricEnabled : false,
     loginWithBiometric,
     enableBiometricLogin,
     disableBiometricLogin,
-    checkBiometricAvailability: checkAvailability,
-  };
+  }), [user, token, isAuthenticated, isLoading, isBiometricAvailable, isBiometricEnabled, checkAuthStatus,login, logout, loginWithBiometric, enableBiometricLogin, disableBiometricLogin]);
 
-  return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
 };
 
 ----- FILE: src/types/app.ts -----
@@ -7541,7 +7563,7 @@ export default function UpdateProfileModal({
 
 ----- FILE: src/components/app/modals/ProfileModal.tsx -----
 // src/components/app/modals/ProfileModal.tsx
-import { X, Phone, Mail, Shield, ChevronRight, Wallet, CreditCard, History, Settings, LogOut, User, Camera, Edit3, Save, ArrowLeft, Loader2 , Key, Trash2} from 'lucide-react';
+import { X, Phone, Mail, Shield, ChevronRight, Wallet, CreditCard, History, Settings, LogOut, User, Camera, Edit3, Save, ArrowLeft, Loader2 , Key, Trash2, Fingerprint} from 'lucide-react';
 import Image from 'next/image';
 import { useState, useRef, useEffect } from 'react';
 import { apiClient } from '@/lib/api'; // Assuming apiClient is available or passed down
@@ -7549,6 +7571,8 @@ import PasswordResetModal from "@/components/app/modals/PasswordResetModal"
 import AccountDeletionModal from "@/components/app/modals/AccountDeletionModal"
 
 import {useAuth} from '@/contexts/AuthContext'
+import { Capacitor } from '@capacitor/core';
+const isNative = Capacitor.isNativePlatform();
 
 
 interface ProfileModalProps {
@@ -7606,6 +7630,9 @@ const {
   disableBiometricLogin,
 } = useAuth();
 
+if(isBiometricAvailable){
+  console.log("Biometric is available", isBiometricAvailable)
+}
 
   // NEW: Ref for file input
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -8001,8 +8028,6 @@ const {
             {/* NEW: 2FA Status Card when not editing */}
             <div className="mb-6">
               <h4 className="font-bold text-achrams-text-primary mb-3 text-sm">Security</h4>
-
-
               <div className="p-3 bg-gray-50 rounded-xl border border-achrams-border flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -8018,10 +8043,13 @@ const {
                 {/* Optionally, show an 'Edit' button here to trigger the 2FA toggle directly, or keep it in edit mode */}
               </div>
 
-              {/* NEW: Biometric Login Toggle */}
-              {isBiometricAvailable && (
+            </div>
+            </>
+          )}
+
+          {/* NEW: Biometric Login Toggle */}
+              {isNative && isBiometricAvailable && (
                 <div className="mb-6">
-                  <h4 className="font-bold text-achrams-text-primary mb-3 text-sm">Security</h4>
                   <div className="p-3 bg-gray-50 rounded-xl border border-achrams-border flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -8068,13 +8096,6 @@ const {
                   </div>
                 </div>
               )}
-
-
-
-
-            </div>
-            </>
-          )}
 
           {/* Wallet Balance */}
           {/* {accountData.profile?.wallet && (
@@ -11136,7 +11157,6 @@ export default function LoginModal({
     isBiometricAvailable,
     isBiometricEnabled,
     loginWithBiometric,
-    checkBiometricAvailability,
     isLoading: authLoading,
    } = useAuth(); // Get the login function from context
 
@@ -11150,11 +11170,11 @@ export default function LoginModal({
   const [bioLoading, setBioLoading] = useState(false);
   
   // Check biometric availability when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      checkBiometricAvailability();
-    }
-  }, [isOpen, checkBiometricAvailability]);
+  // useEffect(() => {
+  //   if (isOpen) {
+  //     checkBiometricAvailability();
+  //   }
+  // }, [isOpen, checkBiometricAvailability]);
 
 
 
@@ -14287,7 +14307,7 @@ import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
 export default function ACHRAMApp() {
-  const { token, isAuthenticated, isLoading: isAuthLoading, checkAuthStatus } = useAuth();
+  const { token, isAuthenticated, isLoading: isAuthLoading, checkAuthStatus, logout } = useAuth();
   const {
     generalError: bookingGeneralError,
     fieldErrors: bookingFieldErrors,
@@ -15851,23 +15871,36 @@ useEffect(()=>{
     }
   }, [activeTripId, screen]);
 
-  const handleLogout = async () => {
-    try {
-      console.log("Initiating logout API call...");
-      const response = await apiClient.post("/auth/logout", {}, undefined, undefined, true);
-      console.log("Logout API response:", response);
-      if (response.status === "success") {
-        console.log("Logout successful on server, cookie should be cleared.");
-        window.location.href = "/";
-      } else {
-        console.error("Logout API responded with non-success status:", response);
-        showNotification(response.message || "Logout failed. Please try again.", "error");
-      }
-    } catch (err) {
-      console.error("An error occurred during the logout API call:", err);
-      showNotification("An error occurred while logging out. Please check your connection.", "error");
-    }
-  };
+  // const handleLogout = async () => {
+  //   try {
+  //     console.log("Initiating logout API call...");
+  //     const response = await apiClient.post("/auth/logout", {}, undefined, undefined, true);
+  //     console.log("Logout API response:", response);
+  //     if (response.status === "success") {
+  //       console.log("Logout successful on server, cookie should be cleared.");
+  //       window.location.href = "/";
+  //     } else {
+  //       console.error("Logout API responded with non-success status:", response);
+  //       showNotification(response.message || "Logout failed. Please try again.", "error");
+  //     }
+  //   } catch (err) {
+  //     console.error("An error occurred during the logout API call:", err);
+  //     showNotification("An error occurred while logging out. Please check your connection.", "error");
+  //   }
+  // };
+
+const handleLogout = async () => {
+  try {
+    await logout();
+    setScreen("booking"); // or '/booking'
+  } catch (err) {
+    console.error('Logout error', err);
+    showNotification('Logout failed. Please try again.', 'error');
+  }
+};
+
+
+
 
   const handleAccountDeletionSuccess = () => {
     console.log("Account deletion confirmed. Loggin out user");
@@ -20834,6 +20867,132 @@ export default function DashboardScreen({
 
 
 
+----- FILE: src/app/BiometricGate.tsx -----
+// 'use client';
+// import { useEffect, useRef, useState } from 'react';
+// import { Capacitor } from '@capacitor/core';
+// import { Lock } from 'lucide-react';
+// import { useAuth } from '@/contexts/AuthContext';
+
+// const isNative = Capacitor.isNativePlatform();
+
+// export const BiometricGate = ({ children }: { children: React.ReactNode }) => {
+//   const { isAuthenticated, isBiometricEnabled, loginWithBiometric , isBiometricAvailable} = useAuth();
+//   const [checking, setChecking] = useState(true);
+//   const hasPrompted = useRef(false);
+
+//   useEffect(() => {
+//     if (!isNative) {
+//       setChecking(false);
+//       return;
+//     }
+//     if (isAuthenticated) {
+//       setChecking(false);
+//       return;
+//     }
+//     if (isBiometricEnabled &&!hasPrompted.current) {
+//       hasPrompted.current = true;
+//       loginWithBiometric().finally(() => setChecking(false));
+//     } else {
+//       setChecking(false);
+//     }
+//   }, [isAuthenticated, isBiometricEnabled, loginWithBiometric]);
+
+//   if (isBiometricAvailable && checking) {
+//     return (
+//       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
+//         <Lock className="h-12 w-12 text-emerald-600 animate-pulse" />
+//         <p className="text-sm text-gray-600">Unlocking with biometrics…</p>
+//       </div>
+//     );
+//   }
+
+//   // If native, biometrics enabled, but still not authenticated, keep lock screen
+//   // The system prompt is already shown by loginWithBiometric, we just wait
+//   if (isNative && isBiometricEnabled &&!isAuthenticated) {
+//     return (
+//       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
+//         <Lock className="h-12 w-12 text-emerald-600" />
+//         <p className="text-sm text-gray-600">Authenticate to continue</p>
+//       </div>
+//     );
+//   }
+
+//   return <>{children}</>;
+// };
+
+
+'use client';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { Lock } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+
+const isNative = Capacitor.isNativePlatform();
+
+export const BiometricGate = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, isBiometricEnabled, loginWithBiometric, isBiometricAvailable } = useAuth();
+  const [checking, setChecking] = useState(true);
+  const [isPrompting, setIsPrompting] = useState(false);
+  const hasPrompted = useRef(false);
+
+  const handlePrompt = useCallback(async () => {
+    if (isPrompting) return;
+    setIsPrompting(true);
+    try {
+      await loginWithBiometric();
+    } finally {
+      setIsPrompting(false);
+      setChecking(false);
+    }
+  }, [isPrompting, loginWithBiometric]);
+
+  useEffect(() => {
+    if (!isNative) {
+      setChecking(false);
+      return;
+    }
+    if (isAuthenticated) {
+      setChecking(false);
+      return;
+    }
+    if (isBiometricEnabled && !hasPrompted.current) {
+      hasPrompted.current = true;
+      handlePrompt();
+    } else {
+      setChecking(false);
+    }
+  }, [isAuthenticated, isBiometricEnabled, handlePrompt]);
+
+  if (isBiometricAvailable && checking) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
+        <Lock className="h-12 w-12 text-emerald-600 animate-pulse" />
+        <p className="text-sm text-gray-600">Unlocking with biometrics…</p>
+      </div>
+    );
+  }
+
+  // Locked state with tap-to-retry
+  if (isNative && isBiometricEnabled && !isAuthenticated) {
+    return (
+      <button
+        onClick={handlePrompt}
+        disabled={isPrompting}
+        className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-white active:bg-gray-50 transition"
+      >
+        <Lock className={`h-12 w-12 text-emerald-600 ${isPrompting ? 'animate-pulse' : ''}`} />
+        <p className="text-sm text-gray-600">
+          {isPrompting ? 'Waiting for biometrics…' : 'Tap to authenticate'}
+        </p>
+        <span className="text-xs text-gray-400">Authenticate to continue</span>
+      </button>
+    );
+  }
+
+  return <>{children}</>;
+};
+
 ----- FILE: src/app/page.tsx -----
 // src/app/page.tsx
 import ACHRAMApp from "@/components/app/ACHRAMApp";
@@ -20895,6 +21054,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ClientProviders from "@/providers/ClientProviders"; // We'll create this
 import {PostHogProvider} from "@/providers/PostHogProvider";
+import { BiometricGate } from '@/app/BiometricGate';
 
 export const metadata: Metadata = {
   title: "ACHRAMS Passenger App",
@@ -20919,11 +21079,17 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning={true}>
       <body className="bg-achrams-background-primary" suppressHydrationWarning={true}>
+        
+
         <ClientProviders>
+          <BiometricGate>
           <PostHogProvider>
           {children}
           </PostHogProvider>
+          </BiometricGate>
         </ClientProviders>
+
+        
       </body>
     </html>
   );
@@ -21193,10 +21359,12 @@ export const formatPhoneNumber = (input: string): string => {
 };
 
 ----- FILE: src/lib/api.ts -----
-
 // src/lib/api.ts
-// const API_BASE = 'https://api.achrams.com.ng/v1'; // Corrected trailing space
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE
+import { Capacitor } from '@capacitor/core';
+import { SecureStorage } from '@aparajita/capacitor-secure-storage';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
+const isNative = Capacitor.isNativePlatform();
 
 interface ApiResponse<T = unknown> {
   status: 'success' | 'error';
@@ -21205,15 +21373,12 @@ interface ApiResponse<T = unknown> {
   details?: Record<string, string[]>;
 }
 
-// NEW: Updated buildHeaders to correctly handle the new parameter flow
-// It should NOT add Authorization header for requests intended to use cookies IF the backend relies solely on cookies.
-// It SHOULD add X-Guest-Id for guest requests.
-const buildHeaders = (
-  token?: string, // Token for Bearer header (used if isAuthRequest is false or if backend checks both)
+const buildHeaders = async (
+  token?: string,
   isGuest = false,
   guestId?: string,
   isFormData = false,
-  isAuthRequest = false // NEW: Flag indicating if this request relies on httpOnly cookie
+  isAuthRequest = false
 ) => {
   const headers: Record<string, string> = {};
 
@@ -21221,16 +21386,22 @@ const buildHeaders = (
     headers['Content-Type'] = 'application/json';
   }
 
-  // NEW: Add Authorization header only if:
-  // 1. A token is provided AND {undefined, false, undefined, false, true}
-  // 2. It's NOT an authenticated request relying on cookies (isAuthRequest is false) OR
-  // 3. The backend is configured to check both (less common, but possible)
-  // For cookie-based auth, the header is often omitted.
-  if (token && !isAuthRequest) {
-    headers['Authorization'] = `Bearer ${token}`;
+  let effectiveToken = token;
+
+  // Native Model 1: read vault token for auth requests if caller did not pass one
+  if (isNative && isAuthRequest && !effectiveToken) {
+    try {
+      const stored = await SecureStorage.get('auth_token');
+      if (stored) effectiveToken = stored;
+    } catch {}
   }
 
-  // Add X-Guest-Id header if it's a guest request
+  // Web: keep cookie-first behavior, only add Authorization when not a cookie request
+  // Native: always send Bearer for auth requests
+  if (effectiveToken && (!isAuthRequest || isNative)) {
+    headers['Authorization'] = `Bearer ${effectiveToken}`;
+  }
+
   if (isGuest && guestId) {
     headers['X-Guest-Id'] = guestId;
   }
@@ -21242,30 +21413,30 @@ export const apiClient = {
   post: async <T = unknown>(
     endpoint: string,
     data: unknown,
-    token?: string, // Token for Bearer header (if not using cookie)
+    token?: string,
     guestId?: string,
-    isAuthRequest = false // NEW: Flag for cookie-based requests
+    isAuthRequest = false
   ): Promise<ApiResponse<T>> => {
-    const isGuestRequest = endpoint.includes('/guest-booking') ||
-                          endpoint.includes('/cancel') || // Note: This could be for guest or auth user depending on context
-                          endpoint.includes('/rate') ||   // Note: This could be for guest or auth user depending on context
-                          guestId !== undefined;
+    const isGuestRequest =
+      endpoint.includes('/guest-booking') ||
+      endpoint.includes('/cancel') ||
+      endpoint.includes('/rate') ||
+      guestId !== undefined;
 
     try {
-      // NEW: Prepare fetch options
+      const headers = await buildHeaders(token, isGuestRequest, guestId, false, isAuthRequest);
+
       const fetchOptions: RequestInit = {
         method: 'POST',
-        headers: buildHeaders(token, isGuestRequest, guestId, false, isAuthRequest), // Pass isAuthRequest to buildHeaders
+        headers,
         body: JSON.stringify(data),
       };
 
-      // NEW: Add credentials if the request is for an authenticated user (relies on cookie)
       if (isAuthRequest) {
-        fetchOptions.credentials = 'include';
+        fetchOptions.credentials = isNative ? 'omit' : 'include';
       }
 
       const res = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
-
       const responseData = await res.json();
 
       if (!res.ok) {
@@ -21275,7 +21446,6 @@ export const apiClient = {
           details: responseData.details,
         };
       }
-
       return responseData;
     } catch (error) {
       console.error('API POST Error:', error);
@@ -21288,24 +21458,21 @@ export const apiClient = {
 
   get: async <T = unknown>(
     endpoint: string,
-    token?: string, // Token for Bearer header (if not using cookie)
+    token?: string,
     isGuest = false,
     guestId?: string,
-    isAuthRequest = false // NEW: Flag for cookie-based requests
+    isAuthRequest = false
   ): Promise<ApiResponse<T>> => {
     try {
-      // NEW: Prepare fetch options
-      const fetchOptions: RequestInit = {
-        headers: buildHeaders(token, isGuest, guestId, false, isAuthRequest), // Pass isAuthRequest to buildHeaders
-      };
+      const headers = await buildHeaders(token, isGuest, guestId, false, isAuthRequest);
 
-      // NEW: Add credentials if the request is for an authenticated user (relies on cookie)
+      const fetchOptions: RequestInit = { headers };
+
       if (isAuthRequest) {
-        fetchOptions.credentials = 'include';
+        fetchOptions.credentials = isNative ? 'omit' : 'include';
       }
 
       const res = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
-
       const responseData = await res.json();
 
       if (!res.ok) {
@@ -21315,7 +21482,6 @@ export const apiClient = {
           details: responseData.details,
         };
       }
-
       return responseData;
     } catch (error) {
       console.error('API GET Error:', error);
@@ -21329,26 +21495,25 @@ export const apiClient = {
   patch: async <T = unknown>(
     endpoint: string,
     data: FormData | Record<string, unknown>,
-    token?: string, // Token for Bearer header (if not using cookie)
-    isAuthRequest = false // NEW: Flag for cookie-based requests
+    token?: string,
+    isAuthRequest = false
   ): Promise<ApiResponse<T>> => {
     const isFormData = data instanceof FormData;
 
     try {
-      // NEW: Prepare fetch options
+      const headers = await buildHeaders(token, false, undefined, isFormData, isAuthRequest);
+
       const fetchOptions: RequestInit = {
         method: 'PATCH',
-        headers: buildHeaders(token, false, undefined, isFormData, isAuthRequest), // Pass isAuthRequest to buildHeaders
+        headers,
         body: isFormData ? data : JSON.stringify(data),
       };
 
-      // NEW: Add credentials if the request is for an authenticated user (relies on cookie)
       if (isAuthRequest) {
-        fetchOptions.credentials = 'include';
+        fetchOptions.credentials = isNative ? 'omit' : 'include';
       }
 
       const res = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
-
       const responseData = await res.json();
 
       if (!res.ok) {
@@ -21358,7 +21523,6 @@ export const apiClient = {
           details: responseData.details,
         };
       }
-
       return responseData;
     } catch (error) {
       console.error('API PATCH Error:', error);
@@ -21371,23 +21535,22 @@ export const apiClient = {
 
   delete: async <T = unknown>(
     endpoint: string,
-    token?: string, // Token for Bearer header (if not using cookie)
-    isAuthRequest = false // NEW: Flag for cookie-based requests
+    token?: string,
+    isAuthRequest = false
   ): Promise<ApiResponse<T>> => {
     try {
-      // NEW: Prepare fetch options
+      const headers = await buildHeaders(token, false, undefined, false, isAuthRequest);
+
       const fetchOptions: RequestInit = {
         method: 'DELETE',
-        headers: buildHeaders(token, false, undefined, false, isAuthRequest), // Pass isAuthRequest to buildHeaders
+        headers,
       };
 
-      // NEW: Add credentials if the request is for an authenticated user (relies on cookie)
       if (isAuthRequest) {
-        fetchOptions.credentials = 'include';
+        fetchOptions.credentials = isNative ? 'omit' : 'include';
       }
 
       const res = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
-
       const responseData = await res.json();
 
       if (!res.ok) {
@@ -21396,7 +21559,6 @@ export const apiClient = {
           message: responseData.message || `HTTP error! status: ${res.status}`,
         };
       }
-
       return responseData;
     } catch (error) {
       console.error('API DELETE Error:', error);
@@ -21411,12 +21573,9 @@ export const apiClient = {
 
 
 
-
-
-
-
-// src/lib/api.ts
-// const API_BASE = 'https://api.achrams.com.ng/v1';
+// // src/lib/api.ts
+// // const API_BASE = 'https://api.achrams.com.ng/v1'; // Corrected trailing space
+// const API_BASE = process.env.NEXT_PUBLIC_API_BASE
 
 // interface ApiResponse<T = unknown> {
 //   status: 'success' | 'error';
@@ -21425,26 +21584,36 @@ export const apiClient = {
 //   details?: Record<string, string[]>;
 // }
 
+// // NEW: Updated buildHeaders to correctly handle the new parameter flow
+// // It should NOT add Authorization header for requests intended to use cookies IF the backend relies solely on cookies.
+// // It SHOULD add X-Guest-Id for guest requests.
 // const buildHeaders = (
-//   token?: string,
+//   token?: string, // Token for Bearer header (used if isAuthRequest is false or if backend checks both)
 //   isGuest = false,
 //   guestId?: string,
-//   isFormData = false
+//   isFormData = false,
+//   isAuthRequest = false // NEW: Flag indicating if this request relies on httpOnly cookie
 // ) => {
 //   const headers: Record<string, string> = {};
-  
+
 //   if (!isFormData) {
 //     headers['Content-Type'] = 'application/json';
 //   }
-  
-//   if (token) {
+
+//   // NEW: Add Authorization header only if:
+//   // 1. A token is provided AND {undefined, false, undefined, false, true}
+//   // 2. It's NOT an authenticated request relying on cookies (isAuthRequest is false) OR
+//   // 3. The backend is configured to check both (less common, but possible)
+//   // For cookie-based auth, the header is often omitted.
+//   if (token && !isAuthRequest) {
 //     headers['Authorization'] = `Bearer ${token}`;
 //   }
-  
+
+//   // Add X-Guest-Id header if it's a guest request
 //   if (isGuest && guestId) {
 //     headers['X-Guest-Id'] = guestId;
 //   }
-  
+
 //   return headers;
 // };
 
@@ -21452,20 +21621,29 @@ export const apiClient = {
 //   post: async <T = unknown>(
 //     endpoint: string,
 //     data: unknown,
-//     token?: string,
-//     guestId?: string
+//     token?: string, // Token for Bearer header (if not using cookie)
+//     guestId?: string,
+//     isAuthRequest = false // NEW: Flag for cookie-based requests
 //   ): Promise<ApiResponse<T>> => {
-//     const isGuestRequest = endpoint.includes('/guest-booking') || 
-//                           endpoint.includes('/cancel') || 
-//                           endpoint.includes('/rate') ||
+//     const isGuestRequest = endpoint.includes('/guest-booking') ||
+//                           endpoint.includes('/cancel') || // Note: This could be for guest or auth user depending on context
+//                           endpoint.includes('/rate') ||   // Note: This could be for guest or auth user depending on context
 //                           guestId !== undefined;
-    
+
 //     try {
-//       const res = await fetch(`${API_BASE}${endpoint}`, {
+//       // NEW: Prepare fetch options
+//       const fetchOptions: RequestInit = {
 //         method: 'POST',
-//         headers: buildHeaders(token, isGuestRequest, guestId),
+//         headers: buildHeaders(token, isGuestRequest, guestId, false, isAuthRequest), // Pass isAuthRequest to buildHeaders
 //         body: JSON.stringify(data),
-//       });
+//       };
+
+//       // NEW: Add credentials if the request is for an authenticated user (relies on cookie)
+//       if (isAuthRequest) {
+//         fetchOptions.credentials = 'include';
+//       }
+
+//       const res = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
 
 //       const responseData = await res.json();
 
@@ -21489,14 +21667,23 @@ export const apiClient = {
 
 //   get: async <T = unknown>(
 //     endpoint: string,
+//     token?: string, // Token for Bearer header (if not using cookie)
 //     isGuest = false,
 //     guestId?: string,
-//     token?: string
+//     isAuthRequest = false // NEW: Flag for cookie-based requests
 //   ): Promise<ApiResponse<T>> => {
 //     try {
-//       const res = await fetch(`${API_BASE}${endpoint}`, {
-//         headers: buildHeaders(token, isGuest, guestId),
-//       });
+//       // NEW: Prepare fetch options
+//       const fetchOptions: RequestInit = {
+//         headers: buildHeaders(token, isGuest, guestId, false, isAuthRequest), // Pass isAuthRequest to buildHeaders
+//       };
+
+//       // NEW: Add credentials if the request is for an authenticated user (relies on cookie)
+//       if (isAuthRequest) {
+//         fetchOptions.credentials = 'include';
+//       }
+
+//       const res = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
 
 //       const responseData = await res.json();
 
@@ -21521,16 +21708,25 @@ export const apiClient = {
 //   patch: async <T = unknown>(
 //     endpoint: string,
 //     data: FormData | Record<string, unknown>,
-//     token?: string
+//     token?: string, // Token for Bearer header (if not using cookie)
+//     isAuthRequest = false // NEW: Flag for cookie-based requests
 //   ): Promise<ApiResponse<T>> => {
 //     const isFormData = data instanceof FormData;
-    
+
 //     try {
-//       const res = await fetch(`${API_BASE}${endpoint}`, {
+//       // NEW: Prepare fetch options
+//       const fetchOptions: RequestInit = {
 //         method: 'PATCH',
-//         headers: buildHeaders(token, false, undefined, isFormData),
+//         headers: buildHeaders(token, false, undefined, isFormData, isAuthRequest), // Pass isAuthRequest to buildHeaders
 //         body: isFormData ? data : JSON.stringify(data),
-//       });
+//       };
+
+//       // NEW: Add credentials if the request is for an authenticated user (relies on cookie)
+//       if (isAuthRequest) {
+//         fetchOptions.credentials = 'include';
+//       }
+
+//       const res = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
 
 //       const responseData = await res.json();
 
@@ -21554,13 +21750,22 @@ export const apiClient = {
 
 //   delete: async <T = unknown>(
 //     endpoint: string,
-//     token?: string
+//     token?: string, // Token for Bearer header (if not using cookie)
+//     isAuthRequest = false // NEW: Flag for cookie-based requests
 //   ): Promise<ApiResponse<T>> => {
 //     try {
-//       const res = await fetch(`${API_BASE}${endpoint}`, {
+//       // NEW: Prepare fetch options
+//       const fetchOptions: RequestInit = {
 //         method: 'DELETE',
-//         headers: buildHeaders(token),
-//       });
+//         headers: buildHeaders(token, false, undefined, false, isAuthRequest), // Pass isAuthRequest to buildHeaders
+//       };
+
+//       // NEW: Add credentials if the request is for an authenticated user (relies on cookie)
+//       if (isAuthRequest) {
+//         fetchOptions.credentials = 'include';
+//       }
+
+//       const res = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
 
 //       const responseData = await res.json();
 
@@ -21581,6 +21786,13 @@ export const apiClient = {
 //     }
 //   },
 // };
+
+
+
+
+
+
+
 
 
 

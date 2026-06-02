@@ -486,7 +486,6 @@ if(isBiometricAvailable){
           {/* NEW: Biometric Login Toggle */}
               {isNative && isBiometricAvailable && (
                 <div className="mb-6">
-                  <h4 className="font-bold text-achrams-text-primary mb-3 text-sm">Security</h4>
                   <div className="p-3 bg-gray-50 rounded-xl border border-achrams-border flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">

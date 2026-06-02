@@ -169,6 +169,8 @@ import { Capacitor } from '@capacitor/core';
 import { SecureStorage } from '@aparajita/capacitor-secure-storage';
 import { apiClient } from '@/lib/api';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
+import { setUnauthorizedHandler } from '@/lib/api';
+import { useRouter } from 'next/navigation';
 
 const isNative = Capacitor.isNativePlatform();
 
@@ -199,6 +201,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const biometric = useBiometricAuth();
 
   useEffect(() => setMounted(true), []);
+
+  const router = useRouter();
+
+useEffect(() => {
+  if (!mounted) return;
+  setUnauthorizedHandler(async () => {
+    setUser(null);
+    setToken(null);
+    setIsAuthenticated(false);
+    if (isNative) {
+      await SecureStorage.remove('auth_token');
+      await SecureStorage.remove('refresh_token');
+    }
+    router.replace('/');
+  });
+}, [mounted, router]);
 
  useEffect(() => {
   if (!mounted) return;
