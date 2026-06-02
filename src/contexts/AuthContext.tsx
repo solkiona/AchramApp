@@ -212,7 +212,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const res = await apiClient.post('/auth/passenger/login', { email, password });
+      const res = await apiClient.post('/auth/passenger/login', { email, password }, undefined, undefined, true);
       if (res.status === 'success' && res.data?.token) {
         setToken(res.data.token);
         setUser(res.data.user?? null);
@@ -233,7 +233,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const logout = useCallback(async () => {
-    try { await apiClient.post('/auth/logout', {}); } catch {}
+    try { await apiClient.post('/auth/logout', {}, token, undefined, true); } catch {}
     setUser(null);
     setToken(null);
     setIsAuthenticated(false);
@@ -253,7 +253,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // optional: load profile
     try {
-      const me = await apiClient.get('/auth/passenger/me');
+      const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
       if (me.status === 'success') setUser(me.data);
     } catch {}
     return true;
