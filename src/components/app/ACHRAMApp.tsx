@@ -69,7 +69,7 @@ import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
 export default function ACHRAMApp() {
-  const { token, isAuthenticated, isLoading: isAuthLoading, checkAuthStatus } = useAuth();
+  const { token, isAuthenticated, isLoading: isAuthLoading, checkAuthStatus, logout } = useAuth();
   const {
     generalError: bookingGeneralError,
     fieldErrors: bookingFieldErrors,
@@ -1633,23 +1633,36 @@ useEffect(()=>{
     }
   }, [activeTripId, screen]);
 
-  const handleLogout = async () => {
-    try {
-      console.log("Initiating logout API call...");
-      const response = await apiClient.post("/auth/logout", {}, undefined, undefined, true);
-      console.log("Logout API response:", response);
-      if (response.status === "success") {
-        console.log("Logout successful on server, cookie should be cleared.");
-        window.location.href = "/";
-      } else {
-        console.error("Logout API responded with non-success status:", response);
-        showNotification(response.message || "Logout failed. Please try again.", "error");
-      }
-    } catch (err) {
-      console.error("An error occurred during the logout API call:", err);
-      showNotification("An error occurred while logging out. Please check your connection.", "error");
-    }
-  };
+  // const handleLogout = async () => {
+  //   try {
+  //     console.log("Initiating logout API call...");
+  //     const response = await apiClient.post("/auth/logout", {}, undefined, undefined, true);
+  //     console.log("Logout API response:", response);
+  //     if (response.status === "success") {
+  //       console.log("Logout successful on server, cookie should be cleared.");
+  //       window.location.href = "/";
+  //     } else {
+  //       console.error("Logout API responded with non-success status:", response);
+  //       showNotification(response.message || "Logout failed. Please try again.", "error");
+  //     }
+  //   } catch (err) {
+  //     console.error("An error occurred during the logout API call:", err);
+  //     showNotification("An error occurred while logging out. Please check your connection.", "error");
+  //   }
+  // };
+
+const handleLogout = async () => {
+  try {
+    await logout();
+    setScreen("booking"); // or '/booking'
+  } catch (err) {
+    console.error('Logout error', err);
+    showNotification('Logout failed. Please try again.', 'error');
+  }
+};
+
+
+
 
   const handleAccountDeletionSuccess = () => {
     console.log("Account deletion confirmed. Loggin out user");

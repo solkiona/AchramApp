@@ -180,6 +180,7 @@ interface AuthContextType {
   isBiometricAvailable: boolean | null;
   isBiometricEnabled: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; requires2FA?: boolean; message?: string }>;
+  checkAuthStatus: () => Promise<boolean>;
   logout: () => Promise<void>;
   loginWithBiometric: () => Promise<boolean>;
   enableBiometricLogin: () => Promise<boolean>;
@@ -210,6 +211,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted]);
 
+
+   
+  const checkAuthStatus = useCallback(
+    
+    async () => {
+    console.log("AuthContext: Checking authentication status via API call to /auth/passenger/authenticated...");
+    // setIsLoading(true); // Don't set loading here if login function already handles it, or manage carefully to avoid conflicts
+    try {
+      // Call the authenticated check API using apiClient, indicating it's an auth request relying on cookies
+      const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true); // isAuthRequest = true
+
+      if (response.status === 'success') {
+        console.log("AuthContext: Authentication verified via API call. User is logged in.");
+        setIsAuthenticated(true);
+        // Optional: Fetch user details here if needed, or rely on initial state from login
+        // setUser(response.data.user);
+        // setToken(response.data.token); // Store if returned
+      } else {
+        console.log("AuthContext: API responded with non-success status during auth check (likely 401). User is not authenticated.", response);
+        setIsAuthenticated(false);
+        setUser(null);
+        setToken(null);
+      }
+    } catch (err: any) {
+      console.error("AuthContext: Error checking authentication status via API call:", err);
+      // Consider the user unauthenticated on error
+      setIsAuthenticated(false);
+      setUser(null);
+      setToken(null);
+    } finally {
+      setIsLoading(false); // Stop loading state after auth check completes
+    }
+  }
+    ,[])
+    
+    
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     try {
@@ -250,12 +287,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const logout = useCallback(async () => {
-    try { await apiClient.post('/auth/logout', {}, token, undefined, true); } catch {}
+    try { await apiClient.post('/auth/logout', {}, token ?? undefined, undefined, true); } catch {}
     setUser(null);
     setToken(null);
     setIsAuthenticated(false);
     if (isNative) {
-      await biometric.disableBiometricLogin();
+      //await biometric.disableBiometricLogin();
       await SecureStorage.remove('auth_token');
       await SecureStorage.remove('refresh_token');
     }
@@ -311,12 +348,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isLoading,
     isBiometricAvailable,
     isBiometricEnabled,
+    checkAuthStatus,
     login,
     logout,
     loginWithBiometric,
     enableBiometricLogin,
     disableBiometricLogin,
-  }), [user, token, isAuthenticated, isLoading, isBiometricAvailable, isBiometricEnabled, login, logout, loginWithBiometric, enableBiometricLogin, disableBiometricLogin]);
+  }), [user, token, isAuthenticated, isLoading, isBiometricAvailable, isBiometricEnabled, checkAuthStatus,login, logout, loginWithBiometric, enableBiometricLogin, disableBiometricLogin]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
