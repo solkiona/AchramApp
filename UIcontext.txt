@@ -1133,6 +1133,194 @@ export const useGeolocation = (): GeolocationResult => {
 };
 
 
+----- FILE: src/hooks/useKeyboardOffset.ts -----
+// hooks/useKeyboardOffset.ts
+import { useEffect, useState } from 'react';
+
+export function useKeyboardOffset() {
+  const [offset, setOffset] = useState(0);
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const handleResize = () => {
+      setOffset(window.innerHeight - vv.height - vv.offsetTop);
+    };
+
+    vv.addEventListener('resize', handleResize);
+    handleResize();
+    return () => vv.removeEventListener('resize', handleResize);
+  }, []);
+
+  return offset;
+}
+
+----- FILE: src/hooks/useBiometricAuth.ts -----
+// src/hooks/useBiometricAuth.ts
+import { useState, useCallback } from 'react';
+import { 
+  BiometricAuth,
+  CheckBiometryResult,
+  BiometryError,
+  BiometryErrorType,
+  AuthenticateOptions,
+  BiometryType
+} from '@aparajita/capacitor-biometric-auth';
+// ✅ CORRECT: Import SecureStorage (the instance), NOT SecureStoragePlugin (the type)
+import { SecureStorage } from '@aparajita/capacitor-secure-storage';
+
+export interface BiometricResult {
+  success: boolean;
+  error?: string;
+  biometryType?: BiometryType;
+}
+
+export const useBiometricAuth = () => {
+  const [biometryResult, setBiometryResult] = useState<CheckBiometryResult | null>(null);
+  const [isEnabled, setIsEnabled] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const checkAvailability = useCallback(async (): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      // Add timeout to prevent hanging on web
+      const result = await Promise.race([
+        BiometricAuth.checkBiometry(),
+        new Promise<CheckBiometryResult>((_, reject) => 
+          setTimeout(() => reject(new Error('Biometric check timeout')), 3000)
+        )
+      ]);
+      setBiometryResult(result as CheckBiometryResult);
+      
+      const token = await SecureStorage.get('biometric_enabled');
+      setIsEnabled(token === 'true');
+      return (result as CheckBiometryResult).isAvailable;
+    } catch {
+      // ← CRITICAL: Fail gracefully on web or errors
+      setBiometryResult(null);
+      setIsEnabled(false);
+      return false;
+    } finally {
+      setIsLoading(false); // ← Always stop loading, even on error
+    }
+  }, []);
+
+  const authenticate = useCallback(async (): Promise<BiometricResult> => {
+    setIsLoading(true);
+    try {
+      const options: AuthenticateOptions = {
+        reason: 'Authenticate to securely access your ACHRAMS account',
+        cancelTitle: 'Cancel',
+        allowDeviceCredential: true,
+        iosFallbackTitle: 'Use Passcode',
+        androidTitle: 'ACHRAMS Security',
+        androidSubtitle: 'Verify your identity',
+        androidConfirmationRequired: true,
+      };
+
+      // ✅ authenticate() returns Promise<void> on success, rejects with BiometryError on failure
+      await BiometricAuth.authenticate(options);
+      
+      return { 
+        success: true,
+        biometryType: biometryResult?.biometryType
+      };
+    } catch (error: unknown) {
+      if (error instanceof BiometryError) {
+        const errorMap: Record<BiometryErrorType, string> = {
+          [BiometryErrorType.userCancel]: 'Cancelled by user',
+          [BiometryErrorType.systemCancel]: 'Authentication interrupted',
+          [BiometryErrorType.biometryLockout]: 'Too many attempts. Try again later.',
+          [BiometryErrorType.biometryNotAvailable]: 'Biometrics not available on this device',
+          [BiometryErrorType.biometryNotEnrolled]: 'No biometrics enrolled. Please set up in device settings.',
+          [BiometryErrorType.passcodeNotSet]: 'Device passcode not set. Please enable in settings.',
+          [BiometryErrorType.authenticationFailed]: 'Authentication failed. Please try again.',
+          [BiometryErrorType.userFallback]: 'User chose to use fallback method',
+          [BiometryErrorType.noDeviceCredential]: 'No device credential available',
+          [BiometryErrorType.invalidContext]: 'Invalid authentication context',
+          [BiometryErrorType.notInteractive]: 'Authentication not interactive',
+          [BiometryErrorType.appCancel]: 'Authentication cancelled by app',
+          [BiometryErrorType.none]: 'Unknown error',
+        };
+        
+        return { 
+          success: false, 
+          error: errorMap[error.code] || error.message || 'Authentication failed',
+          biometryType: biometryResult?.biometryType
+        };
+      }
+      
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Authentication failed',
+        biometryType: biometryResult?.biometryType
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [biometryResult]);
+
+  const enableBiometricLogin = useCallback(async (token: string, refreshToken?: string) => {
+    try {
+      // ✅ CORRECT: SecureStorage.set(key, data, convertDate?, sync?, access?)
+      await SecureStorage.set('auth_token', token);
+      if (refreshToken) {
+        await SecureStorage.set('refresh_token', refreshToken);
+      }
+      await SecureStorage.set('biometric_enabled', 'true');
+      setIsEnabled(true);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const getSecureCredentials = useCallback(async () => {
+    try {
+      // ✅ CORRECT: SecureStorage.get(key, convertDate?, sync?)
+      const [token, refreshToken, enabled] = await Promise.all([
+        SecureStorage.get('auth_token'),
+        SecureStorage.get('refresh_token'),
+        SecureStorage.get('biometric_enabled')
+      ]);
+      return {
+        token: token as string | null,
+        refreshToken: refreshToken as string | null,
+        enabled: enabled === 'true'
+      };
+    } catch {
+      return { token: null, refreshToken: null, enabled: false };
+    }
+  }, []);
+
+  const disableBiometricLogin = useCallback(async () => {
+    try {
+      // ✅ CORRECT: SecureStorage.remove(key, sync?)
+      await Promise.all([
+        SecureStorage.remove('auth_token'),
+        SecureStorage.remove('refresh_token'),
+        SecureStorage.set('biometric_enabled', 'false')
+      ]);
+      setIsEnabled(false);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  return {
+    biometryResult,
+    isEnabled,
+    isLoading,
+    checkAvailability,
+    authenticate,
+    enableBiometricLogin,
+    getSecureCredentials,
+    disableBiometricLogin,
+  };
+};
+
 ----- FILE: src/hooks/booking/useBooking.ts -----
 import { useCallback } from "react";
 import { apiClient } from "@/lib/api";
@@ -1449,11 +1637,14 @@ export const useBooking = ({
           response
         );
         handleBookingApiError(response);
+        
+        setTripRequestError(response.message);
+        
         if (response?.details?.pickup_location || response?.details?.destination_location) {
           setTripRequestStatus("error");
           setTripRequestError(response?.details?.pickup_location?.[0] || response?.details?.destination_location?.[0]);
         }
-        setTripRequestError(response.message);
+        
         setTripRequestStatus("error");
       }
 
@@ -2438,10 +2629,12 @@ export const usePersistedAppState = (
       };
       console.log("Saving app state with screen:", screenToSave);
       saveAppState(stateToSave);
+
       if (isNavigatingToDashboard) {
         setIsNavigatingToDashboard(false);
       }
     }
+    
   }, [
     screen,
     pickup,
@@ -6272,189 +6465,346 @@ useEffect(() => {
 
 
 ----- FILE: src/contexts/AuthContext.tsx -----
-'use client';
+// 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+// import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+// import { apiClient } from '@/lib/api';
+
+// interface AuthContextType {
+//   user: any | null;
+//   token: string | null; // Potentially still useful if the backend also returns a token alongside the cookie
+//   isAuthenticated: boolean;
+//   isLoading: boolean;
+//   login: (email: string, password: string) => Promise<boolean>;
+//   logout: () => void;
+//   checkAuthStatus: () => Promise<void>;
+// }
+
+// const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// export const AuthProvider = ({ children }: { children: ReactNode }) => {
+//   const [user, setUser] = useState<any | null>(null);
+//   const [token, setToken] = useState<string | null>(null); // Store token if backend provides one
+//   const [isAuthenticated, setIsAuthenticated] = useState(false);
+//   const [isLoading, setIsLoading] = useState(true);
+
+
+// interface LoginResult {
+//   success: boolean;
+//   requires2FA?: boolean;
+//   message?: string; // Add an optional message field for errors
+// }
+
+
+
+  
+    
+//   const checkAuthStatus = async () => {
+//     console.log("AuthContext: Checking authentication status via API call to /auth/passenger/authenticated...");
+//     // setIsLoading(true); // Don't set loading here if login function already handles it, or manage carefully to avoid conflicts
+//     try {
+//       // Call the authenticated check API using apiClient, indicating it's an auth request relying on cookies
+//       const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true); // isAuthRequest = true
+
+//       if (response.status === 'success') {
+//         console.log("AuthContext: Authentication verified via API call. User is logged in.");
+//         setIsAuthenticated(true);
+//         // Optional: Fetch user details here if needed, or rely on initial state from login
+//         // setUser(response.data.user);
+//         // setToken(response.data.token); // Store if returned
+//       } else {
+//         console.log("AuthContext: API responded with non-success status during auth check (likely 401). User is not authenticated.", response);
+//         setIsAuthenticated(false);
+//         setUser(null);
+//         setToken(null);
+//       }
+//     } catch (err: any) {
+//       console.error("AuthContext: Error checking authentication status via API call:", err);
+//       // Consider the user unauthenticated on error
+//       setIsAuthenticated(false);
+//       setUser(null);
+//       setToken(null);
+//     } finally {
+//       setIsLoading(false); // Stop loading state after auth check completes
+//     }
+//   };
+
+
+//   const login = async (email: string, password: string): Promise<LoginResult> => { // Change return type to Promise<LoginResult>
+//   console.log("AuthContext: Attempting login for user:", email);
+//   setIsLoading(true);
+//   try {
+//     const loginResponse = await apiClient.post('/auth/passenger/login', {
+//       email,
+//       password,
+//     }, undefined, undefined, true);
+
+//     console.log("AuthContext: Login API Response:", loginResponse);
+
+//     if (loginResponse.status === 'success' && loginResponse.data && loginResponse.data.token) {
+//       console.log("AuthContext: Login successful via API call. Token received (though cookie is primary auth).");
+//       await new Promise(resolve => setTimeout(resolve, 500));
+//       await checkAuthStatus();
+//       return { success: true }; // Return success object
+//     } else if(loginResponse.status === 'success' && loginResponse.data?.two_factor === true){
+//       console.log("Authcontext: login successful, but 2FA verification is required");
+//       setIsLoading(false);
+//       return {success: true, requires2FA: true};
+//     }
+    
+//     else {
+//       // NEW: Extract error message from API response
+//       let errorMessage = "Login failed. Please try again."; // Default message
+//       if (loginResponse.message) {
+//           errorMessage = loginResponse.message; // Use top-level message if available
+//       } 
+      
+//       if (loginResponse.details && loginResponse.details.non_field_errors && Array.isArray(loginResponse.details.non_field_errors)) {
+//           // Attempt to get the first specific error from details
+//           const specificError = loginResponse.details.non_field_errors[0];
+//           if (specificError) {
+//               errorMessage = specificError;
+//           }
+//       }
+//       // NEW: Use the extracted or default error message
+//       console.error("AuthContext: Login API responded with non-success status or missing token/data:", loginResponse);
+//       setIsLoading(false);
+//       // Do NOT call showNotification here, let the caller (page.tsx) handle it
+//       return { success: false, message: errorMessage }; // Return failure object with message
+//     }
+//   } catch (err: any) {
+//     console.error("AuthContext: Error during login API call:", err);
+//     setIsLoading(false);
+//     // NEW: Provide a generic error message for network/other errors
+//     return { success: false, message: "An error occurred during login. Please check your connection." };
+//   }
+// };
+//   const logout = async () => {
+//     console.log("AuthContext: Attempting logout...");
+//     try {
+//       // If there's a backend logout endpoint, call it.
+//       // await apiClient.post('/auth/logout', {}, token, undefined, true); // Example, if needed
+//       console.log("AuthContext: Logout request sent (or session assumed invalidated by server). Clearing frontend state.");
+//       // Clear context state
+//       setUser(null);
+//       setToken(null);
+//       setIsAuthenticated(false);
+//     } catch (err) {
+//       console.error("AuthContext: Error during logout API call:", err);
+//       // Clear frontend state anyway on error
+//       setUser(null);
+//       setToken(null);
+//       setIsAuthenticated(false);
+//     }
+//   };
+
+//   // Effect to check auth status on initial load
+//   useEffect(() => {
+//     console.log("AuthContext: Initializing - Checking authentication status...");
+//     checkAuthStatus(); // Initial check on mount
+//   }, []); // Empty dependency array means this runs once on mount
+
+//   const contextValue: AuthContextType = {
+//     user,
+//     token,
+//     isAuthenticated,
+//     isLoading,
+//     login,
+//     logout,
+//     checkAuthStatus,
+//   };
+
+//   return (
+//     <AuthContext.Provider value={contextValue}>
+//       {children}
+//     </AuthContext.Provider>
+//   );
+// };
+
+// export const useAuth = () => {
+//   const context = useContext(AuthContext);
+//   if (context === undefined) {
+//     throw new Error('useAuth must be used within an AuthProvider');
+//   }
+//   return context;
+// };
+
+
+'use client';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { apiClient } from '@/lib/api';
+import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 
 interface AuthContextType {
   user: any | null;
-  token: string | null; // Potentially still useful if the backend also returns a token alongside the cookie
+  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ success: boolean; requires2FA?: boolean; message?: string }>;
   logout: () => void;
   checkAuthStatus: () => Promise<void>;
+  isBiometricAvailable: boolean | null;
+  isBiometricEnabled: boolean;
+  loginWithBiometric: () => Promise<boolean>;
+  enableBiometricLogin: () => Promise<boolean>;
+  disableBiometricLogin: () => Promise<void>;
+  checkBiometricAvailability: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<any | null>(null);
-  const [token, setToken] = useState<string | null>(null); // Store token if backend provides one
+  const [token, setToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false); // <- KEY: track if we're client-side
 
+  // Only init biometric hook AFTER mount to avoid SSR mismatch
+  const biometricHook = useBiometricAuth();
 
-interface LoginResult {
-  success: boolean;
-  requires2FA?: boolean;
-  message?: string; // Add an optional message field for errors
-}
+  // Destructure with defaults that match server render
+  const {
+    biometryResult = null,
+    isEnabled: isBiometricEnabled = false,
+    isLoading: isBioLoading = false,
+    checkAvailability = async () => false,
+    authenticate: bioAuthenticate = async () => ({ success: false }),
+    enableBiometricLogin: bioEnable = async () => false,
+    getSecureCredentials = async () => ({}),
+    disableBiometricLogin: bioDisable = async () => {},
+  } = mounted? biometricHook : {}; // <- Only use real values after mount
 
+  // Set mounted after first render
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
+  // Check biometric availability ONLY on client, AFTER mount
+  useEffect(() => {
+    if (!mounted) return; // <- Don't run on server
+    checkAvailability().catch(() => {
+      console.log('Biometric availability check failed (non-critical)');
+    });
+  }, [mounted, checkAvailability]);
 
-  
-    
-  const checkAuthStatus = async () => {
-    console.log("AuthContext: Checking authentication status via API call to /auth/passenger/authenticated...");
-    // setIsLoading(true); // Don't set loading here if login function already handles it, or manage carefully to avoid conflicts
+  const checkAuthStatus = useCallback(async () => {
+    console.log("AuthContext: Checking authentication status...");
     try {
-      // Call the authenticated check API using apiClient, indicating it's an auth request relying on cookies
-      const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true); // isAuthRequest = true
-
+      const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true);
       if (response.status === 'success') {
-        console.log("AuthContext: Authentication verified via API call. User is logged in.");
         setIsAuthenticated(true);
-        // Optional: Fetch user details here if needed, or rely on initial state from login
-        // setUser(response.data.user);
-        // setToken(response.data.token); // Store if returned
+        setUser(response.data);
       } else {
-        console.log("AuthContext: API responded with non-success status during auth check (likely 401). User is not authenticated.", response);
         setIsAuthenticated(false);
         setUser(null);
         setToken(null);
       }
     } catch (err: any) {
-      console.error("AuthContext: Error checking authentication status via API call:", err);
-      // Consider the user unauthenticated on error
+      console.error("AuthContext: Error checking auth status:", err);
       setIsAuthenticated(false);
       setUser(null);
       setToken(null);
     } finally {
-      setIsLoading(false); // Stop loading state after auth check completes
+      setIsLoading(false); // <- Only auth loading, never blocked by biometric
     }
-  };
+  }, []);
 
-  // const login = async (email: string, password: string): Promise<boolean> => {
-  //   console.log("AuthContext: Attempting login for user:", email);
-  //   setIsLoading(true); // Set loading state at the start of login
-  //   try {
-  //     // Call the login API using apiClient
-  //     const loginResponse = await apiClient.post('/auth/passenger/login', {
-  //       email,
-  //       password,
-  //     }, undefined, undefined, true);
-
-  //     console.log("AuthContext: Login API Response:", loginResponse);
-
-  //     if (loginResponse.status === 'success' && loginResponse.data && loginResponse.data.token) {
-  //       console.log("AuthContext: Login successful via API call. Token received (though cookie is primary auth).");
-  //       // Store the token if the backend returns one (might be for other purposes)
-  //       // setToken(loginResponse.data.token);
-  //       // The backend should have set the httpOnly cookie here.
-  //       // Now, check the auth status using the cookie to update context state.
-  //       await new Promise(resolve => setTimeout(resolve, 500));
-  //       await checkAuthStatus(); // This will call the authenticated endpoint and update context
-  //       return true; // Indicate success
-  //     } else {
-
-        
-  //       console.error("AuthContext: Login API responded with non-success status or missing token/data:", loginResponse);
-  //       setIsLoading(false); // Ensure loading is stopped on failure
-  //       return false; // Indicate failure
-  //     }
-  //   } catch (err: any) {
-  //     console.error("AuthContext: Error during login API call:", err);
-  //     setIsLoading(false); // Ensure loading is stopped on error
-  //     return false; // Indicate failure
-  //   }
-  //   // Note: The loading state is managed by setIsLoading in this function and the checkAuthStatus function called within.
-  //   // Be careful not to conflict with the initial useEffect loading state.
-  // };
-
-  const login = async (email: string, password: string): Promise<LoginResult> => { // Change return type to Promise<LoginResult>
-  console.log("AuthContext: Attempting login for user:", email);
-  setIsLoading(true);
-  try {
-    const loginResponse = await apiClient.post('/auth/passenger/login', {
-      email,
-      password,
-    }, undefined, undefined, true);
-
-    console.log("AuthContext: Login API Response:", loginResponse);
-
-    if (loginResponse.status === 'success' && loginResponse.data && loginResponse.data.token) {
-      console.log("AuthContext: Login successful via API call. Token received (though cookie is primary auth).");
-      await new Promise(resolve => setTimeout(resolve, 500));
-      await checkAuthStatus();
-      return { success: true }; // Return success object
-    } else if(loginResponse.status === 'success' && loginResponse.data?.two_factor === true){
-      console.log("Authcontext: login successful, but 2FA verification is required");
-      setIsLoading(false);
-      return {success: true, requires2FA: true};
-    }
-    
-    else {
-      // NEW: Extract error message from API response
-      let errorMessage = "Login failed. Please try again."; // Default message
-      if (loginResponse.message) {
-          errorMessage = loginResponse.message; // Use top-level message if available
-      } 
-      
-      if (loginResponse.details && loginResponse.details.non_field_errors && Array.isArray(loginResponse.details.non_field_errors)) {
-          // Attempt to get the first specific error from details
-          const specificError = loginResponse.details.non_field_errors[0];
-          if (specificError) {
-              errorMessage = specificError;
-          }
-      }
-      // NEW: Use the extracted or default error message
-      console.error("AuthContext: Login API responded with non-success status or missing token/data:", loginResponse);
-      setIsLoading(false);
-      // Do NOT call showNotification here, let the caller (page.tsx) handle it
-      return { success: false, message: errorMessage }; // Return failure object with message
-    }
-  } catch (err: any) {
-    console.error("AuthContext: Error during login API call:", err);
-    setIsLoading(false);
-    // NEW: Provide a generic error message for network/other errors
-    return { success: false, message: "An error occurred during login. Please check your connection." };
-  }
-};
-  const logout = async () => {
-    console.log("AuthContext: Attempting logout...");
+  const login = async (email: string, password: string) => {
+    setIsLoading(true);
     try {
-      // If there's a backend logout endpoint, call it.
-      // await apiClient.post('/auth/logout', {}, token, undefined, true); // Example, if needed
-      console.log("AuthContext: Logout request sent (or session assumed invalidated by server). Clearing frontend state.");
-      // Clear context state
-      setUser(null);
-      setToken(null);
-      setIsAuthenticated(false);
-    } catch (err) {
-      console.error("AuthContext: Error during logout API call:", err);
-      // Clear frontend state anyway on error
-      setUser(null);
-      setToken(null);
-      setIsAuthenticated(false);
+      const loginResponse = await apiClient.post('/auth/passenger/login', { email, password }, undefined, undefined, true);
+
+      if (loginResponse.status === 'success' && loginResponse.data?.token) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await checkAuthStatus();
+
+        // Biometric enable is fire-and-forget, doesn't block
+        if (mounted && isBiometricEnabled) {
+          bioEnable(loginResponse.data.token, loginResponse.data.refresh).catch(() => {});
+        }
+        return { success: true };
+      } else if (loginResponse.status === 'success' && loginResponse.data?.two_factor === true) {
+        setIsLoading(false);
+        return { success: true, requires2FA: true };
+      } else {
+        const errorMessage = loginResponse.details?.non_field_errors?.[0] || loginResponse.message || "Login failed.";
+        setIsLoading(false);
+        return { success: false, message: errorMessage };
+      }
+    } catch (err: any) {
+      setIsLoading(false);
+      return { success: false, message: "An error occurred during login." };
     }
   };
 
-  // Effect to check auth status on initial load
+  const logout = async () => {
+    try {
+      await apiClient.post('/auth/logout', {}, undefined, undefined, true);
+    } catch (err) {
+      console.error("AuthContext: Logout API error:", err);
+    } finally {
+      setUser(null);
+      setToken(null);
+      setIsAuthenticated(false);
+      if (mounted) bioDisable().catch(() => {});
+    }
+  };
+
+  const loginWithBiometric = useCallback(async (): Promise<boolean> => {
+    if (!mounted) return false; // <- Guard: no SSR calls
+    const bioResult = await bioAuthenticate();
+    if (!bioResult.success) return false;
+
+    const credentials = await getSecureCredentials();
+    if (!credentials.token) return false;
+
+    try {
+      const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true);
+      if (response.status === 'success') {
+        setIsAuthenticated(true);
+        setUser(response.data);
+        return true;
+      } else {
+        await bioDisable();
+        return false;
+      }
+    } catch (err) {
+      await bioDisable();
+      return false;
+    }
+  }, [mounted, bioAuthenticate, getSecureCredentials, bioDisable]);
+
+  const enableBiometricLogin = useCallback(async (): Promise<boolean> => {
+    if (!mounted ||!token) return false;
+    return await bioEnable(token);
+  }, [mounted, token, bioEnable]);
+
+  const disableBiometricLogin = useCallback(async (): Promise<void> => {
+    if (!mounted) return;
+    await bioDisable();
+  }, [mounted, bioDisable]);
+
+  // Initial auth check - runs once
   useEffect(() => {
-    console.log("AuthContext: Initializing - Checking authentication status...");
-    checkAuthStatus(); // Initial check on mount
-  }, []); // Empty dependency array means this runs once on mount
+    checkAuthStatus();
+  }, [checkAuthStatus]);
 
   const contextValue: AuthContextType = {
     user,
     token,
     isAuthenticated,
-    isLoading,
+    isLoading, // <- This is ONLY auth loading now
     login,
     logout,
     checkAuthStatus,
+    // Return safe defaults until mounted, then real values
+    isBiometricAvailable: mounted? (biometryResult?.isAvailable?? null) : null,
+    isBiometricEnabled: mounted? isBiometricEnabled : false,
+    loginWithBiometric,
+    enableBiometricLogin,
+    disableBiometricLogin,
+    checkBiometricAvailability: checkAvailability,
   };
 
   return (
@@ -6471,187 +6821,6 @@ export const useAuth = () => {
   }
   return context;
 };
-
-
-
-// 'use client';
-
-// import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-
-// import { apiClient } from '@/lib/api';
-
-
-// interface AuthContextType {
-//   user: any | null; 
-//   token: string | null; 
-//   isAuthenticated: boolean;
-//   isLoading: boolean; 
-//   login: (email: string, password: string) => Promise<boolean>; 
-//   logout: () => void; 
-//   checkAuthStatus: () => Promise<void>; 
-// }
-
-
-// const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-
-// export const AuthProvider = ({ children }: { children: ReactNode }) => {
-//   const [user, setUser] = useState<any | null>(null); 
-//   const [token, setToken] = useState<string | null>(null); 
-//   const [isAuthenticated, setIsAuthenticated] = useState(false); 
-//   const [isLoading, setIsLoading] = useState(true); 
-//   const [count, setCount] = useState(0);
-  
-//   const checkAuthStatus = async () => {
-//     console.log("Checking authentication status via API call to /auth/passenger/authenticated...");
-//     setIsLoading(true); 
-//     try {
-      
-      
-//       const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true); 
-
-//       if (response.status === 'success') {
-//         console.log("Authentication verified via API call. User is logged in.");
-        
-//         setIsAuthenticated(true);
-        
-//       } else {
-        
-//         console.log("API responded with non-success status during auth check (likely 401). User is not authenticated.", response);
-//         setIsAuthenticated(false);
-//         setUser(null);
-//         setToken(null); 
-//       }
-//     } catch (err) {
-      
-//       console.error("Error checking authentication status via API call:", err);
-      
-//       setIsAuthenticated(false);
-//       setUser(null);
-//       setToken(null); 
-//     } finally {
-      
-//       setIsLoading(false);
-//     }
-//   };
-
-  
-//   const login = async (email: string, password: string): Promise<boolean> => {
-//     console.log("Attempting login for user with email:", email);
-//     try {
-      
-      
-//       const loginResponse = await apiClient.post('/auth/passenger/login', {
-//         email,
-//         password,
-        
-//       });
-
-//       if (loginResponse.status === 'success' && loginResponse.data && loginResponse.data.token) {
-        
-//         console.log("Login successful via API call. Token received (though cookie is primary auth).");
-
-//         setCount((prev) => prev + 1)
-//         await checkAuthStatus(); 
-//         console.log(`Login attempt number ${count} made`);
-//         return true; 
-//       } else {
-        
-//         console.error("Login API responded with non-success status or missing token/data:", loginResponse);
-        
-//         return false; 
-//       }
-//     } catch (err) {
-      
-//       console.error("Error during login API call:", err);
-//       return false; 
-//     }
-//   };
-
-  
-//   const logout = async () => {
-//     console.log("Attempting logout...");
-//     try {
-      
-//       console.log("Logout request sent (or session assumed invalidated). Clearing frontend state.");
-      
-//       setUser(null);
-//       setToken(null);
-//       setIsAuthenticated(false)
-
-//     } catch (err) {
-      
-//       console.error("Error during logout API call:", err);
-      
-      
-//       setUser(null);
-//       setToken(null);
-//       setIsAuthenticated(false);
-//     }
-//   };
-
-  
-//   useEffect(() => {
-//     console.log("AuthContext: Initializing - Checking authentication status...");
-    
-//     checkAuthStatus();
-//   }, []); 
-
-  
-//   const contextValue: AuthContextType = {
-//     user,
-//     token,
-//     isAuthenticated,
-//     isLoading, 
-//     login, 
-//     logout, 
-//     checkAuthStatus, 
-//   };
-
-//   return (
-//     <AuthContext.Provider value={contextValue}>
-//       {children}
-//     </AuthContext.Provider>
-//   );
-// };
-
-
-// export const useAuth = () => {
-//   const context = useContext(AuthContext);
-//   if (context === undefined) {
-//     throw new Error('useAuth must be used within an AuthProvider');
-//   }
-//   return context;
-// };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 ----- FILE: src/types/app.ts -----
 export type ScreenState =
@@ -7379,6 +7548,7 @@ import { apiClient } from '@/lib/api'; // Assuming apiClient is available or pas
 import PasswordResetModal from "@/components/app/modals/PasswordResetModal"
 import AccountDeletionModal from "@/components/app/modals/AccountDeletionModal"
 
+import {useAuth} from '@/contexts/AuthContext'
 
 
 interface ProfileModalProps {
@@ -7426,6 +7596,16 @@ export default function ProfileModal({
 
   const [isSaving, setIsSaving] = useState(false);
   const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(accountData?.profile_photo || null);
+
+
+
+const { 
+  isBiometricAvailable,
+  isBiometricEnabled,
+  enableBiometricLogin,
+  disableBiometricLogin,
+} = useAuth();
+
 
   // NEW: Ref for file input
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -7821,6 +8001,8 @@ export default function ProfileModal({
             {/* NEW: 2FA Status Card when not editing */}
             <div className="mb-6">
               <h4 className="font-bold text-achrams-text-primary mb-3 text-sm">Security</h4>
+
+
               <div className="p-3 bg-gray-50 rounded-xl border border-achrams-border flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -7835,6 +8017,61 @@ export default function ProfileModal({
                 </div>
                 {/* Optionally, show an 'Edit' button here to trigger the 2FA toggle directly, or keep it in edit mode */}
               </div>
+
+              {/* NEW: Biometric Login Toggle */}
+              {isBiometricAvailable && (
+                <div className="mb-6">
+                  <h4 className="font-bold text-achrams-text-primary mb-3 text-sm">Security</h4>
+                  <div className="p-3 bg-gray-50 rounded-xl border border-achrams-border flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Fingerprint className="w-4 h-4 text-emerald-600" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-achrams-text-primary">Biometric Login</div>
+                        <div className="text-xs text-achrams-text-secondary">
+                          {isBiometricEnabled 
+                            ? "Login with fingerprint or face" 
+                            : "Enable for faster login"}
+                        </div>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex h-6 w-11 items-center rounded-full cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isBiometricEnabled}
+                        onChange={async (e) => {
+                          if (e.target.checked) {
+                            // Enable biometrics
+                            const success = await enableBiometricLogin();
+                            if (success) {
+                              showNotification("Biometric login enabled", "success");
+                            } else {
+                              showNotification("Failed to enable biometrics", "error");
+                              // Revert toggle state
+                            }
+                          } else {
+                            // Disable biometrics
+                            await disableBiometricLogin();
+                            showNotification("Biometric login disabled", "info");
+                          }
+                        }}
+                        className="sr-only peer"
+                      />
+                      <span className={`block w-11 h-6 rounded-full transition-colors ${
+                        isBiometricEnabled ? 'bg-emerald-600' : 'bg-gray-300'
+                      }`}></span>
+                      <span className={`absolute left-1 top-1 bg-white rounded-full w-4 h-4 transition-transform ${
+                        isBiometricEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                      }`}></span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+
+
+
             </div>
             </>
           )}
@@ -8060,6 +8297,7 @@ interface PassengerDetailsModalProps {
   setIsStrictPreferences: (val: boolean) => void;
   selectedCategory: string | null;
   fareEstimate: number | null;
+  keyboardHeight: any;
 
 
 }
@@ -8085,6 +8323,7 @@ export default function PassengerDetailsModal({
   setIsStrictPreferences,
   selectedCategory,
   fareEstimate,
+  keyboardHeight,
 }: PassengerDetailsModalProps) {
   const [showRequirements, setShowRequirements] = useState(false);
 
@@ -8123,7 +8362,9 @@ export default function PassengerDetailsModal({
     // Ensure it covers the whole screen behind the modal
     <div className=" fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50"> 
       {/* The modal content */}
-      <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border ">
+      <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border"
+      style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      >
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold text-achrams-text-primary">Passenger details</h3>
           <button 
@@ -8842,6 +9083,7 @@ interface PanicModalProps {
   tripId: string;
   isAuthenticated: boolean;
   bookAsGuest: boolean;
+  keyboardHeight: any;
 }
 
 export default function PanicModal({
@@ -8853,6 +9095,7 @@ export default function PanicModal({
   tripId,
   isAuthenticated,
   bookAsGuest,
+  keyboardHeight,
 }: PanicModalProps) {
   const [selected, setSelected] = useState<string | null>(null);
   // NEW: State for the custom reason when "Other" is selected
@@ -8958,6 +9201,9 @@ export default function PanicModal({
       {/* Click outside to close */}
       <div
         className="w-full max-w-md bg-white rounded-2xl shadow-lg overflow-hidden sm:rounded-3xl transform transition-all duration-300"
+
+        style={{ transform: `translateY(-${keyboardHeight}px)` }}
+
         onClick={(e) => e.stopPropagation()} // prevent closing on inner click
       >
         {sent ? (
@@ -9085,6 +9331,7 @@ interface RateModalProps {
   guestId: string | null;
   bookAsGuest: boolean;
   isAuthenticated: boolean;
+  keyboardHeight: any;
 }
 
 export default function RateModal({
@@ -9098,6 +9345,7 @@ export default function RateModal({
   guestId,
   bookAsGuest,
   isAuthenticated,
+  keyboardHeight,
 }: RateModalProps) {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -9211,7 +9459,9 @@ export default function RateModal({
 
   return (
     <div className="fixed bg-achrams-secondary-solid/50 inset-0 bg-opacity-50 flex items-end z-50 animate-fadeIn ">
-      <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[90vh] overflow-y-auto">
+      <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[90vh] overflow-y-auto"
+      style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      >
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-2xl font-bold">Rate {driverName}</h3>
           <button
@@ -9299,6 +9549,7 @@ interface SignupPromptModalProps {
   onVerifyEmail: (data: FullSignupData, countdown: number) => void;
   onOpenLoginModal: () => void;
   PHPAirportLocation: string | null;
+  keyboardHeight: any;
 }
 
 export default function SignupPromptModal({
@@ -9308,6 +9559,7 @@ export default function SignupPromptModal({
   onVerifyEmail, // Renamed to reflect its new purpose
   onOpenLoginModal,
   PHPAirportLocation,
+  keyboardHeight,
 }: SignupPromptModalProps) {
 
   const { generalError, fieldErrors, handleApiError, clearErrors } = useApiErrorHandler();
@@ -9537,7 +9789,9 @@ export default function SignupPromptModal({
 
   return (
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50">
-      <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border">
+      <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border"
+      style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      >
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-xl font-bold text-achrams-text-primary">Create your account</h3>
           <button
@@ -10393,12 +10647,14 @@ export default function LoginOTPModal({
   onSubmit, // Function to call when OTP is submitted
   email, // Email to display in the modal
   showNotification,
+  keyboardHeight,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (otp: string) => void; // Function to submit the OTP code
   email: string; // Email address for display
   showNotification: (message: string, type: "info" | "success" | "warning" | "error") => void;
+  keyboardHeight: any;
 }) {
   const [otp, setOtp] = useState(['', '', '', '', '', '']); // 6-digit OTP
   const [loading, setLoading] = useState(false); // Loading state for submission
@@ -10461,7 +10717,9 @@ export default function LoginOTPModal({
 
   return (
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50">
-      <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl p-6 animate-slideUp border-t border-achrams-border overflow-y-auto">
+      <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp border-t border-achrams-border overflow-y-auto"
+      style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      >
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-xl font-bold text-achrams-text-primary text-center mx-auto">Verify 2FA</h3>
           <button
@@ -10840,11 +11098,12 @@ export default function TripHistoryModal({
 
 ----- FILE: src/components/app/modals/LoginModal.tsx -----
 // // src/components/app/modals/LoginModal.tsx
-import { X, Loader, Mail, Chrome, Eye, EyeOff } from 'lucide-react';
-import { useState } from 'react';
+import { X, Loader, Mail, Chrome, Eye, EyeOff, Fingerprint } from 'lucide-react';
+import { useEffect, useState } from 'react';
 // import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import GoogleColor from '@/components/icons/GoogleColor';
+
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -10855,6 +11114,7 @@ interface LoginModalProps {
   showNotification: (message: string, type: "info" | "success" | "warning" | "error") => void;
   onRequires2FA: (email: string, password: string) => void;
   setShowPasswordResetModal: (val: boolean)=> void;
+  keyboardHeight: any;
 }
 
 export default function LoginModal({
@@ -10866,11 +11126,19 @@ export default function LoginModal({
   onLoginError,
   showNotification,
   setShowPasswordResetModal,
+  keyboardHeight,
 
 }: LoginModalProps) {
   if (!isOpen) return null;
 
-  const { login: updateAuthContext } = useAuth(); // Get the login function from context
+  const { 
+    login: updateAuthContext,
+    isBiometricAvailable,
+    isBiometricEnabled,
+    loginWithBiometric,
+    checkBiometricAvailability,
+    isLoading: authLoading,
+   } = useAuth(); // Get the login function from context
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -10879,43 +11147,24 @@ export default function LoginModal({
   const [loading, setLoading] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
 
-  // const handleLogin = async () => {
-  //   setError('');
-  //   if (!email || !password) {
-  //     setError('Please fill in all fields.');
-  //     return;
-  //   }
-
-  //   setLoading(true);
-  //   try {
-  //     // Call the login function from AuthContext, which handles the API call and state updates
-  //     const loginSuccessful = await updateAuthContext(email, password);
-
-  //     if (loginSuccessful) {
-  //       onClose();
-  //       onLoginSuccess(); // Parent (page.tsx) can handle navigation or UI updates
-  //     } else {
-  //       // The login function in AuthContext should have handled setting an error,
-  //       // or we can set a generic one here if needed.
-  //       setError('Login failed. Please check your credentials.');
-  //     }
-  //   } catch (err: any) {
-  //       console.error("Login Error caught in LoginModal:", err);
-  //       let errorMessage = 'An unexpected error occurred.';
-  //       if (err.message) {
-  //           errorMessage = err.message;
-  //       }
-  //       setError(errorMessage);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+  const [bioLoading, setBioLoading] = useState(false);
+  
+  // Check biometric availability when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      checkBiometricAvailability();
+    }
+  }, [isOpen, checkBiometricAvailability]);
 
 
-   const handleOpenPasswordReset = () => {
+
+  const handleOpenPasswordReset = () => {
     onClose();
     setShowPasswordResetModal(true);
   }
+
+
+
   const handleLogin = async () => {
     setError('');
     if (!email || !password) {
@@ -10973,6 +11222,32 @@ export default function LoginModal({
     }
   };
 
+
+
+  // NEW: Handle biometric login
+  const handleBiometricLogin = async () => {
+    setBioLoading(true);
+    setError('');
+    try {
+      const success = await loginWithBiometric();
+      if (success) {
+        showNotification("Welcome back!", "success");
+        onClose();
+        onLoginSuccess();
+      } else {
+        setError("Biometric authentication failed. Please use your password.");
+        showNotification("Biometric login failed", "error");
+      }
+    } catch (err: any) {
+      console.error("Biometric login error:", err);
+      setError("Biometric authentication failed.");
+      showNotification("Biometric login failed", "error");
+    } finally {
+      setBioLoading(false);
+    }
+  };
+
+
   // Placeholder for Google login function
   const handleGoogleLogin = () => {
       setLoadingGoogle(true);
@@ -10983,19 +11258,54 @@ export default function LoginModal({
       }, 2000);
   };
 
+  
+
   return (
-    <div className="fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50">
-      <div className="bg-white max-w-sm mx-auto w-full rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border">
+    <div className=" fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50"
+    
+    >
+      <div className="bg-white max-w-md mx-auto w-full rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border"
+      style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      >
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-xl font-bold text-achrams-text-primary">Sign In to your account</h3>
           <button
             onClick={onClose}
-            disabled={loading || loadingGoogle}
+            disabled={loading || loadingGoogle || bioLoading}
             className="text-achrams-text-secondary hover:text-achrams-text-primary transition-colors disabled:opacity-50"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
+
+
+        {/* NEW: Biometric Login Button - Show if available and enabled */}
+        {isBiometricAvailable && isBiometricEnabled && (
+          <button
+            onClick={handleBiometricLogin}
+            disabled={bioLoading}
+            className="w-full py-3 mb-4 flex items-center justify-center gap-2 bg-achrams-bg-secondary rounded-xl border border-achrams-border hover:bg-achrams-bg-primary transition-all"
+          >
+            {bioLoading ? (
+              <Loader className="w-5 h-5 animate-spin text-achrams-primary-solid" />
+            ) : (
+              <>
+                <Fingerprint className="w-5 h-5 text-achrams-primary-solid" />
+                <span className="font-medium text-achrams-text-primary">Login with Biometrics</span>
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Divider */}
+        {isBiometricAvailable && isBiometricEnabled && (
+          <div className="relative flex items-center mb-4">
+            <div className="flex-grow border-t border-achrams-border"></div>
+            <span className="flex-shrink mx-4 text-achrams-text-secondary text-sm">or</span>
+            <div className="flex-grow border-t border-achrams-border"></div>
+          </div>
+        )}
+
 
         {/* Email/Password Login Form */}
         <div className="space-y-4 mb-6">
@@ -11092,18 +11402,19 @@ export default function LoginModal({
           >
             Don't have an account? Sign Up
           </button>
-
+            <br />
           <button
             onClick={handleOpenPasswordReset}
             className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer"
           >
+            
             Forgot Password? Click to reset
           </button>
         </div>
 
         <button
           onClick={onClose}
-          disabled={loading || loadingGoogle}
+          disabled={loading || loadingGoogle || bioLoading}
           className="w-full mt-4 text-achrams-text-secondary font-medium hover:text-achrams-text-primary transition-colors disabled:opacity-50"
         >
           Cancel
@@ -11240,14 +11551,16 @@ export default function TripRequestStatusModal({
 ----- FILE: src/components/app/modals/PasswordResetModal.tsx -----
 // src/components/app/modals/PasswordResetModal.tsx
 import { useState, useEffect } from 'react';
-import { X, Mail, Loader2, CheckCircle } from 'lucide-react';
+import { X, Mail, Loader2, CheckCircle, EyeOff, Eye } from 'lucide-react';
 import { apiClient } from '@/lib/api';
+import  {useApiErrorHandler} from '@/lib/errors/apiErrorHandler';
 
 interface PasswordResetModalProps {
   isOpen: boolean;
   onClose: () => void;
   showNotification: (message: string, type: "info" | "success" | "warning" | "error") => void;
   email: string; // Pass the user's email to pre-fill
+  keyboardHeight: any;
 }
 
 export default function PasswordResetModal({
@@ -11255,6 +11568,7 @@ export default function PasswordResetModal({
   onClose,
   showNotification,
   email,
+  keyboardHeight,
 }: PasswordResetModalProps) {
   const [step, setStep] = useState<'email' | 'otp' | 'newPassword' | 'success'>('email');
   const [emailInput, setEmailInput] = useState(email ?? ''); // Pre-fill with user's email
@@ -11263,6 +11577,9 @@ export default function PasswordResetModal({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const { fieldErrors, generalError, handleApiError} = useApiErrorHandler();
 
   // Reset state when modal opens
   useEffect(() => {
@@ -11300,11 +11617,13 @@ export default function PasswordResetModal({
         setStep('otp');
         setCountdown(60); // 60 seconds before resend allowed
       } else {
-        showNotification(response.message || "Failed to send reset email.", "error");
+        const message = handleApiError(response);
+        showNotification(generalError || response.message || "Failed to send reset email.", "error");
       }
     } catch (err: any) {
       console.error("Error sending reset email:", err);
-      showNotification(err.response?.data?.message || "An error occurred while sending the reset email.", "error");
+      handleApiError(err)
+      showNotification( generalError || err.response?.data?.message || "An error occurred while sending the reset email.", "error");
     } finally {
       setLoading(false);
     }
@@ -11349,7 +11668,8 @@ export default function PasswordResetModal({
       }
     } catch (err: any) {
       console.error("Error resetting password:", err);
-      showNotification(err.response?.data?.message || "An error occurred while resetting the password.", "error");
+      handleApiError(err);
+      showNotification(generalError || err.response?.data?.message || "An error occurred while resetting the password.", "error");
     } finally {
       setLoading(false);
     }
@@ -11367,7 +11687,10 @@ export default function PasswordResetModal({
 
   return (
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50">
-      <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl p-6 border-t border-achrams-border">
+      <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl p-6 border-t border-achrams-border"
+      
+      style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      >
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-achrams-text-primary">Reset Password</h3>
           <button
@@ -11382,14 +11705,14 @@ export default function PasswordResetModal({
         {/* Step 1: Enter Email */}
         {step === 'email' && (
           <div className="space-y-4">
-            <div className="p-3 bg-gray-50 rounded-xl border border-achrams-border">
-              <label className="block text-xs text-achrams-text-secondary font-medium mb-1">Email</label>
+            <div className="pt-3">
+              {/* <label className="block text-xs text-achrams-text-secondary font-medium mb-1">Email</label> */}
               <input
                 type="email"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
-                className="w-full bg-transparent text-achrams-text-primary font-semibold focus:outline-none"
-                placeholder="your.email@example.com"
+                className="w-full px-4 py-3 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border pr-10"
+                placeholder="johndoe@example.com"
                 disabled={loading}
               />
             </div>
@@ -11400,6 +11723,11 @@ export default function PasswordResetModal({
                 loading ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
+              {fieldErrors.email && (
+                <p className="text-red-500">
+                  {fieldErrors.email[0]}
+                </p>
+              )}
               {loading ? (
                 <div className="flex items-center justify-center">
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -11465,29 +11793,45 @@ export default function PasswordResetModal({
         )}
 
         {/* Step 3: Enter New Password */}
-        {step === 'newPassword' && (
+        {/* step === 'newPassword' */}
+        { step === 'newPassword' && (
           <div className="space-y-4">
-            <div className="p-3 bg-gray-50 rounded-xl border border-achrams-border">
-              <label className="block text-xs text-achrams-text-secondary font-medium mb-1">New Password</label>
+            <div className="pt-3 relative">
+              {/* <label className="block text-xs text-achrams-text-secondary font-small mb-1">New Password</label> */}
               <input
-                type="password"
+                type={showPassword ?"text" : "password"}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full bg-transparent text-achrams-text-primary font-semibold focus:outline-none"
+                className="w-full px-4 py-3 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border pr-10"
                 placeholder="Enter new password"
                 disabled={loading}
               />
+              <button
+              type="button"
+              onClick={() => setShowPassword(prev => !prev)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-achrams-text-secondary hover:text-achrams-text-primary"
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+            
             </div>
-            <div className="p-3 bg-gray-50 rounded-xl border border-achrams-border">
-              <label className="block text-xs text-achrams-text-secondary font-medium mb-1">Confirm Password</label>
+            <div className="pt-3 relative">
+              {/* <label className="block text-xs text-achrams-text-secondary font-medium mb-1">Confirm Password</label> */}
               <input
-                type="password"
+                type={showPassword ?"text" : "password"}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-transparent text-achrams-text-primary font-semibold focus:outline-none"
+                className="w-full px-4 py-3 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border border-achrams-border pr-10"
                 placeholder="Confirm new password"
                 disabled={loading}
               />
+
+              {fieldErrors.password && (
+                <p className="text-red-500">
+                  {fieldErrors.password[0]}
+                </p>
+              )}
+              
             </div>
             <button
               onClick={handleResetPassword}
@@ -13938,7 +14282,8 @@ import IOSInstallBanner from '@/components/app/ui/IOSInstallBanner';
 import NoInternetModal from "./modals/NoInternetModal";
 import { useLocation } from "@/hooks/useLocation";
 import { useStatusBarTheme } from '@/hooks/useStatusBarTheme';
-import {Keyboard}  from '@capacitor/keyboard'
+import {Keyboard, KeyboardResize}  from '@capacitor/keyboard';
+import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
 export default function ACHRAMApp() {
@@ -14145,6 +14490,66 @@ useEffect(() => {
 //     requestPermission(); // ← Only when relevant
 //   }
 // }, [screen, requestPermission]);
+
+
+
+useEffect(() => {
+    const setupIOSKeyboard = async () => {
+      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios') {
+        // 1. Force the resize mode at runtime
+        await Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+
+        // 2. Disable webview scroll - let the keyboard handle it
+        await Keyboard.setScroll({ isDisabled: true });
+
+        // 3. Manually scroll focused inputs into view
+        Keyboard.addListener('keyboardWillShow', (info) => {
+          setTimeout(() => {
+            document.activeElement?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center'
+            });
+          }, 100);
+        });
+
+        Keyboard.addListener('keyboardDidShow', () => {
+          // Extra nudge for stubborn inputs
+          document.activeElement?.scrollIntoView({
+            behavior: 'instant',
+            block: 'center'
+          });
+        });
+      }
+    };
+
+    setupIOSKeyboard();
+  }, []);
+
+
+const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+
+
+  useEffect(() => {
+    if (Capacitor.getPlatform() !== 'ios') return;
+    
+    Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+    Keyboard.setScroll({ isDisabled: true });
+
+    const show = Keyboard.addListener('keyboardWillShow', (info) => {
+      setKeyboardHeight(info.keyboardHeight);
+    });
+    const hide = Keyboard.addListener('keyboardWillHide', () => {
+      setKeyboardHeight(0);
+    });
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+
+
+useEffect(()=>{
+  console.log(keyboardHeight)
+}, [keyboardHeight])
+
 
 
 useEffect(() => {
@@ -14590,6 +14995,7 @@ useEffect(() => {
     destination,
     fareEstimate,
     driver,
+    vehicle,
     tripProgress,
     pickupCoords,
     destinationCoords,
@@ -15640,8 +16046,6 @@ useEffect(()=>{
     }
 
 
-
-
 useEffect(() => {
   const initStatusBar = async () => {
     if (Capacitor.isNativePlatform()) {
@@ -15704,10 +16108,14 @@ useEffect(() => {
 
 
 
-  if (!hasHydrated || isAuthLoading || !initComplete) {
+  if (!hasHydrated || isAuthLoading || !initComplete ) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-achrams-bg-primary z-50">
-        <div className="absolute inset-0 bg-gradient-to-br from-achrams-primary-solid/5 via-achrams-secondary-solid/5 to-achrams-bg-primary"></div>
+      <div 
+      suppressHydrationWarning
+      className="fixed inset-0 flex items-center justify-center bg-achrams-bg-primary z-50">
+        <div 
+        suppressHydrationWarning
+        className="absolute inset-0 bg-gradient-to-br from-achrams-primary-solid/5 via-achrams-secondary-solid/5 to-achrams-bg-primary"></div>
         <div className="relative z-10 flex flex-col items-center space-y-6">
           <div className="relative">
             <div
@@ -16012,7 +16420,7 @@ useEffect(() => {
 
   return (
     <>
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center ">
         <div
           className="
             min-h-screen h-dvh
@@ -16021,7 +16429,10 @@ useEffect(() => {
             flex flex-col
             text-sm
             antialiased
+            relative
             [font-feature-settings:'ss01']
+            
+            overflow-y-auto
           "
         >
 
@@ -16057,6 +16468,7 @@ useEffect(() => {
             setIsStrictPreferences={setIsStrictPreferences}
             selectedCategory={selectedCategory}
             fareEstimate={fareEstimate}
+            keyboardHeight={keyboardHeight}
           />
           {hasHydrated && !['trip-progress', 'trip-complete', 'booking', 'dashboard'].includes(screen) &&(
             <DirectionsModal
@@ -16086,10 +16498,12 @@ useEffect(() => {
             tripId={activeTripId || ""}
             isAuthenticated={isAuthenticated}
             bookAsGuest={bookAsGuest}
+            keyboardHeight={keyboardHeight}
           />
           {!token && showSignup && (
             <SignupPromptModal
               isOpen={showSignup}
+              keyboardHeight={keyboardHeight}
               passengerData={passengerData}
               onClose={() => setShowSignup(false)}
               onVerifyEmail={handleSignupInitiateSuccess}
@@ -16195,6 +16609,7 @@ useEffect(() => {
               setShowSignup(true);
               setShowLogin(false);
             }}
+            keyboardHeight={keyboardHeight}
           />
           {show2FAOtpModal && pendingLoginCreds && (
             <LoginOTPModal
@@ -16206,6 +16621,7 @@ useEffect(() => {
               onSubmit={handle2FAOtpSubmit}
               email={pendingLoginCreds.email}
               showNotification={showNotification}
+              keyboardHeight={keyboardHeight}
             />
           )}
           {showEnable2FA && (
@@ -16268,6 +16684,7 @@ useEffect(() => {
               guestId={isAuthenticated && !bookAsGuest ? null : guestId}
               bookAsGuest={bookAsGuest}
               isAuthenticated={isAuthenticated}
+              keyboardHeight={keyboardHeight}
             />
           )}
           <MessageWindowModal
@@ -16282,6 +16699,7 @@ useEffect(() => {
         onClose={() => setShowPasswordResetModal(false)}
         showNotification={showNotification}
         email={accountData?.email ?? ""}
+        keyboardHeight={keyboardHeight}
       />
       <AccountDeletionModal
         isOpen={showAccountDeletionModal}
@@ -16430,7 +16848,7 @@ export default function BottomNavBar({
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-achrams-border z-40">
+    <nav className="absolute bottom-0 left-0 right-0 bg-white border-t border-achrams-border z-40">
       <div className="flex justify-around items-center py-3 px-2 mx-auto max-w-sm">
         <button
           onClick={handleHomeClick}
@@ -18414,7 +18832,7 @@ export default function BookingScreen({
   }, []);
 
   return (
-    <div className="bg-achrams-bg-primary flex flex-col flex-1">
+    <div className="bg-achrams-primary flex flex-col flex-1">
       <AirportSelectionModal
         isOpen={showAirportSelectionModal}
         onClose={() => setShowAirportSelectionModal(false)}
@@ -20442,8 +20860,8 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <html>
-      <body className="bg-gray-50">
+    
+      // <body className="bg-gray-50">
         <div className="min-h-screen flex flex-col items-center justify-center p-4">
           <div className="text-center max-w-md">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -20466,8 +20884,8 @@ export default function GlobalError({
             </button>
           </div>
         </div>
-      </body>
-    </html>
+      // </body>
+   
   );
 }
 
@@ -21351,6 +21769,8 @@ export const useApiErrorHandler = () => {
   return { generalError, fieldErrors, handleApiError, clearErrors };
 };
 
+
+
 ----- FILE: src/lib/errors/normalizeApiError.ts -----
 export function extractErrorMessages(
   error: unknown,
@@ -21465,6 +21885,7 @@ export const buildTripData = (
 import { apiClient } from '@/services/apiClient';
 import { normalizeApiError } from "@/lib/errors/normalizeApiError";
 
+
 export interface Airport {
   id: string;
   name: string;
@@ -21476,8 +21897,10 @@ export const findNearestAirport = async (
   longitude: number,
   latitude: number
 ): Promise<Airport[] | null> => {
-  try {
 
+   
+
+  try {
     // Please not that I had to swap longitude for latitude, this was done for a reason. The api useGeolocation makes use of latitude and longitude, but the backend uses longitude and latitude
     const response = await apiClient.get(`/airports/by-location/?lon=${longitude}&lat=${latitude}`);
     console.log('{latitude, longitude}', {latitude, longitude})
@@ -21488,8 +21911,10 @@ export const findNearestAirport = async (
     console.log("No airports found near coordinates:", longitude, latitude); 
     return null;
   } catch (err) {
+    
     console.error('Failed to find airport by location:', err);
-    throw new Error(normalizeApiError(err)[0]);
+    
+    // throw new Error(normalizeApiError(err)[0]);
   }
 };
 

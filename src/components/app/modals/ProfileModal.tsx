@@ -1,5 +1,5 @@
 // src/components/app/modals/ProfileModal.tsx
-import { X, Phone, Mail, Shield, ChevronRight, Wallet, CreditCard, History, Settings, LogOut, User, Camera, Edit3, Save, ArrowLeft, Loader2 , Key, Trash2} from 'lucide-react';
+import { X, Phone, Mail, Shield, ChevronRight, Wallet, CreditCard, History, Settings, LogOut, User, Camera, Edit3, Save, ArrowLeft, Loader2 , Key, Trash2, Fingerprint} from 'lucide-react';
 import Image from 'next/image';
 import { useState, useRef, useEffect } from 'react';
 import { apiClient } from '@/lib/api'; // Assuming apiClient is available or passed down
