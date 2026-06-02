@@ -1,40 +1,52 @@
-// src/components/BiometricGate.tsx
 'use client';
-import { useEffect, useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { Lock } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+
 const isNative = Capacitor.isNativePlatform();
 
 export const BiometricGate = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isBiometricEnabled, loginWithBiometric } = useAuth();
+  const { isAuthenticated, isBiometricEnabled, loginWithBiometric , isBiometricAvailable} = useAuth();
   const [checking, setChecking] = useState(true);
-  const [locked, setLocked] = useState(false);
+  const hasPrompted = useRef(false);
 
   useEffect(() => {
-    const run = async () => {
-      if (!isNative || isAuthenticated) {
-        setChecking(false);
-        return;
-      }
-      if (isBiometricEnabled) {
-        setLocked(true);
-        const ok = await loginWithBiometric();
-        setLocked(!ok);
-      }
+    if (!isNative) {
       setChecking(false);
-    };
-    run();
+      return;
+    }
+    if (isAuthenticated) {
+      setChecking(false);
+      return;
+    }
+    if (isBiometricEnabled &&!hasPrompted.current) {
+      hasPrompted.current = true;
+      loginWithBiometric().finally(() => setChecking(false));
+    } else {
+      setChecking(false);
+    }
   }, [isAuthenticated, isBiometricEnabled, loginWithBiometric]);
 
-  if (checking) return null;
-  if (isNative && locked) {
+  if (isBiometricAvailable && checking) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <button onClick={() => loginWithBiometric()} className="px-4 py-2 rounded bg-emerald-600 text-white">
-          Unlock with Biometrics
-        </button>
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
+        <Lock className="h-12 w-12 text-emerald-600 animate-pulse" />
+        <p className="text-sm text-gray-600">Unlocking with biometrics…</p>
       </div>
     );
   }
+
+  // If native, biometrics enabled, but still not authenticated, keep lock screen
+  // The system prompt is already shown by loginWithBiometric, we just wait
+  if (isNative && isBiometricEnabled &&!isAuthenticated) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
+        <Lock className="h-12 w-12 text-emerald-600" />
+        <p className="text-sm text-gray-600">Authenticate to continue</p>
+      </div>
+    );
+  }
+
   return <>{children}</>;
 };

@@ -163,11 +163,13 @@
 // };
 
 
-// src/context/AuthProvider.tsx
 'use client';
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { apiClient } from '@/lib/api';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
+
+const isNative = Capacitor.isNativePlatform();
 
 interface AuthContextType {
   user: any | null;
@@ -196,30 +198,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => setMounted(true), []);
 
-  // Hydrate token from secure storage on first mount
+  // Hydrate from secure storage once on mount, native only
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted ||!isNative) return;
     biometric.getSecureCredentials().then(c => {
       if (c.accessToken) setToken(c.accessToken);
     });
     biometric.checkAvailability();
-  }, [mounted, biometric]);
+    // run once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted]);
 
-  const refreshAccessToken = useCallback(async (refreshToken: string) => {
-    try {
-      const res = await apiClient.post('/auth/refresh', { refresh: refreshToken });
-      if (res.status === 'success' && res.data?.token) {
-        setToken(res.data.token);
-        await biometric.updateStoredAccessToken(res.data.token);
-        return res.data.token as string;
-      }
-    } catch (e) {
-      console.error('refresh failed', e);
-    }
-    return null;
-  }, [biometric]);
-
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     try {
       const res = await apiClient.post('/auth/passenger/login', { email, password });
@@ -236,21 +226,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       setIsLoading(false);
       return { success: false, message: res.message || 'Login failed' };
-    } catch (e) {
+    } catch {
       setIsLoading(false);
       return { success: false, message: 'Login error' };
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try { await apiClient.post('/auth/logout', {}); } catch {}
     setUser(null);
     setToken(null);
     setIsAuthenticated(false);
-    await biometric.disableBiometricLogin();
-  };
+    if (isNative) await biometric.disableBiometricLogin();
+  }, [biometric]);
 
   const loginWithBiometric = useCallback(async () => {
+    if (!isNative) return false;
     const auth = await biometric.authenticate();
     if (!auth.success) return false;
 
@@ -260,17 +251,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setToken(creds.accessToken);
     setIsAuthenticated(true);
 
-    // Optionally fetch user profile
+    // optional: load profile
     try {
       const me = await apiClient.get('/auth/passenger/me');
       if (me.status === 'success') setUser(me.data);
     } catch {}
-
     return true;
   }, [biometric]);
 
   const enableBiometricLogin = useCallback(async () => {
-    // Ensure we have a token in memory, hydrate if needed
+    if (!isNative) return false;
     let t = token;
     if (!t) {
       const creds = await biometric.getSecureCredentials();
@@ -278,41 +268,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (t) setToken(t);
     }
     if (!t) return false;
-
     const creds = await biometric.getSecureCredentials();
     return await biometric.enableBiometricLogin(t, creds.refreshToken?? undefined);
   }, [token, biometric]);
 
   const disableBiometricLogin = useCallback(async () => {
-    await biometric.disableBiometricLogin();
+    if (isNative) await biometric.disableBiometricLogin();
   }, [biometric]);
-
-  // If we have a token but no user, try to load profile once
-  useEffect(() => {
-    if (token &&!user && isAuthenticated) {
-      apiClient.get('/auth/passenger/me').then(r => {
-        if (r.status === 'success') setUser(r.data);
-      }).catch(() => {});
-    }
-  }, [token, user, isAuthenticated]);
 
   useEffect(() => {
     setIsLoading(false);
   }, []);
+
+  const isBiometricAvailable = isNative && mounted? (biometric.biometryResult?.isAvailable?? null) : null;
+  const isBiometricEnabled = isNative && mounted? biometric.isEnabled : false;
 
   const value = useMemo(() => ({
     user,
     token,
     isAuthenticated,
     isLoading,
-    isBiometricAvailable: mounted? (biometric.biometryResult?.isAvailable?? null) : null,
-    isBiometricEnabled: mounted? biometric.isEnabled : false,
+    isBiometricAvailable,
+    isBiometricEnabled,
     login,
     logout,
     loginWithBiometric,
     enableBiometricLogin,
     disableBiometricLogin,
-  }), [user, token, isAuthenticated, isLoading, mounted, biometric.biometryResult, biometric.isEnabled, loginWithBiometric, enableBiometricLogin, disableBiometricLogin]);
+  }), [user, token, isAuthenticated, isLoading, isBiometricAvailable, isBiometricEnabled, login, logout, loginWithBiometric, enableBiometricLogin, disableBiometricLogin]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
