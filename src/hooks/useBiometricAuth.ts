@@ -1,6 +1,5 @@
-// src/hooks/useBiometricAuth.ts
 import { useState, useCallback } from 'react';
-import { 
+import {
   BiometricAuth,
   CheckBiometryResult,
   BiometryError,
@@ -8,7 +7,6 @@ import {
   AuthenticateOptions,
   BiometryType
 } from '@aparajita/capacitor-biometric-auth';
-// ✅ CORRECT: Import SecureStorage (the instance), NOT SecureStoragePlugin (the type)
 import { SecureStorage } from '@aparajita/capacitor-secure-storage';
 
 export interface BiometricResult {
@@ -22,23 +20,26 @@ export const useBiometricAuth = () => {
   const [isEnabled, setIsEnabled] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const checkAvailability = useCallback(async () => {
-  console.log('BIO: checkAvailability start');
-  try {
-    const result = await BiometricAuth.checkBiometry();
-    console.log('BIO: checkBiometry result', JSON.stringify(result));
-    setBiometryResult(result);
-    const enabled = await SecureStorage.get('biometric_enabled');
-    console.log('BIO: biometric_enabled =', enabled);
-    setIsEnabled(enabled === 'true');
-    return result.isAvailable;
-  } catch (e) {
-    console.error('BIO: checkBiometry ERROR', e);
-    setBiometryResult(null);
-    setIsEnabled(false);
-    return false;
-  }
-}, []);
+  const checkAvailability = useCallback(async (): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      const result = await BiometricAuth.checkBiometry();
+      console.log('BIO: checkBiometry', JSON.stringify(result));
+      setBiometryResult(result);
+
+      const enabled = await SecureStorage.get('biometric_enabled');
+      console.log('BIO: biometric_enabled =', enabled);
+      setIsEnabled(enabled === 'true');
+      return result.isAvailable;
+    } catch (e) {
+      console.error('BIO: checkAvailability error', e);
+      setBiometryResult(null);
+      setIsEnabled(false);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   const authenticate = useCallback(async (): Promise<BiometricResult> => {
     setIsLoading(true);
@@ -50,17 +51,14 @@ export const useBiometricAuth = () => {
         iosFallbackTitle: 'Use Passcode',
         androidTitle: 'ACHRAMS Security',
         androidSubtitle: 'Verify your identity',
-        androidConfirmationRequired: true,
+        androidConfirmationRequired: false,
       };
 
-      // ✅ authenticate() returns Promise<void> on success, rejects with BiometryError on failure
       await BiometricAuth.authenticate(options);
-      
-      return { 
-        success: true,
-        biometryType: biometryResult?.biometryType
-      };
+      console.log('BIO: authenticate success');
+      return { success: true, biometryType: biometryResult?.biometryType };
     } catch (error: unknown) {
+      console.error('BIO: authenticate error', error);
       if (error instanceof BiometryError) {
         const errorMap: Record<BiometryErrorType, string> = {
           [BiometryErrorType.userCancel]: 'Cancelled by user',
@@ -77,17 +75,15 @@ export const useBiometricAuth = () => {
           [BiometryErrorType.appCancel]: 'Authentication cancelled by app',
           [BiometryErrorType.none]: 'Unknown error',
         };
-        
-        return { 
-          success: false, 
+        return {
+          success: false,
           error: errorMap[error.code] || error.message || 'Authentication failed',
           biometryType: biometryResult?.biometryType
         };
       }
-      
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Authentication failed',
+      return {
+        success: false,
+        error: error instanceof Error? error.message : 'Authentication failed',
         biometryType: biometryResult?.biometryType
       };
     } finally {
@@ -97,22 +93,23 @@ export const useBiometricAuth = () => {
 
   const enableBiometricLogin = useCallback(async (token: string, refreshToken?: string) => {
     try {
-      // ✅ CORRECT: SecureStorage.set(key, data, convertDate?, sync?, access?)
+      console.log('BIO: enableBiometricLogin start');
       await SecureStorage.set('auth_token', token);
       if (refreshToken) {
         await SecureStorage.set('refresh_token', refreshToken);
       }
       await SecureStorage.set('biometric_enabled', 'true');
       setIsEnabled(true);
+      console.log('BIO: enableBiometricLogin success');
       return true;
-    } catch {
+    } catch (e) {
+      console.error('BIO: enableBiometricLogin error', e);
       return false;
     }
   }, []);
 
   const getSecureCredentials = useCallback(async () => {
     try {
-      // ✅ CORRECT: SecureStorage.get(key, convertDate?, sync?)
       const [token, refreshToken, enabled] = await Promise.all([
         SecureStorage.get('auth_token'),
         SecureStorage.get('refresh_token'),
@@ -123,14 +120,15 @@ export const useBiometricAuth = () => {
         refreshToken: refreshToken as string | null,
         enabled: enabled === 'true'
       };
-    } catch {
+    } catch (e) {
+      console.error('BIO: getSecureCredentials error', e);
       return { token: null, refreshToken: null, enabled: false };
     }
   }, []);
 
   const disableBiometricLogin = useCallback(async () => {
     try {
-      // ✅ CORRECT: SecureStorage.remove(key, sync?)
+      console.log('BIO: disableBiometricLogin');
       await Promise.all([
         SecureStorage.remove('auth_token'),
         SecureStorage.remove('refresh_token'),
@@ -138,7 +136,8 @@ export const useBiometricAuth = () => {
       ]);
       setIsEnabled(false);
       return true;
-    } catch {
+    } catch (e) {
+      console.error('BIO: disableBiometricLogin error', e);
       return false;
     }
   }, []);

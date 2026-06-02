@@ -164,7 +164,7 @@
 
 
 'use client';
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { apiClient } from '@/lib/api';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 
@@ -191,38 +191,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [mounted, setMounted] = useState(false); // <- KEY: track if we're client-side
+  const [mounted, setMounted] = useState(false);
 
-  // Only init biometric hook AFTER mount to avoid SSR mismatch
-  const biometricHook = useBiometricAuth();
+  const biometric = useBiometricAuth();
 
-  // Destructure with defaults that match server render
-  const {
-    biometryResult = null,
-    isEnabled: isBiometricEnabled = false,
-    isLoading: isBioLoading = false,
-    checkAvailability = async () => false,
-    authenticate: bioAuthenticate = async () => ({ success: false }),
-    enableBiometricLogin: bioEnable = async () => false,
-    getSecureCredentials = async () => ({}),
-    disableBiometricLogin: bioDisable = async () => {},
-  } = mounted? biometricHook : {}; // <- Only use real values after mount
-
-  // Set mounted after first render
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Check biometric availability ONLY on client, AFTER mount
   useEffect(() => {
-    if (!mounted) return; // <- Don't run on server
-    checkAvailability().catch(() => {
-      console.log('Biometric availability check failed (non-critical)');
-    });
-  }, [mounted, checkAvailability]);
+    if (!mounted) return;
+    biometric.checkAvailability().catch(() => {});
+  }, [mounted, biometric]);
 
   const checkAuthStatus = useCallback(async () => {
-    console.log("AuthContext: Checking authentication status...");
+    console.log('AuthContext: checkAuthStatus');
     try {
       const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true);
       if (response.status === 'success') {
@@ -233,13 +216,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(null);
         setToken(null);
       }
-    } catch (err: any) {
-      console.error("AuthContext: Error checking auth status:", err);
+    } catch (err) {
+      console.error('AuthContext: checkAuthStatus error', err);
       setIsAuthenticated(false);
       setUser(null);
       setToken(null);
     } finally {
-      setIsLoading(false); // <- Only auth loading, never blocked by biometric
+      setIsLoading(false);
     }
   }, []);
 
@@ -249,25 +232,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const loginResponse = await apiClient.post('/auth/passenger/login', { email, password }, undefined, undefined, true);
 
       if (loginResponse.status === 'success' && loginResponse.data?.token) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        await checkAuthStatus();
+        const newToken = loginResponse.data.token as string;
+        const refresh = loginResponse.data.refresh as string | undefined;
 
-        // Biometric enable is fire-and-forget, doesn't block
-        if (mounted && isBiometricEnabled) {
-          bioEnable(loginResponse.data.token, loginResponse.data.refresh).catch(() => {});
+        setToken(newToken);
+        setUser(loginResponse.data.user?? null);
+        setIsAuthenticated(true);
+        setIsLoading(false);
+
+        // Optionally auto-enable if user already opted in
+        if (biometric.isEnabled) {
+          await biometric.enableBiometricLogin(newToken, refresh);
         }
+
         return { success: true };
-      } else if (loginResponse.status === 'success' && loginResponse.data?.two_factor === true) {
+      }
+
+      if (loginResponse.status === 'success' && loginResponse.data?.two_factor === true) {
         setIsLoading(false);
         return { success: true, requires2FA: true };
-      } else {
-        const errorMessage = loginResponse.details?.non_field_errors?.[0] || loginResponse.message || "Login failed.";
-        setIsLoading(false);
-        return { success: false, message: errorMessage };
       }
-    } catch (err: any) {
+
+      const errorMessage = loginResponse.details?.non_field_errors?.[0] || loginResponse.message || 'Login failed.';
       setIsLoading(false);
-      return { success: false, message: "An error occurred during login." };
+      return { success: false, message: errorMessage };
+    } catch (err) {
+      console.error('AuthContext: login error', err);
+      setIsLoading(false);
+      return { success: false, message: 'An error occurred during login.' };
     }
   };
 
@@ -275,23 +267,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await apiClient.post('/auth/logout', {}, undefined, undefined, true);
     } catch (err) {
-      console.error("AuthContext: Logout API error:", err);
+      console.error('AuthContext: logout error', err);
     } finally {
       setUser(null);
       setToken(null);
       setIsAuthenticated(false);
-      if (mounted) bioDisable().catch(() => {});
+      if (mounted) {
+        await biometric.disableBiometricLogin();
+      }
     }
   };
 
   const loginWithBiometric = useCallback(async (): Promise<boolean> => {
-    if (!mounted) return false; // <- Guard: no SSR calls
-    const bioResult = await bioAuthenticate();
+    if (!mounted) return false;
+    const bioResult = await biometric.authenticate();
     if (!bioResult.success) return false;
 
-    const credentials = await getSecureCredentials();
-    if (!credentials.token) return false;
+    const credentials = await biometric.getSecureCredentials();
+    if (!credentials.token) {
+      console.error('loginWithBiometric: no stored token');
+      return false;
+    }
 
+    setToken(credentials.token);
     try {
       const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true);
       if (response.status === 'success') {
@@ -299,26 +297,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(response.data);
         return true;
       } else {
-        await bioDisable();
+        await biometric.disableBiometricLogin();
         return false;
       }
     } catch (err) {
-      await bioDisable();
+      console.error('loginWithBiometric error', err);
+      await biometric.disableBiometricLogin();
       return false;
     }
-  }, [mounted, bioAuthenticate, getSecureCredentials, bioDisable]);
+  }, [mounted, biometric]);
 
   const enableBiometricLogin = useCallback(async (): Promise<boolean> => {
-    if (!mounted ||!token) return false;
-    return await bioEnable(token);
-  }, [mounted, token, bioEnable]);
+    if (!mounted) {
+      console.error('enableBiometricLogin: not mounted');
+      return false;
+    }
+    if (!token) {
+      console.error('enableBiometricLogin: no token in memory. Login with password first.');
+      return false;
+    }
+    return await biometric.enableBiometricLogin(token);
+  }, [mounted, token, biometric]);
 
   const disableBiometricLogin = useCallback(async (): Promise<void> => {
     if (!mounted) return;
-    await bioDisable();
-  }, [mounted, bioDisable]);
+    await biometric.disableBiometricLogin();
+  }, [mounted, biometric]);
 
-  // Initial auth check - runs once
   useEffect(() => {
     checkAuthStatus();
   }, [checkAuthStatus]);
@@ -327,24 +332,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     user,
     token,
     isAuthenticated,
-    isLoading, // <- This is ONLY auth loading now
+    isLoading,
     login,
     logout,
     checkAuthStatus,
-    // Return safe defaults until mounted, then real values
-    isBiometricAvailable: mounted? (biometryResult?.isAvailable?? null) : null,
-    isBiometricEnabled: mounted? isBiometricEnabled : false,
+    isBiometricAvailable: mounted? (biometric.biometryResult?.isAvailable?? null) : null,
+    isBiometricEnabled: mounted? biometric.isEnabled : false,
     loginWithBiometric,
     enableBiometricLogin,
     disableBiometricLogin,
-    checkBiometricAvailability: checkAvailability,
+    checkBiometricAvailability: biometric.checkAvailability,
   };
 
-  return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
