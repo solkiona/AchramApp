@@ -292,7 +292,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setToken(null);
     setIsAuthenticated(false);
     if (isNative) {
-      //await biometric.disableBiometricLogin();
+      await biometric.disableBiometricLogin();
       await SecureStorage.remove('auth_token');
       await SecureStorage.remove('refresh_token');
     }
