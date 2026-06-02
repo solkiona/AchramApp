@@ -200,40 +200,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => setMounted(true), []);
 
- // Hydrate token from vault on native
-useEffect(() => {
+ useEffect(() => {
   if (!mounted) return;
+
   if (isNative) {
+    // Native: hydrate token for later use, but do NOT set isAuthenticated
     biometric.getSecureCredentials().then(c => {
       if (c.accessToken) setToken(c.accessToken);
     });
     biometric.checkAvailability();
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [mounted]);
-
-// Run session check on mount
-useEffect(() => {
-  if (!mounted) return;
-  // Native with biometrics enabled will be handled by BiometricGate
-  // Still run check for web, and for native when biometrics is off
-  if (!isNative ||!biometric.isEnabled) {
-    checkAuthStatus();
-  } else {
     setIsLoading(false);
+    return;
   }
-}, [mounted, biometric.isEnabled]);
+
+  // Web only: verify httpOnly cookie
+  checkAuthStatus();
+}, [mounted]);
 
 
    
   const checkAuthStatus = useCallback(async () => {
-  console.log("AuthContext: Checking authentication status...");
+  if (isNative) return false; // never auto-login on native
+
   setIsLoading(true);
   try {
-    // Pass current token so native gets Authorization header
     const response = await apiClient.get(
       '/auth/passenger/authenticated',
-      token?? undefined,
+      undefined,
       false,
       undefined,
       true
@@ -241,33 +234,26 @@ useEffect(() => {
 
     if (response.status === 'success') {
       setIsAuthenticated(true);
-      // fetch profile to populate user
       try {
-        const me = await apiClient.get(
-          '/auth/passenger/me',
-          token?? undefined,
-          false,
-          undefined,
-          true
-        );
+        const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
         if (me.status === 'success') setUser(me.data?? null);
       } catch {}
       return true;
     } else {
       setIsAuthenticated(false);
       setUser(null);
-      if (!isNative) setToken(null);
+      setToken(null);
       return false;
     }
-  } catch (err) {
+  } catch {
     setIsAuthenticated(false);
     setUser(null);
-    if (!isNative) setToken(null);
+    setToken(null);
     return false;
   } finally {
     setIsLoading(false);
   }
-}, [token]);
+}, []);
     
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
