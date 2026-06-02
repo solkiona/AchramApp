@@ -164,7 +164,7 @@
 
 
 'use client';
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { apiClient } from '@/lib/api';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 
@@ -199,10 +199,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (!mounted) return;
-    biometric.checkAvailability().catch(() => {});
-  }, [mounted, biometric]);
+ const { checkAvailability } = biometric;
+
+useEffect(() => {
+  if (!mounted) return;
+  checkAvailability();
+}, [mounted, checkAvailability]);
 
   const checkAuthStatus = useCallback(async () => {
     console.log('AuthContext: checkAuthStatus');
@@ -328,21 +330,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     checkAuthStatus();
   }, [checkAuthStatus]);
 
-  const contextValue: AuthContextType = {
-    user,
-    token,
-    isAuthenticated,
-    isLoading,
-    login,
-    logout,
-    checkAuthStatus,
-    isBiometricAvailable: mounted? (biometric.biometryResult?.isAvailable?? null) : null,
-    isBiometricEnabled: mounted? biometric.isEnabled : false,
-    loginWithBiometric,
-    enableBiometricLogin,
-    disableBiometricLogin,
-    checkBiometricAvailability: biometric.checkAvailability,
-  };
+
+  const contextValue: AuthContextType = useMemo(() => ({
+  user,
+  token,
+  isAuthenticated,
+  isLoading,
+  login,
+  logout,
+  checkAuthStatus,
+  isBiometricAvailable: mounted? (biometric.biometryResult?.isAvailable?? null) : null,
+  isBiometricEnabled: mounted? biometric.isEnabled : false,
+  loginWithBiometric,
+  enableBiometricLogin,
+  disableBiometricLogin,
+  checkBiometricAvailability: biometric.checkAvailability,
+}), [user, token, isAuthenticated, isLoading, mounted, biometric.biometryResult, biometric.isEnabled, loginWithBiometric, enableBiometricLogin, disableBiometricLogin]);
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };
