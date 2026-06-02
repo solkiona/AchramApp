@@ -64,6 +64,9 @@ const {
   disableBiometricLogin,
 } = useAuth();
 
+if(isBiometricAvailable){
+  console.log("Biometric is available", isBiometricAvailable)
+}
 
   // NEW: Ref for file input
   const fileInputRef = useRef<HTMLInputElement>(null);

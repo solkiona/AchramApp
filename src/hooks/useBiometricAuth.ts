@@ -22,30 +22,23 @@ export const useBiometricAuth = () => {
   const [isEnabled, setIsEnabled] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const checkAvailability = useCallback(async (): Promise<boolean> => {
-    setIsLoading(true);
-    try {
-      // Add timeout to prevent hanging on web
-      const result = await Promise.race([
-        BiometricAuth.checkBiometry(),
-        new Promise<CheckBiometryResult>((_, reject) => 
-          setTimeout(() => reject(new Error('Biometric check timeout')), 3000)
-        )
-      ]);
-      setBiometryResult(result as CheckBiometryResult);
-      
-      const token = await SecureStorage.get('biometric_enabled');
-      setIsEnabled(token === 'true');
-      return (result as CheckBiometryResult).isAvailable;
-    } catch {
-      // ← CRITICAL: Fail gracefully on web or errors
-      setBiometryResult(null);
-      setIsEnabled(false);
-      return false;
-    } finally {
-      setIsLoading(false); // ← Always stop loading, even on error
-    }
-  }, []);
+  const checkAvailability = useCallback(async () => {
+  console.log('BIO: checkAvailability start');
+  try {
+    const result = await BiometricAuth.checkBiometry();
+    console.log('BIO: checkBiometry result', JSON.stringify(result));
+    setBiometryResult(result);
+    const enabled = await SecureStorage.get('biometric_enabled');
+    console.log('BIO: biometric_enabled =', enabled);
+    setIsEnabled(enabled === 'true');
+    return result.isAvailable;
+  } catch (e) {
+    console.error('BIO: checkBiometry ERROR', e);
+    setBiometryResult(null);
+    setIsEnabled(false);
+    return false;
+  }
+}, []);
 
   const authenticate = useCallback(async (): Promise<BiometricResult> => {
     setIsLoading(true);
