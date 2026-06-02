@@ -28,15 +28,17 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning={true}>
       <body className="bg-achrams-background-primary" suppressHydrationWarning={true}>
-        <BiometricGate>
+        
 
         <ClientProviders>
+          <BiometricGate>
           <PostHogProvider>
           {children}
           </PostHogProvider>
+          </BiometricGate>
         </ClientProviders>
 
-        </BiometricGate>
+        
       </body>
     </html>
   );

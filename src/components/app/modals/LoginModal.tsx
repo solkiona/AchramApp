@@ -37,7 +37,6 @@ export default function LoginModal({
     isBiometricAvailable,
     isBiometricEnabled,
     loginWithBiometric,
-    checkBiometricAvailability,
     isLoading: authLoading,
    } = useAuth(); // Get the login function from context
 
@@ -51,11 +50,11 @@ export default function LoginModal({
   const [bioLoading, setBioLoading] = useState(false);
   
   // Check biometric availability when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      checkBiometricAvailability();
-    }
-  }, [isOpen, checkBiometricAvailability]);
+  // useEffect(() => {
+  //   if (isOpen) {
+  //     checkBiometricAvailability();
+  //   }
+  // }, [isOpen, checkBiometricAvailability]);
 
 
 
