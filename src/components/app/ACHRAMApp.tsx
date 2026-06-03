@@ -14,7 +14,7 @@ import DashboardScreen from "@/components/app/screens/DashboardScreen";
 import dynamic from "next/dynamic";
 const DirectionsModal = dynamic(
   () => import("@/components/app/modals/DirectionsModal"),
-  { ssr: false }
+  { ssr: false },
 );
 import PassengerDetailsModal from "@/components/app/modals/PassengerDetailsModal";
 import PanicModal from "@/components/app/modals/PanicModal";
@@ -44,10 +44,7 @@ import PasswordResetModal from "@/components/app/modals/PasswordResetModal";
 import AccountDeletionModal from "@/components/app/modals/AccountDeletionModal";
 import { useApiErrorHandler } from "@/lib/errors/apiErrorHandler";
 import router from "next/router";
-import {
-  ScreenState,
-  PersistedState,
-} from "@/types/app";
+import { ScreenState, PersistedState } from "@/types/app";
 import { Requirements, PassengerData } from "@/types/booking";
 import { TripStatusValue, TripStatus, WebSocketMessage } from "@/types/trip";
 import { saveAppState, loadAppState } from "@/lib/storage/sessionState";
@@ -60,16 +57,22 @@ import { useDriverTracking } from "@/hooks/trip/useDriverTracking";
 import { useBooking } from "@/hooks/booking/useBooking";
 import posthog from "posthog-js";
 import { usePWAPrompt } from "@/hooks/usePWA";
-import IOSInstallBanner from '@/components/app/ui/IOSInstallBanner';
+import IOSInstallBanner from "@/components/app/ui/IOSInstallBanner";
 import NoInternetModal from "./modals/NoInternetModal";
 import { useLocation } from "@/hooks/useLocation";
-import { useStatusBarTheme } from '@/hooks/useStatusBarTheme';
-import {Keyboard, KeyboardResize}  from '@capacitor/keyboard';
-import { Capacitor } from '@capacitor/core';
-import { StatusBar, Style } from '@capacitor/status-bar';
+import { useStatusBarTheme } from "@/hooks/useStatusBarTheme";
+import { Keyboard, KeyboardResize } from "@capacitor/keyboard";
+import { Capacitor } from "@capacitor/core";
+import { StatusBar, Style } from "@capacitor/status-bar";
 
 export default function ACHRAMApp() {
-  const { token, isAuthenticated, isLoading: isAuthLoading, checkAuthStatus, logout } = useAuth();
+  const {
+    token,
+    isAuthenticated,
+    isLoading: isAuthLoading,
+    checkAuthStatus,
+    logout,
+  } = useAuth();
   const {
     generalError: bookingGeneralError,
     fieldErrors: bookingFieldErrors,
@@ -91,18 +94,33 @@ export default function ACHRAMApp() {
   const [driver, setDriver] = useState<any>(null);
   const [vehicle, setVehicle] = useState<any>(null);
   const [tripProgress, setTripProgress] = useState<number>(0);
-  const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(null);
-  const [driverLocation, setDriverLocation] = useState<[number, number] | null>(null);
-  const [pickupCodename, setPickupCodename] = useState<string | undefined>(undefined);
-  const [destinationCoords, setDestinationCoords] = useState<[number, number] | null>(null);
+  const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(
+    null,
+  );
+  const [driverLocation, setDriverLocation] = useState<[number, number] | null>(
+    null,
+  );
+  const [pickupCodename, setPickupCodename] = useState<string | undefined>(
+    undefined,
+  );
+  const [destinationCoords, setDestinationCoords] = useState<
+    [number, number] | null
+  >(null);
   const [routePath, setRoutePath] = useState<google.maps.LatLngLiteral[]>([]);
-  const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
+  const [routeInfo, setRouteInfo] = useState<{
+    distance: string;
+    duration: string;
+  } | null>(null);
   const [verificationCode, setVerificationCode] = useState<string | null>(null);
   const [guestId, setGuestId] = useState<string | null>(null);
   const [activeTripId, setActiveTripId] = useState<string | null>(null);
-  const [webSocketConnection, setWebSocketConnection] = useState<ReconnectingWebSocket | null>(null);
-  const [webSocketStatus, setWebSocketStatus] = useState<"connecting" | "open" | "closed" | "reconnecting">("closed");
-  const [pollingIntervalId, setPollingIntervalId] = useState<NodeJS.Timeout | null>(null);
+  const [webSocketConnection, setWebSocketConnection] =
+    useState<ReconnectingWebSocket | null>(null);
+  const [webSocketStatus, setWebSocketStatus] = useState<
+    "connecting" | "open" | "closed" | "reconnecting"
+  >("closed");
+  const [pollingIntervalId, setPollingIntervalId] =
+    useState<NodeJS.Timeout | null>(null);
   const [bookAsGuest, setBookAsGuest] = useState(false);
   const activeTripIdRef = useRef(activeTripId);
   const activeGuestIdRef = useRef(guestId);
@@ -128,7 +146,8 @@ export default function ACHRAMApp() {
   const [showSignup, setShowSignup] = useState(false);
   const [showOTP, setShowOTP] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
-  const [signupDataForOtp, setSignupDataForOtp] = useState<PassengerData | null>(null);
+  const [signupDataForOtp, setSignupDataForOtp] =
+    useState<PassengerData | null>(null);
   const [signupPasswordForOtp, setSignupPasswordForOtp] = useState<string>("");
   const [initialOtpCountdown, setInitialOtpCountdown] = useState<number>(0);
   const [showProfile, setShowProfile] = useState(false);
@@ -144,15 +163,22 @@ export default function ACHRAMApp() {
   const [showDisable2FA, setShowDisable2FA] = useState(false);
   const [showUpdateProfile, setShowUpdateProfile] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
-  const [tripRequestStatus, setTripRequestStatus] = useState<"loading" | "accepted" | "no-driver" | "error" | null>(null);
+  const [tripRequestStatus, setTripRequestStatus] = useState<
+    "loading" | "accepted" | "no-driver" | "error" | null
+  >(null);
   const [tripRequestError, setTripRequestError] = useState<string | null>(null);
   const [showDriverVerification, setShowDriverVerification] = useState(false);
   const [resetBookingKey, setResetBookingKey] = useState(0);
-  const { currentNotification, showNotification, setCurrentNotification } = useNotification();
+  const { currentNotification, showNotification, setCurrentNotification } =
+    useNotification();
   const [pickupId, setPickupId] = useState<string | null>(null);
   // const [passengerLiveLocation, setPassengerLiveLocation] = useState<[number, number] | null>(null);
 
-  const { coords: passengerLiveLocation, error, requestPermission } = useLocation();
+  const {
+    coords: passengerLiveLocation,
+    error,
+    requestPermission,
+  } = useLocation();
 
   const lastValidPickupForAnalyticsRef = useRef<string | null>(null);
 
@@ -166,12 +192,18 @@ export default function ACHRAMApp() {
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
   const [airportPickupArea, setAirportPickupArea] = useState<any>(null);
-  const [previousScreen, setPreviousScreen] = useState<ScreenState | null>(null);
+  const [previousScreen, setPreviousScreen] = useState<ScreenState | null>(
+    null,
+  );
   const [show2FAOtpModal, setShow2FAOtpModal] = useState(false);
-  const [pendingLoginCreds, setPendingLoginCreds] = useState<{ email: string; password: string } | null>(null);
+  const [pendingLoginCreds, setPendingLoginCreds] = useState<{
+    email: string;
+    password: string;
+  } | null>(null);
   const [isNavigatingToDashboard, setIsNavigatingToDashboard] = useState(false);
   const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
-  const [showAccountDeletionModal, setShowAccountDeletionModal] = useState(false);
+  const [showAccountDeletionModal, setShowAccountDeletionModal] =
+    useState(false);
   const [initComplete, setInitComplete] = useState(false);
   const currentAuthStatusRef = useRef(isAuthenticated);
   const currentTokenRef = useRef(token);
@@ -181,24 +213,27 @@ export default function ACHRAMApp() {
   }, [isAuthenticated, token]);
 
   // Add these states with your existing booking-related states
-const [showVehicleCategories, setShowVehicleCategories] = useState(false);
-const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-const [vehicleQuotes, setVehicleQuotes] = useState<any[]>([]);
-const [isFetchingVehicles, setIsFetchingVehicles] = useState(false);
+  const [showVehicleCategories, setShowVehicleCategories] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [vehicleQuotes, setVehicleQuotes] = useState<any[]>([]);
+  const [isFetchingVehicles, setIsFetchingVehicles] = useState(false);
 
-const [numberOfSeats, setNumberOfSeats] = useState<number>(1);
-const [isStrictPreferences, setIsStrictPreferences] = useState<boolean>(false);
+  const [numberOfSeats, setNumberOfSeats] = useState<number>(1);
+  const [isStrictPreferences, setIsStrictPreferences] =
+    useState<boolean>(false);
 
-// Constant for source domain
+  // Constant for source domain
 
- const sourceDomain = typeof window !== 'undefined' 
-    ? window.location.hostname 
-    : 'ride.achrams.com.ng';
-
+  const sourceDomain =
+    typeof window !== "undefined"
+      ? window.location.hostname
+      : "ride.achrams.com.ng";
 
   const preserveBookingContext = useCallback(() => {
     console.log("Clearing trip data but preserving booking context for retry");
-    console.log("Inside preserve booking context, I am setting guest Id to null");
+    console.log(
+      "Inside preserve booking context, I am setting guest Id to null",
+    );
     setActiveTripId(null);
     setGuestId(null);
     setDriver(null);
@@ -223,7 +258,7 @@ const [isStrictPreferences, setIsStrictPreferences] = useState<boolean>(false);
       }
     }
     setScreen("booking");
-  },[
+  }, [
     setActiveTripId,
     setGuestId,
     setDriver,
@@ -233,60 +268,54 @@ const [isStrictPreferences, setIsStrictPreferences] = useState<boolean>(false);
     setFareEstimate,
     setDestination,
     setScreen,
-  ])
-
-
+  ]);
 
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
-const [showNoInternetModal, setShowNoInternetModal] = useState(false);
+  const [showNoInternetModal, setShowNoInternetModal] = useState(false);
 
-useStatusBarTheme(false);
+  useStatusBarTheme(false);
 
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      setShowNoInternetModal(false);
+    };
 
-useEffect(() => {
-  const handleOnline = () => {
-    setIsOnline(true);
-    setShowNoInternetModal(false);
-  };
+    const handleOffline = () => {
+      setIsOnline(false);
+      setShowNoInternetModal(true);
+    };
 
-  const handleOffline = () => {
-    setIsOnline(false);
-    setShowNoInternetModal(true);
-  };
+    setIsOnline(navigator.onLine);
 
-  setIsOnline(navigator.onLine);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
-  window.addEventListener('online', handleOnline);
-  window.addEventListener('offline', handleOffline);
+    // Cleanup
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
-  // Cleanup
-  return () => {
-    window.removeEventListener('online', handleOnline);
-    window.removeEventListener('offline', handleOffline);
-  };
-}, []);
+  useEffect(() => {
+    const onUnauth = () => {
+      setScreen("booking");
+      // optional: clear booking state, close modals, etc.
+    };
+    window.addEventListener("auth:unauthorized", onUnauth);
+    return () => window.removeEventListener("auth:unauthorized", onUnauth);
+  }, [setScreen]);
 
-useEffect(() => {
-  const onUnauth = () => {
-    setScreen('booking');
-    // optional: clear booking state, close modals, etc.
-  };
-  window.addEventListener('auth:unauthorized', onUnauth);
-  return () => window.removeEventListener('auth:unauthorized', onUnauth);
-}, [setScreen]);
+  // useEffect(() => {
+  //   if (screen === 'dashboard' || screen === 'trip-progress' || screen === 'driver-assigned' || screen === 'booking') {
+  //     requestPermission(); // ← Only when relevant
+  //   }
+  // }, [screen, requestPermission]);
 
-
-// useEffect(() => {
-//   if (screen === 'dashboard' || screen === 'trip-progress' || screen === 'driver-assigned' || screen === 'booking') {
-//     requestPermission(); // ← Only when relevant
-//   }
-// }, [screen, requestPermission]);
-
-
-
-useEffect(() => {
+  useEffect(() => {
     const setupIOSKeyboard = async () => {
-      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios') {
+      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios") {
         // 1. Force the resize mode at runtime
         await Keyboard.setResizeMode({ mode: KeyboardResize.Body });
 
@@ -294,20 +323,20 @@ useEffect(() => {
         await Keyboard.setScroll({ isDisabled: true });
 
         // 3. Manually scroll focused inputs into view
-        Keyboard.addListener('keyboardWillShow', (info) => {
+        Keyboard.addListener("keyboardWillShow", (info) => {
           setTimeout(() => {
             document.activeElement?.scrollIntoView({
-              behavior: 'smooth',
-              block: 'center'
+              behavior: "smooth",
+              block: "center",
             });
           }, 100);
         });
 
-        Keyboard.addListener('keyboardDidShow', () => {
+        Keyboard.addListener("keyboardDidShow", () => {
           // Extra nudge for stubborn inputs
           document.activeElement?.scrollIntoView({
-            behavior: 'instant',
-            block: 'center'
+            behavior: "instant",
+            block: "center",
           });
         });
       }
@@ -316,78 +345,80 @@ useEffect(() => {
     setupIOSKeyboard();
   }, []);
 
-
-const [keyboardHeight, setKeyboardHeight] = useState(0);
-
-
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
-    if (Capacitor.getPlatform() !== 'ios') return;
-    
+    if (Capacitor.getPlatform() !== "ios") return;
+
     Keyboard.setResizeMode({ mode: KeyboardResize.Body });
     Keyboard.setScroll({ isDisabled: true });
 
-    const show = Keyboard.addListener('keyboardWillShow', (info) => {
+    const show = Keyboard.addListener("keyboardWillShow", (info) => {
       setKeyboardHeight(info.keyboardHeight);
     });
-    const hide = Keyboard.addListener('keyboardWillHide', () => {
+    const hide = Keyboard.addListener("keyboardWillHide", () => {
       setKeyboardHeight(0);
     });
-    return () => { show.remove(); hide.remove(); };
+    return () => {
+      show.remove();
+      hide.remove();
+    };
   }, []);
 
+  useEffect(() => {
+    console.log(keyboardHeight);
+  }, [keyboardHeight]);
 
-useEffect(()=>{
-  console.log(keyboardHeight)
-}, [keyboardHeight])
+  useEffect(() => {
+    const shouldRequestLocation = () => {
+      // Check if we already have valid coordinates
+      if (
+        passengerLiveLocation &&
+        passengerLiveLocation.length === 2 &&
+        typeof passengerLiveLocation[0] === "number" &&
+        typeof passengerLiveLocation[1] === "number" &&
+        !isNaN(passengerLiveLocation[0]) &&
+        !isNaN(passengerLiveLocation[1])
+      ) {
+        console.log(
+          "✅ Valid coordinates already exist:",
+          passengerLiveLocation,
+        );
+        return false; // Don't request permission
+      }
 
+      console.log("⚠️ No valid coordinates, requesting permission...");
+      return true; // Request permission
+    };
 
-
-useEffect(() => {
-  const shouldRequestLocation = () => {
-    // Check if we already have valid coordinates
-    if (passengerLiveLocation && 
-        passengerLiveLocation.length === 2 && 
-        typeof passengerLiveLocation[0] === 'number' && 
-        typeof passengerLiveLocation[1] === 'number' &&
-        !isNaN(passengerLiveLocation[0]) && 
-        !isNaN(passengerLiveLocation[1])) {
-      console.log('✅ Valid coordinates already exist:', passengerLiveLocation);
-      return false; // Don't request permission
+    if (
+      screen === "dashboard" ||
+      screen === "trip-progress" ||
+      screen === "driver-assigned"
+    ) {
+      if (shouldRequestLocation()) {
+        requestPermission();
+      }
     }
-    
-    console.log('⚠️ No valid coordinates, requesting permission...');
-    return true; // Request permission
-  };
-  
-  if (screen === 'dashboard' || screen === 'trip-progress' || screen === 'driver-assigned') {
-    if (shouldRequestLocation()) {
-      requestPermission();
+  }, [screen, requestPermission, passengerLiveLocation]);
+
+  const handleRefreshLocation = useCallback(async () => {
+    console.log("🔄 Manually refreshing location...");
+    showNotification("Updating your location...", "info");
+
+    try {
+      const position = await requestPermission();
+      if (position) {
+        console.log("✅ Location refreshed successfully:", position);
+        showNotification("Location updated successfully", "success");
+      } else {
+        showNotification("Location already fetched", "error");
+      }
+    } catch (err) {
+      console.error("Location refresh failed:", err);
+      showNotification("Failed to refresh location", "error");
     }
-  }
-}, [screen, requestPermission, passengerLiveLocation]);
-
-
-
-const handleRefreshLocation = useCallback(async () => {
-  console.log('🔄 Manually refreshing location...');
-  showNotification('Updating your location...', 'info');
-  
-  try {
-    const position = await requestPermission();
-    if (position) {
-      console.log('✅ Location refreshed successfully:', position);
-      showNotification('Location updated successfully', 'success');
-    } else {
-      showNotification('Location already fetched', 'error');
-    }
-  } catch (err) {
-    console.error('Location refresh failed:', err);
-    showNotification('Failed to refresh location', 'error');
-  }
-}, [requestPermission, showNotification]);
-
-  
+  }, [requestPermission, showNotification]);
 
   const activeTripForDashboard = useMemo(() => {
     if (activeTripId) {
@@ -397,12 +428,12 @@ const handleRefreshLocation = useCallback(async () => {
           previousScreen === "trip-progress"
             ? "In Progress"
             : previousScreen === "driver-assigned"
-            ? "Driver Assigned"
-            : previousScreen === "assigning"
-            ? "Assigning"
-            : previousScreen === "trip-complete"
-            ? "Completed"
-            : "Unknown",
+              ? "Driver Assigned"
+              : previousScreen === "assigning"
+                ? "Assigning"
+                : previousScreen === "trip-complete"
+                  ? "Completed"
+                  : "Unknown",
         driver: driver,
         destination: destination,
       };
@@ -426,12 +457,16 @@ const handleRefreshLocation = useCallback(async () => {
     pollingIntervalRef,
     stopPollingTripStatus: useCallback(() => {
       if (pollingIntervalRef.current) {
-        console.log(`Stopping trip status polling. with interval ID: ${pollingIntervalRef.current}`);
+        console.log(
+          `Stopping trip status polling. with interval ID: ${pollingIntervalRef.current}`,
+        );
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
         setPollingIntervalId(null);
       } else {
-        console.log("stopPollingTripStatus called but no active polling interval found");
+        console.log(
+          "stopPollingTripStatus called but no active polling interval found",
+        );
       }
     }, [pollingIntervalRef, setPollingIntervalId]),
     setTripRequestStatus,
@@ -468,7 +503,6 @@ const handleRefreshLocation = useCallback(async () => {
     wheelchair: false,
     elderly: false,
   });
-  
 
   const { handleRequestRide } = useBooking({
     tripHistory,
@@ -505,7 +539,7 @@ const handleRefreshLocation = useCallback(async () => {
     selectedCategory,
     numberOfSeats,
     isStrictPreferences,
-    sourceDomain, 
+    sourceDomain,
   });
 
   useDriverTracking({
@@ -547,12 +581,16 @@ const handleRefreshLocation = useCallback(async () => {
     stopWebSocketConnection,
     stopPollingTripStatus: useCallback(() => {
       if (pollingIntervalRef.current) {
-        console.log(`Stopping trip status polling. with interval ID: ${pollingIntervalRef.current}`);
+        console.log(
+          `Stopping trip status polling. with interval ID: ${pollingIntervalRef.current}`,
+        );
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
         setPollingIntervalId(null);
       } else {
-        console.log("stopPollingTripStatus called but no active polling interval found");
+        console.log(
+          "stopPollingTripStatus called but no active polling interval found",
+        );
       }
     }, [pollingIntervalRef, setPollingIntervalId]),
     setTripRequestStatus,
@@ -561,125 +599,120 @@ const handleRefreshLocation = useCallback(async () => {
     setInitComplete,
   });
 
+  const { showIOSInstallGuide } = usePWAPrompt();
 
-const { showIOSInstallGuide } = usePWAPrompt();
+  useEffect(() => {
+    const hasRecordedDownload = localStorage.getItem("achrams_app_downloaded");
 
+    if (!hasRecordedDownload) {
+      // Record immediately on first load (covers iOS + all users)
+      posthog.capture("passenger_app_opened", {
+        source: "web",
+        airport_location: lastValidPickupForAnalyticsRef.current || "Unknown",
+      });
+      localStorage.setItem("achrams_app_downloaded", "true");
+    }
 
+    // Also listen for install prompt (for better intent signal)
+    const handleBeforeInstallPrompt = () => {
+      // You could log an additional event like "pwa_install_prompted"
+      // but don't duplicate "downloaded"
+    };
 
-useEffect(() => {
-  const hasRecordedDownload = localStorage.getItem("achrams_app_downloaded");
-
-  if (!hasRecordedDownload) {
-    // Record immediately on first load (covers iOS + all users)
-    posthog.capture("passenger_app_opened", {
-      source: "web",
-      airport_location: lastValidPickupForAnalyticsRef.current || "Unknown",
-    });
-    localStorage.setItem("achrams_app_downloaded", "true");
-  }
-
-  // Also listen for install prompt (for better intent signal)
-  const handleBeforeInstallPrompt = () => {
-    // You could log an additional event like "pwa_install_prompted"
-    // but don't duplicate "downloaded"
-  };
-
-  window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-  return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-}, []);
-
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    return () =>
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt,
+      );
+  }, []);
 
   /**
-   * 
+   *
    * posthog capture events section Block
    */
 
   const initRef = useRef(false);
 
-  useEffect(()=>{
-    if(pickup && pickup !== "Use my current location"){
-
+  useEffect(() => {
+    if (pickup && pickup !== "Use my current location") {
       // alert(pickup)
       lastValidPickupForAnalyticsRef.current = pickup;
     }
-  } , [pickup])
-
+  }, [pickup]);
 
   // After successful login or auth check
-useEffect(() => {
-  if (isAuthenticated && accountData?.email) {
-    posthog.identify(accountData.email, {
-      email: accountData.email,
-      name: `${accountData.first_name} ${accountData.last_name}`,
-      user_type: "passenger",
-      is_authenticated: true,
-      source: "ride.achrams.com.ng"
-    });
-  }
-}, [isAuthenticated, accountData]);
+  useEffect(() => {
+    if (isAuthenticated && accountData?.email) {
+      posthog.identify(accountData.email, {
+        email: accountData.email,
+        name: `${accountData.first_name} ${accountData.last_name}`,
+        user_type: "passenger",
+        is_authenticated: true,
+        source: "ride.achrams.com.ng",
+      });
+    }
+  }, [isAuthenticated, accountData]);
 
-
-// When guestId is set (after booking starts)
-useEffect(() => {
-  if (guestId && passengerData.email) {
-    posthog.identify(`guest_${guestId}`, {
-      email: passengerData.email,
-      name: passengerData.name,
-      phone: passengerData.phone,
-      user_type: "passenger",
-      is_guest: true,
-      guest_id: guestId,
-      source: "ride.achrams.com.ng"
-    });
-  }
-}, [guestId, passengerData]);
-
-
-
-
-useEffect(() => {
-  // if (screen) {
-  //   posthog.capture("$pageview", { screen });
-  // }
-
-  if(screen === "trip-complete"){
-    posthog.capture("trip_payment_completed", { fare_amount: fareEstimate, payment_method: "Cash", faan_fee: fareEstimate * 0.05,
-    source: "ride.achrams.com.ng"
-    });
-  }
-}, [screen]);
-
-
-useEffect(()=>{
-  if(tripHistory.length > 0){posthog.capture("passenger_first_booking", { pickup, destination, booking_method: bookAsGuest ? "guest" : "auth", fare_estimate: fareEstimate,
-  source: "ride.achrams.com.ng",
-   });
-  }
-},[tripHistory])
-
-
-
-
-// In settings or onboarding
-const [analyticsConsent, setAnalyticsConsent] = useState(true);
-
-useEffect(() => {
-  if (analyticsConsent) {
-    posthog.opt_in_capturing();
-  } else {
-    posthog.opt_out_capturing();
-  }
-}, [analyticsConsent]);
-
-
-
-/***
- * PostHog Capture Event EndBlock
- */
-
+  // When guestId is set (after booking starts)
+  useEffect(() => {
+    if (guestId && passengerData.email) {
+      posthog.identify(`guest_${guestId}`, {
+        email: passengerData.email,
+        name: passengerData.name,
+        phone: passengerData.phone,
+        user_type: "passenger",
+        is_guest: true,
+        guest_id: guestId,
+        source: "ride.achrams.com.ng",
+      });
+    }
+  }, [guestId, passengerData]);
 
   useEffect(() => {
-    if(!initRef.current && hasHydrated && !isAuthLoading){
+    // if (screen) {
+    //   posthog.capture("$pageview", { screen });
+    // }
+
+    if (screen === "trip-complete") {
+      posthog.capture("trip_payment_completed", {
+        fare_amount: fareEstimate,
+        payment_method: "Cash",
+        faan_fee: fareEstimate * 0.05,
+        source: "ride.achrams.com.ng",
+      });
+    }
+  }, [screen]);
+
+  useEffect(() => {
+    if (tripHistory.length > 0) {
+      posthog.capture("passenger_first_booking", {
+        pickup,
+        destination,
+        booking_method: bookAsGuest ? "guest" : "auth",
+        fare_estimate: fareEstimate,
+        source: "ride.achrams.com.ng",
+      });
+    }
+  }, [tripHistory]);
+
+  // In settings or onboarding
+  const [analyticsConsent, setAnalyticsConsent] = useState(true);
+
+  useEffect(() => {
+    if (analyticsConsent) {
+      posthog.opt_in_capturing();
+    } else {
+      posthog.opt_out_capturing();
+    }
+  }, [analyticsConsent]);
+
+  /***
+   * PostHog Capture Event EndBlock
+   */
+
+  useEffect(() => {
+    if (!initRef.current && hasHydrated && !isAuthLoading) {
       initRef.current = true;
       initializeAppState();
     }
@@ -691,18 +724,25 @@ useEffect(() => {
     }
   }, []);
 
-  console.log(passengerData)
+  console.log(passengerData);
 
   useEffect(() => {
     if (hasHydrated && isAuthenticated) {
       const fetchAccountData = async () => {
         try {
           console.log("Fetching account data from /auth/passenger/me...");
-          const response = await apiClient.get("/auth/passenger/me", undefined, false, undefined, true);
+          const response = await apiClient.get(
+            "/auth/passenger/me",
+            undefined,
+            false,
+            undefined,
+            true,
+          );
           console.log("Account data API response:", response);
           if (response.status === "success" && response.data) {
             setAccountData(response.data);
-            const balanceAmount = response.data.profile?.wallet?.balance?.amount ?? 0;
+            const balanceAmount =
+              response.data.profile?.wallet?.balance?.amount ?? 0;
             setWalletBalance(balanceAmount);
             const is2FAEnabled = response.data.is_2fa_enabled ?? false;
             setIs2FAEnabled(is2FAEnabled);
@@ -711,7 +751,10 @@ useEffect(() => {
               is2FA: is2FAEnabled,
             });
           } else {
-            console.error("API response for account data was not successful:", response);
+            console.error(
+              "API response for account data was not successful:",
+              response,
+            );
             setWalletBalance(0);
             setIs2FAEnabled(false);
             setCurrentNotification({
@@ -724,14 +767,14 @@ useEffect(() => {
           setWalletBalance(0);
           setIs2FAEnabled(false);
           setCurrentNotification({
-            message: "Failed to load profile data. Please check your connection.",
+            message:
+              "Failed to load profile data. Please check your connection.",
             type: "error",
           });
         }
       };
 
       fetchAccountData();
-
     } else if (hasHydrated && !isAuthenticated) {
       console.log("User is not authenticated, clearing account data.");
       setAccountData(null);
@@ -753,13 +796,14 @@ useEffect(() => {
     }
   }, [screen]);
 
-
-
   console.log("Page.tsx is being rendered Now");
   const [driverDistance, setDriverDistance] = useState<string | null>(null);
   const [driverDuration, setDriverDuration] = useState<string | null>(null);
-  const [isDriverAtPickupArea, setIsDriverAtPickupArea] = useState<boolean>(false);
-  const directionsServiceRef = useRef<google.maps.DirectionsService | null>(null);
+  const [isDriverAtPickupArea, setIsDriverAtPickupArea] =
+    useState<boolean>(false);
+  const directionsServiceRef = useRef<google.maps.DirectionsService | null>(
+    null,
+  );
   const driverDurationRef = useRef<number | null>(null);
   const driverDistanceRef = useRef<number | null>(null);
   const isDriverAtPickupAreaRef = useRef<boolean>(false);
@@ -804,22 +848,26 @@ useEffect(() => {
   const handleRegistrationSuccess = (email: string) => {
     console.log("setting screen to dashboard six");
     posthog.capture("passenger_signup_completed", {
-    signup_method: "email",
-    airport_location: lastValidPickupForAnalyticsRef.current, // Use last known valid pickup location
-  });
+      signup_method: "email",
+      airport_location: lastValidPickupForAnalyticsRef.current, // Use last known valid pickup location
+    });
     setScreen("dashboard");
     setShowSignup(false);
   };
 
   const handleLoginSuccess = () => {
-    console.log("login successful, Authcontext should update. Screen will update via useEffect");
+    console.log(
+      "login successful, Authcontext should update. Screen will update via useEffect",
+    );
     showNotification("Welcome Back!", "success");
-    setScreen("dashboard")
+    setScreen("dashboard");
     setShowLogin(false);
   };
 
   const handleLogoutSuccess = () => {
-    console.log("Logout successful, Authcontext should update. Screen will update via useEffect");
+    console.log(
+      "Logout successful, Authcontext should update. Screen will update via useEffect",
+    );
     showNotification("You have been logged out.", "info");
     preserveBookingContext();
   };
@@ -827,7 +875,10 @@ useEffect(() => {
   const handle2FAEnabled = () => {
     setIs2FAEnabled(true);
     setShowEnable2FA(false);
-    showNotification("Two-factor authentication enabled successfully!", "success");
+    showNotification(
+      "Two-factor authentication enabled successfully!",
+      "success",
+    );
   };
 
   const handle2FADisabled = () => {
@@ -859,7 +910,9 @@ useEffect(() => {
   };
 
   const handleGrantLocationAccess = () => {
-    console.log("location access granted button clicked in modal. The BookingScreen will handle the requestPermission call");
+    console.log(
+      "location access granted button clicked in modal. The BookingScreen will handle the requestPermission call",
+    );
   };
 
   useEffect(() => {
@@ -889,7 +942,9 @@ useEffect(() => {
   const cancelTrip = async (reason: string) => {
     console.log("Active Trip Id: ", activeTripId);
     if (!activeTripId) {
-      console.error("Cannot cancel trip: activeTripId is missing (is null, undefined, or empty string).");
+      console.error(
+        "Cannot cancel trip: activeTripId is missing (is null, undefined, or empty string).",
+      );
       console.log("Current activeTripId state:", activeTripId);
       console.log("Current screen state:", screen);
       console.log("Current tripRequestStatus:", tripRequestStatus);
@@ -900,10 +955,15 @@ useEffect(() => {
     const locationToUse = pickupCoords;
     const addressToUse = pickup;
     if (!locationToUse || !addressToUse) {
-      console.error("Cannot cancel trip: Missing pickup coordinates or address for cancellation payload.");
+      console.error(
+        "Cannot cancel trip: Missing pickup coordinates or address for cancellation payload.",
+      );
       console.log("Current pickupCoords state:", pickupCoords);
       console.log("Current pickup state:", pickup);
-      showNotification("Unable to cancel trip. Missing location data.", "error");
+      showNotification(
+        "Unable to cancel trip. Missing location data.",
+        "error",
+      );
       setShowCancel(false);
       return;
     }
@@ -913,10 +973,21 @@ useEffect(() => {
         location: [locationToUse[0], locationToUse[1]],
         address: addressToUse,
       };
-      console.log("Cancelling trip with ID:", activeTripId, "and payload:", cancelRequestBody);
+      console.log(
+        "Cancelling trip with ID:",
+        activeTripId,
+        "and payload:",
+        cancelRequestBody,
+      );
       let response;
       if (!bookAsGuest && isAuthenticated) {
-        response = await apiClient.post(`/trips/${activeTripId}/cancel`, cancelRequestBody, undefined, undefined, true);
+        response = await apiClient.post(
+          `/trips/${activeTripId}/cancel`,
+          cancelRequestBody,
+          undefined,
+          undefined,
+          true,
+        );
       } else {
         if (!guestId) {
           console.error("Cannot cancel trip: guestId is missing.");
@@ -926,7 +997,12 @@ useEffect(() => {
           return;
         }
         console.log("Guest Id: ", guestId);
-        response = await apiClient.post(`/trips/${guestId}/cancel`, cancelRequestBody, undefined, guestId);
+        response = await apiClient.post(
+          `/trips/${guestId}/cancel`,
+          cancelRequestBody,
+          undefined,
+          guestId,
+        );
       }
       if (response.status === "success" && response.data) {
         console.log("Trip cancelled successfully:", response.data);
@@ -953,8 +1029,12 @@ useEffect(() => {
         setDriverLocation(null);
         setScreen("booking");
       } else {
-        console.error("Trip cancellation API responded with non-success status or missing data:", response);
-        let errorMessage = "Failed to cancel your trip. Server responded unexpectedly.";
+        console.error(
+          "Trip cancellation API responded with non-success status or missing data:",
+          response,
+        );
+        let errorMessage =
+          "Failed to cancel your trip. Server responded unexpectedly.";
         if (response.message) {
           errorMessage = response.message;
           if (response.details) {
@@ -973,7 +1053,8 @@ useEffect(() => {
       }
     } catch (err: any) {
       console.error("Error cancelling trip:", err);
-      let errorMessage = "Failed to cancel your trip. Please check your connection and try again.";
+      let errorMessage =
+        "Failed to cancel your trip. Please check your connection and try again.";
       if (err instanceof Error) {
         errorMessage = err.message;
       } else {
@@ -986,125 +1067,152 @@ useEffect(() => {
     }
   };
 
+  const handleCategorySelect = (category: any) => {
+    const categoryValue =
+      category?.categoryValue || category?.category?.value || category?.id;
+    const price =
+      category?.estimatedPrice ||
+      category?.amount?.amount ||
+      category?.basePrice;
 
-const handleCategorySelect = (category: any) => {
-  const categoryValue = category?.categoryValue || category?.category?.value || category?.id;
-  const price = category?.estimatedPrice || category?.amount?.amount || category?.basePrice;
-  
-  if (!categoryValue) {
-    showNotification("Invalid vehicle category selected", "error");
-    return;
-  }
-  
-  setSelectedCategory(categoryValue);
-  setFareEstimate(typeof price === 'number' ? price : null);
-  setFareIsFlatRate(fareIsFlatRate);
-  setShowVehicleCategories(false);
-};
-
-const handleBackToCategories = () => {
-  setSelectedCategory(null);
-  setFareEstimate(null);
-  setShowVehicleCategories(true);
-};
-
-const fetchVehicleQuotes = async (airportCodename: string | undefined, destinationFareZone: string) => {
-  if (!airportCodename || !destinationFareZone?.trim()) {
-    setVehicleQuotes([]);
-    return;
-  }
-
-  setIsFetchingVehicles(true);
-  setVehicleQuotes([]);
-  
-  try {
-    const response = await apiClient.get(
-      `/fares/lookup?airport=${encodeURIComponent(airportCodename)}&search=${encodeURIComponent(destinationFareZone.trim())}`
-    );
-    
-    if (response.status === "success" && response.data?.breakdown) {
-      console.log('Fare lookup Response', response)
-      const quotes = response.data.breakdown.map((item: any) => ({
-        id: item.id,
-        name: item.category.label,
-        categoryValue: item.category.value,
-        description: getCategoryDescription(item.category.value),
-        estimatedPrice: item.amount.amount,
-        formattedPrice: item.amount.formatted,
-        currency: item.amount.currency,
-        available: true,
-        eta: '4-8 mins'
-      }));
-      
-      setVehicleQuotes(quotes);
-      setShowVehicleCategories(true);
-    } else if (response.status === "error") {
-      if (response.message?.includes("Rate limit") || response.message?.includes("throttled")) {
-        showNotification("Fare estimates temporarily unavailable. Please wait a moment.", "warning");
-        return;
-      }
-      showNotification("Could not fetch vehicle options. Please try again.", "error");
+    if (!categoryValue) {
+      showNotification("Invalid vehicle category selected", "error");
+      return;
     }
-  } catch (err) {
-    console.error("Error fetching vehicle quotes:", err);
-    showNotification("Could not fetch vehicle options. Please try again.", "error");
-  } finally {
-    setIsFetchingVehicles(false);
-  }
-};
 
-const getCategoryDescription = (value: string) => {
-  const map: Record<string, string> = {
-    'vip': 'Premium executive transport',
-    'legacy': 'Older cars from 2000 and above',
-    'e_hailing': 'Bolt, Uber & similar services',
-    'smart_ride': 'CNG / Smart Ride eco-friendly option',
-    'ev': 'Eco-friendly electric cars'
+    setSelectedCategory(categoryValue);
+    setFareEstimate(typeof price === "number" ? price : null);
+    setFareIsFlatRate(fareIsFlatRate);
+    setShowVehicleCategories(false);
   };
-  return map[value] || 'Standard ride';
-};
 
-const getCategoryIcon = (value: string) => {
-  switch (value) {
-    case 'vip':
-      return 'Shield';
-    case 'legacy':
-      return 'Car';
-    case 'e_hailing':
-      return 'Smartphone';
-    case 'smart_ride':
-      return 'Leaf';
-    case 'ev':
-      return 'Zap';
-    default:
-      return 'Car';
-  }
-};
+  const handleBackToCategories = () => {
+    setSelectedCategory(null);
+    setFareEstimate(null);
+    setShowVehicleCategories(true);
+  };
 
+  const fetchVehicleQuotes = async (
+    airportCodename: string | undefined,
+    destinationFareZone: string,
+  ) => {
+    if (!airportCodename || !destinationFareZone?.trim()) {
+      setVehicleQuotes([]);
+      return;
+    }
 
-const handleDestinationSelected = (destinationName: string, destinationCoords: [number, number], fareZone: string) => {
-  setDestination(destinationName);
-  setDestinationCoords(destinationCoords);
-  console.log("before fetch vehicle quotes, PICKUP: PICKUPCODENAME", pickup, pickupCodename, fareZone)
-  // if (pickup && pickupCodename) {
+    setIsFetchingVehicles(true);
+    setVehicleQuotes([]);
+
+    try {
+      const response = await apiClient.get(
+        `/fares/lookup?airport=${encodeURIComponent(airportCodename)}&search=${encodeURIComponent(destinationFareZone.trim())}`,
+      );
+
+      if (response.status === "success" && response.data?.breakdown) {
+        console.log("Fare lookup Response", response);
+        const quotes = response.data.breakdown.map((item: any) => ({
+          id: item.id,
+          name: item.category.label,
+          categoryValue: item.category.value,
+          description: getCategoryDescription(item.category.value),
+          estimatedPrice: item.amount.amount,
+          formattedPrice: item.amount.formatted,
+          currency: item.amount.currency,
+          available: true,
+          eta: "4-8 mins",
+        }));
+
+        setVehicleQuotes(quotes);
+        setShowVehicleCategories(true);
+      } else if (response.status === "error") {
+        if (
+          response.message?.includes("Rate limit") ||
+          response.message?.includes("throttled")
+        ) {
+          showNotification(
+            "Fare estimates temporarily unavailable. Please wait a moment.",
+            "warning",
+          );
+          return;
+        }
+        showNotification(
+          "Could not fetch vehicle options. Please try again.",
+          "error",
+        );
+      }
+    } catch (err) {
+      console.error("Error fetching vehicle quotes:", err);
+      showNotification(
+        "Could not fetch vehicle options. Please try again.",
+        "error",
+      );
+    } finally {
+      setIsFetchingVehicles(false);
+    }
+  };
+
+  const getCategoryDescription = (value: string) => {
+    const map: Record<string, string> = {
+      vip: "Premium executive transport",
+      legacy: "Older cars from 2000 and above",
+      e_hailing: "Bolt, Uber & similar services",
+      smart_ride: "CNG / Smart Ride eco-friendly option",
+      ev: "Eco-friendly electric cars",
+    };
+    return map[value] || "Standard ride";
+  };
+
+  const getCategoryIcon = (value: string) => {
+    switch (value) {
+      case "vip":
+        return "Shield";
+      case "legacy":
+        return "Car";
+      case "e_hailing":
+        return "Smartphone";
+      case "smart_ride":
+        return "Leaf";
+      case "ev":
+        return "Zap";
+      default:
+        return "Car";
+    }
+  };
+
+  const handleDestinationSelected = (
+    destinationName: string,
+    destinationCoords: [number, number],
+    fareZone: string,
+  ) => {
+    setDestination(destinationName);
+    setDestinationCoords(destinationCoords);
+    console.log(
+      "before fetch vehicle quotes, PICKUP: PICKUPCODENAME",
+      pickup,
+      pickupCodename,
+      fareZone,
+    );
+    // if (pickup && pickupCodename) {
     // alert("fetchVehicleQuotes ws called")
 
     // In handleDestinationSelected, add this warning
-if (!pickup || !pickupCodename) {
-  showNotification(
-    !pickup ? "Please select a pickup location first" : "Pickup location not fully loaded",
-    "warning"
-  );
-  return;
-}
+    if (!pickup || !pickupCodename) {
+      showNotification(
+        !pickup
+          ? "Please select a pickup location first"
+          : "Pickup location not fully loaded",
+        "warning",
+      );
+      return;
+    }
     fetchVehicleQuotes(pickupCodename, fareZone);
-  // }
-};
-
+    // }
+  };
 
   const handleSignupInitiateSuccess = (
     data: { name: string; email: string; phone: string; password: string },
-    countdown: number
+    countdown: number,
   ) => {
     const { name, email, phone, password } = data;
     const signupData = { name, email, phone };
@@ -1128,20 +1236,24 @@ if (!pickup || !pickupCodename) {
       const nameParts = data.name.trim().split(/\s+/);
       const firstName = nameParts[0] || "User";
       const lastName = nameParts.slice(1).join(" ") || "";
-      const response = await apiClient.post("/auth/passenger/onboard/initiate", {
-        email: data.email,
-        phone_number: data.phone,
-        first_name: firstName,
-        last_name: lastName,
-        password: data.password,
-      });
+      const response = await apiClient.post(
+        "/auth/passenger/onboard/initiate",
+        {
+          email: data.email,
+          phone_number: data.phone,
+          first_name: firstName,
+          last_name: lastName,
+          password: data.password,
+        },
+      );
       console.log("Resend OTP Response:", response);
       if (response.status === "success" && response.data?.countdown) {
         console.log("New OTP sent, new countdown:", response.data.countdown);
         showNotification("New OTP sent, new countdown", "info");
         return response.data.countdown;
       } else {
-        const errorMessage = response.message || "Failed to resend OTP. Please try again.";
+        const errorMessage =
+          response.message || "Failed to resend OTP. Please try again.";
         throw new Error(errorMessage);
       }
     } catch (err: any) {
@@ -1156,42 +1268,77 @@ if (!pickup || !pickupCodename) {
     }
   };
 
-  const handleCancelConfirmed = (reason: string, location?: [number, number], address?: string) => {
+  const handleCancelConfirmed = (
+    reason: string,
+    location?: [number, number],
+    address?: string,
+  ) => {
     cancelTrip(reason);
   };
 
   const syncTripStatusInBackground = useCallback(
     async (tripId: string, wasBookedAsGuest: boolean) => {
-      console.log("Background sync: Fetching current status for trip ID:", tripId);
+      console.log(
+        "Background sync: Fetching current status for trip ID:",
+        tripId,
+      );
       try {
         let response;
 
-        
         const isCurrentlyAuthenticated = isAuthenticated && !bookAsGuest;
         const isCurrentlyGuest = !isAuthenticated || bookAsGuest;
 
-
         if (isCurrentlyAuthenticated && !wasBookedAsGuest) {
-          console.log("Background sync: Fetching status via authenticated endpoint.");
-          response = await apiClient.get(`/trips/${tripId}`, undefined, false, undefined, true);
+          console.log(
+            "Background sync: Fetching status via authenticated endpoint.",
+          );
+          response = await apiClient.get(
+            `/trips/${tripId}`,
+            undefined,
+            false,
+            undefined,
+            true,
+          );
         } else if (isCurrentlyGuest && guestId && wasBookedAsGuest) {
-          console.log("Background sync: Fetching status via guest endpoint with guestId:", guestId);
-          response = await apiClient.get(`/trips/${guestId}`, undefined, true, guestId);
+          console.log(
+            "Background sync: Fetching status via guest endpoint with guestId:",
+            guestId,
+          );
+          response = await apiClient.get(
+            `/trips/${guestId}`,
+            undefined,
+            true,
+            guestId,
+          );
         } else {
-          console.error("Background sync: Cannot sync status. Authentication context mismatch or missing guestId.");
+          console.error(
+            "Background sync: Cannot sync status. Authentication context mismatch or missing guestId.",
+          );
           return;
         }
         if (response.status === "success" && response.data) {
           const trip = response.data;
-          console.log("Background sync: Fetched current trip status:", trip.status.value);
-          if (trip.driver && JSON.stringify(trip.driver) !== JSON.stringify(driver)) {
+          console.log(
+            "Background sync: Fetched current trip status:",
+            trip.status.value,
+          );
+          if (
+            trip.driver &&
+            JSON.stringify(trip.driver) !== JSON.stringify(driver)
+          ) {
             setDriver(trip.driver);
             setVehicle(trip.vehicle);
           }
-          if (trip.status.value === "active" && trip.progress !== tripProgress) {
+          if (
+            trip.status.value === "active" &&
+            trip.progress !== tripProgress
+          ) {
             setTripProgress(trip.progress || 0);
           }
-          if (trip.verification_code && trip.verification_code !== verificationCode) {
+          if (
+            trip.verification_code &&
+            trip.verification_code !== verificationCode
+          ) {
             setVerificationCode(trip.verification_code);
           }
           if (trip.status.value === "completed") {
@@ -1220,10 +1367,16 @@ if (!pickup || !pickupCodename) {
             setTripRequestError("No drivers available for your trip.");
           }
         } else {
-          console.error("Background sync: API call succeeded but response data/status was unexpected:", response);
+          console.error(
+            "Background sync: API call succeeded but response data/status was unexpected:",
+            response,
+          );
         }
       } catch (error) {
-        console.error("Background sync: Error fetching current trip status:", error);
+        console.error(
+          "Background sync: Error fetching current trip status:",
+          error,
+        );
       }
     },
     [
@@ -1243,37 +1396,39 @@ if (!pickup || !pickupCodename) {
       showNotification,
       preserveBookingContext,
       stopWebSocketConnection,
-    ]
+    ],
   );
 
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  const bookAsGuestRef = useRef(bookAsGuest);
+  const guestIdRef = useRef(guestId);
+  const previousScreenRef = useRef(previousScreen);
+  // Sync refs
+  useEffect(() => {
+    activeTripIdRef.current = activeTripId;
+  }, [activeTripId]);
+  useEffect(() => {
+    isAuthenticatedRef.current = isAuthenticated;
+  }, [isAuthenticated]);
+  useEffect(() => {
+    bookAsGuestRef.current = bookAsGuest;
+  }, [bookAsGuest]);
+  useEffect(() => {
+    guestIdRef.current = guestId;
+  }, [guestId]);
 
-
-const isAuthenticatedRef = useRef(isAuthenticated);
-const bookAsGuestRef = useRef(bookAsGuest);
-const guestIdRef = useRef(guestId);
-const previousScreenRef = useRef(previousScreen)
-// Sync refs
-useEffect(() => { activeTripIdRef.current = activeTripId; }, [activeTripId]);
-useEffect(() => { isAuthenticatedRef.current = isAuthenticated; }, [isAuthenticated]);
-useEffect(() => {bookAsGuestRef.current = bookAsGuest},[bookAsGuest])
-useEffect(() => {
-  guestIdRef.current = guestId
-}, [guestId])
-
-useEffect(()=>{
-  previousScreenRef.current = previousScreen
-}, [previousScreen])
-
-
-  
+  useEffect(() => {
+    previousScreenRef.current = previousScreen;
+  }, [previousScreen]);
 
   const handleResumeActiveTrip = useCallback(() => {
-    
     const currentActiveTripId = activeTripIdRef.current;
 
-    const isCurrentlyAuthenticated = isAuthenticatedRef.current && !bookAsGuestRef.current;
+    const isCurrentlyAuthenticated =
+      isAuthenticatedRef.current && !bookAsGuestRef.current;
 
-    const isCurrentlyGuest = !isAuthenticatedRef.current || bookAsGuestRef.current;
+    const isCurrentlyGuest =
+      !isAuthenticatedRef.current || bookAsGuestRef.current;
 
     const currentGuestId = guestIdRef.current;
 
@@ -1284,21 +1439,23 @@ useEffect(()=>{
       return;
     }
     const savedState = loadAppState();
-  
 
     if (!savedState || savedState.activeTripId !== activeTripId) {
-      console.warn("No valid persisted state found for the active trip ID, or trip ID mismatch.");
+      console.warn(
+        "No valid persisted state found for the active trip ID, or trip ID mismatch.",
+      );
       setScreen("booking");
       return;
     }
     console.log("Found persisted state, saved screen was:", savedState.screen);
     const savedScreen = previousScreenRef.current;
 
-    if (["assigning", "driver-assigned", "trip-progress"].includes(savedScreen)) {
-      
+    if (
+      ["assigning", "driver-assigned", "trip-progress"].includes(savedScreen)
+    ) {
       setScreen(savedScreen);
       setDriver(savedState.driver || null);
-      setVehicle(savedState.vehicle)
+      setVehicle(savedState.vehicle);
       setTripProgress(savedState.tripProgress || 0);
       setVerificationCode(savedState.verificationCode || "");
 
@@ -1306,11 +1463,19 @@ useEffect(()=>{
 
       // const isCurrentlyGuest = !isAuthenticated || bookAsGuest;
 
-
-      if (isCurrentlyAuthenticated && ["assigning", "driver-assigned", "trip-progress"].includes(savedScreen)) {
-        console.log("Resuming WebSocket for authenticated user based on saved screen.");
+      if (
+        isCurrentlyAuthenticated &&
+        ["assigning", "driver-assigned", "trip-progress"].includes(savedScreen)
+      ) {
+        console.log(
+          "Resuming WebSocket for authenticated user based on saved screen.",
+        );
         // startWebSocketConnectionForAuthUser(currentActiveTripId);
-      } else if (isCurrentlyGuest && guestId && ["assigning", "driver-assigned", "trip-progress"].includes(savedScreen)) {
+      } else if (
+        isCurrentlyGuest &&
+        guestId &&
+        ["assigning", "driver-assigned", "trip-progress"].includes(savedScreen)
+      ) {
         console.log("Resuming WebSocket for guest user based on saved screen.");
         // startWebSocketConnection(currentGuestId, currentActiveTripId);
       }
@@ -1320,7 +1485,9 @@ useEffect(()=>{
       setDriver(savedState.driver || null);
       setVehicle(savedState.vehicle || null);
     } else {
-      console.warn("Persisted screen state is inconsistent with activeTripId, going to booking.");
+      console.warn(
+        "Persisted screen state is inconsistent with activeTripId, going to booking.",
+      );
       setScreen("booking");
     }
   }, [
@@ -1348,7 +1515,13 @@ useEffect(()=>{
       const pageNum = 1;
       const limit = 10;
       const queryParams = `?page=${pageNum}&page_size=${limit}`;
-      const response = await apiClient.get(`/trips${queryParams}`, undefined, false, undefined, true);
+      const response = await apiClient.get(
+        `/trips${queryParams}`,
+        undefined,
+        false,
+        undefined,
+        true,
+      );
       console.log("Trip history API response for dashboard:", response);
       if (response.count > 0) {
         const history = response.results || [];
@@ -1374,47 +1547,75 @@ useEffect(()=>{
 
   const recentTripData = useMemo(() => {
     if (activeTripId && !bookAsGuest) {
-      console.log("Current session has an active trip. Looking for second most recent in history.");
+      console.log(
+        "Current session has an active trip. Looking for second most recent in history.",
+      );
       return tripHistory.length > 1 ? tripHistory[1] : null;
     } else {
-      console.log("Current session has no active trip. Checking history for resumable or fallback trip.");
+      console.log(
+        "Current session has no active trip. Checking history for resumable or fallback trip.",
+      );
       const terminalStatuses = ["completed", "cancelled"];
       if (bookAsGuest) {
         return tripHistory.length > 1 ? tripHistory[0] : null;
       }
-      const resumableTrip = tripHistory.find((trip) => !terminalStatuses.includes(trip.status.value));
+      const resumableTrip = tripHistory.find(
+        (trip) => !terminalStatuses.includes(trip.status.value),
+      );
       if (resumableTrip) {
-        console.log("Found a potentially active/resumable trip in history:", resumableTrip);
+        console.log(
+          "Found a potentially active/resumable trip in history:",
+          resumableTrip,
+        );
         return resumableTrip;
       }
       if (tripHistory.length > 0) {
-        console.log("No non-terminal trips found. Falling back to the most recent trip (might be terminal):", tripHistory[0]);
+        console.log(
+          "No non-terminal trips found. Falling back to the most recent trip (might be terminal):",
+          tripHistory[0],
+        );
         return tripHistory[0];
       }
-      console.log("No active trip and no history found. recentTripData will be null.");
+      console.log(
+        "No active trip and no history found. recentTripData will be null.",
+      );
       return null;
     }
   }, [activeTripId, bookAsGuest, tripHistory]);
 
-  const verify2FAAfterLogin = async (email: string, password: string, otp: string) => {
-    console.log("page.tsx: Attempting 2FA verification for login with email:", email);
+  const verify2FAAfterLogin = async (
+    email: string,
+    password: string,
+    otp: string,
+  ) => {
+    console.log(
+      "page.tsx: Attempting 2FA verification for login with email:",
+      email,
+    );
     try {
       const response = await apiClient.post(
         "/auth/passenger/2fa/verify",
         { email, password, otp },
         undefined,
         undefined,
-        true
+        true,
       );
       console.log("2FA Verification Response:", response);
-      if (response.status === "success" && response.data && response.data.token) {
+      if (
+        response.status === "success" &&
+        response.data &&
+        response.data.token
+      ) {
         console.log("2FA Verification successful. Token received.");
         await new Promise((resolve) => setTimeout(resolve, 500));
         await checkAuthStatus();
         return { success: true };
       } else {
         console.error("2FA Verification failed:", response);
-        return { success: false, message: response.message || "2FA verification failed." };
+        return {
+          success: false,
+          message: response.message || "2FA verification failed.",
+        };
       }
     } catch (err: any) {
       console.error("Error during 2FA verification API call:", err);
@@ -1430,8 +1631,13 @@ useEffect(()=>{
 
   const handle2FAOtpSubmit = async (otpCode: string) => {
     if (!pendingLoginCreds) {
-      console.error("page.tsx: No pending login credentials found for 2FA verification.");
-      showNotification("Session expired. Please try logging in again.", "error");
+      console.error(
+        "page.tsx: No pending login credentials found for 2FA verification.",
+      );
+      showNotification(
+        "Session expired. Please try logging in again.",
+        "error",
+      );
       setShow2FAOtpModal(false);
       return;
     }
@@ -1439,40 +1645,51 @@ useEffect(()=>{
     const { email, password } = pendingLoginCreds;
     const result = await verify2FAAfterLogin(email, password, otpCode);
     if (result.success) {
-      console.log("page.tsx: 2FA verification successful. User is now fully authenticated.");
+      console.log(
+        "page.tsx: 2FA verification successful. User is now fully authenticated.",
+      );
       showNotification("Login successful!", "success");
       setShow2FAOtpModal(false);
       setPendingLoginCreds(null);
     } else {
       console.error("page.tsx: 2FA verification failed:", result.message);
-      showNotification(result.message || "2FA verification failed. Please try again.", "error");
+      showNotification(
+        result.message || "2FA verification failed. Please try again.",
+        "error",
+      );
     }
   };
 
   const handleRequires2FA = useCallback(
     (email: string, password: string) => {
-      console.log("page.tsx: Received 2FA requirement from LoginModal for email:", email);
+      console.log(
+        "page.tsx: Received 2FA requirement from LoginModal for email:",
+        email,
+      );
       setPendingLoginCreds({ email, password });
       setShowLogin(false);
       setShow2FAOtpModal(true);
     },
-    [setShowLogin, setShow2FAOtpModal, setPendingLoginCreds]
+    [setShowLogin, setShow2FAOtpModal, setPendingLoginCreds],
   );
 
   const updateAccountData = useCallback(
     (newAccountData: any) => {
-      console.log("Updating account data state after API call:", newAccountData);
+      console.log(
+        "Updating account data state after API call:",
+        newAccountData,
+      );
       setAccountData(newAccountData);
     },
-    [setAccountData]
+    [setAccountData],
   );
-
-
-
 
   const handleResumeTripById = useCallback(
     async (tripIdToResume: string) => {
-      console.log("Attempting to resume trip by ID from dashboard:", tripIdToResume);
+      console.log(
+        "Attempting to resume trip by ID from dashboard:",
+        tripIdToResume,
+      );
       if (!tripIdToResume) {
         console.warn("No trip ID provided to resume.");
         setScreen("booking");
@@ -1483,14 +1700,33 @@ useEffect(()=>{
         const isCurrentlyGuest = !isAuthenticated || bookAsGuest;
         let response;
         if (isCurrentlyAuthenticated) {
-          console.log("Resuming trip via authenticated endpoint with tripId:", tripIdToResume);
-          response = await apiClient.get(`/trips/${tripIdToResume}`, undefined, false, undefined, true);
+          console.log(
+            "Resuming trip via authenticated endpoint with tripId:",
+            tripIdToResume,
+          );
+          response = await apiClient.get(
+            `/trips/${tripIdToResume}`,
+            undefined,
+            false,
+            undefined,
+            true,
+          );
           console.log(response);
         } else if (isCurrentlyGuest && guestId) {
-          console.log("Resuming trip via guest endpoint with guestId:", guestId);
-          response = await apiClient.get(`/trips/${tripIdToResume}?guest_id=${guestId}`, undefined, true, guestId);
+          console.log(
+            "Resuming trip via guest endpoint with guestId:",
+            guestId,
+          );
+          response = await apiClient.get(
+            `/trips/${tripIdToResume}?guest_id=${guestId}`,
+            undefined,
+            true,
+            guestId,
+          );
         } else {
-          console.error("Cannot resume trip: No valid auth context (token or guestId) for the provided trip ID.");
+          console.error(
+            "Cannot resume trip: No valid auth context (token or guestId) for the provided trip ID.",
+          );
           setScreen("booking");
           return;
         }
@@ -1504,10 +1740,16 @@ useEffect(()=>{
           setVerificationCode(trip.verification_code || "");
           setPickup(trip.pickup_address || "");
           setDestination(trip.destination_address || "");
-          setFareEstimate(trip.amount?.amount ? parseFloat(trip.amount.amount) : null);
-          setPickupCoords(trip.map_data.pickup_location.geometry.coordinates || null);
+          setFareEstimate(
+            trip.amount?.amount ? parseFloat(trip.amount.amount) : null,
+          );
+          setPickupCoords(
+            trip.map_data.pickup_location.geometry.coordinates || null,
+          );
           console.log("Pickup coords", pickupCoords);
-          setDestinationCoords(trip.map_data.destination_location.geometry.coordinates || null);
+          setDestinationCoords(
+            trip.map_data.destination_location.geometry.coordinates || null,
+          );
           if (trip?.map_data?.airport?.pickup_area) {
             setAirportPickupArea(trip.map_data.airport.pickup_area);
           }
@@ -1521,7 +1763,7 @@ useEffect(()=>{
           } else if (trip.status.value === "accepted") {
             setScreen("driver-assigned");
             setDriver(trip.driver);
-            setVehicle(trip.vehicle)
+            setVehicle(trip.vehicle);
             setVerificationCode(trip.verification_code);
             if (isCurrentlyAuthenticated) {
               startWebSocketConnectionForAuthUser(trip.id);
@@ -1531,7 +1773,7 @@ useEffect(()=>{
           } else if (trip.status.value === "active") {
             setScreen("trip-progress");
             setDriver(trip.driver);
-            setVehicle(trip.vehicle)
+            setVehicle(trip.vehicle);
             setTripProgress(trip.progress || 0);
             if (isCurrentlyAuthenticated) {
               startWebSocketConnectionForAuthUser(trip.id);
@@ -1549,7 +1791,9 @@ useEffect(()=>{
               setPollingIntervalId(null);
             }
           } else if (trip.status.value === "cancelled") {
-            console.log("Trip was cancelled, clearing ID and going to dashboard.");
+            console.log(
+              "Trip was cancelled, clearing ID and going to dashboard.",
+            );
             setActiveTripId(null);
             preserveBookingContext();
             stopWebSocketConnection();
@@ -1560,7 +1804,10 @@ useEffect(()=>{
             }
             setScreen("dashboard");
           } else {
-            console.warn("Unexpected trip status on resume by ID from dashboard:", trip.status.value);
+            console.warn(
+              "Unexpected trip status on resume by ID from dashboard:",
+              trip.status.value,
+            );
             setScreen("booking");
             stopWebSocketConnection();
             if (pollingIntervalRef.current) {
@@ -1585,7 +1832,10 @@ useEffect(()=>{
           };
           saveAppState(stateToSave);
         } else {
-          console.error("Failed to fetch trip details for resume from dashboard:", response);
+          console.error(
+            "Failed to fetch trip details for resume from dashboard:",
+            response,
+          );
           setScreen("booking");
           if (activeTripId === tripIdToResume) {
             setActiveTripId(null);
@@ -1626,18 +1876,24 @@ useEffect(()=>{
       screen,
       destinationCoords,
       pickupCoords,
-    ]
+    ],
   );
 
   const handleHomeClick = useCallback(() => {
     if (screen === "dashboard") return;
     if (activeTripId) {
-      console.log("Navigating to dashboard with active trip. Current screen:", screen);
+      console.log(
+        "Navigating to dashboard with active trip. Current screen:",
+        screen,
+      );
       setPreviousScreen(screen);
       setIsNavigatingToDashboard(true);
       setScreen("dashboard");
     } else {
-      console.log("Navigating to booking (no active trip). Current screen:", screen);
+      console.log(
+        "Navigating to booking (no active trip). Current screen:",
+        screen,
+      );
       setScreen("dashboard");
     }
   }, [activeTripId, screen]);
@@ -1660,78 +1916,97 @@ useEffect(()=>{
   //   }
   // };
 
-const handleLogout = async () => {
-  try {
-    await logout();
-    setScreen("booking"); // or '/booking'
-  } catch (err) {
-    console.error('Logout error', err);
-    showNotification('Logout failed. Please try again.', 'error');
-  }
-};
-
-
-
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setScreen("booking"); // or '/booking'
+    } catch (err) {
+      console.error("Logout error", err);
+      showNotification("Logout failed. Please try again.", "error");
+    }
+  };
 
   const handleAccountDeletionSuccess = () => {
     console.log("Account deletion confirmed. Loggin out user");
     showNotification("Account deleted successfully.", "success");
     setShowAccountDeletionModal(false);
     window.location.href = "/";
-    
   };
 
-  const [resolvedLocationName, setResolvedLocationName] = useState<string | null>(null);
+  const [resolvedLocationName, setResolvedLocationName] = useState<
+    string | null
+  >(null);
 
-  const reverseGeocodeLocation = useCallback(async (lat: number, lng: number): Promise<string | null> => {
-    try {
-      const GEOCODE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
-      if (!GEOCODE_API_KEY) {
-        throw new Error("Geocoding API key is not configured.");
-      }
-      const GEOCODE_API_URL = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GEOCODE_API_KEY}`;
-      const response = await fetch(GEOCODE_API_URL);
-      if (!response.ok) {
-        throw new Error(`Geocoding API request failed with status ${response.status}`);
-      }
-      const data = await response.json();
-      console.log("Reverse geocode response:", data);
-      if (data.status === "OK" && data.results && data.results.length > 0) {
-        const result = data.results[0];
-        const addressComponents = result.address_components;
-        let locality = "";
-        let administrativeArea = "";
-        let country = "";
-        if (addressComponents) {
-          for (let component of addressComponents) {
-            const types = component.types;
-            if (types.includes("locality") && types.includes("political")) {
-              locality = component.long_name;
-            } else if (types.includes("administrative_area_level_1") && types.includes("political")) {
-              administrativeArea = component.short_name;
-            } else if (types.includes("country") && types.includes("political")) {
-              country = component.short_name;
+  const reverseGeocodeLocation = useCallback(
+    async (lat: number, lng: number): Promise<string | null> => {
+      try {
+        const GEOCODE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+        if (!GEOCODE_API_KEY) {
+          throw new Error("Geocoding API key is not configured.");
+        }
+        const GEOCODE_API_URL = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GEOCODE_API_KEY}`;
+        const response = await fetch(GEOCODE_API_URL);
+        if (!response.ok) {
+          throw new Error(
+            `Geocoding API request failed with status ${response.status}`,
+          );
+        }
+        const data = await response.json();
+        console.log("Reverse geocode response:", data);
+        if (data.status === "OK" && data.results && data.results.length > 0) {
+          const result = data.results[0];
+          const addressComponents = result.address_components;
+          let locality = "";
+          let administrativeArea = "";
+          let country = "";
+          if (addressComponents) {
+            for (let component of addressComponents) {
+              const types = component.types;
+              if (types.includes("locality") && types.includes("political")) {
+                locality = component.long_name;
+              } else if (
+                types.includes("administrative_area_level_1") &&
+                types.includes("political")
+              ) {
+                administrativeArea = component.short_name;
+              } else if (
+                types.includes("country") &&
+                types.includes("political")
+              ) {
+                country = component.short_name;
+              }
             }
           }
-        }
-        let locationName = "";
-        if (locality) locationName = locality;
-        if (administrativeArea) locationName = locationName ? `${locationName}, ${administrativeArea}` : administrativeArea;
-        if (country) locationName = locationName ? `${locationName}, ${country}` : country;
-        if (locationName) {
-          return locationName;
+          let locationName = "";
+          if (locality) locationName = locality;
+          if (administrativeArea)
+            locationName = locationName
+              ? `${locationName}, ${administrativeArea}`
+              : administrativeArea;
+          if (country)
+            locationName = locationName
+              ? `${locationName}, ${country}`
+              : country;
+          if (locationName) {
+            return locationName;
+          } else {
+            return result.formatted_address || null;
+          }
         } else {
-          return result.formatted_address || null;
+          console.warn(
+            "Geocoding API returned no results for coordinates:",
+            lat,
+            lng,
+          );
+          return null;
         }
-      } else {
-        console.warn("Geocoding API returned no results for coordinates:", lat, lng);
+      } catch (error) {
+        console.error("Error reverse geocoding location:", error);
         return null;
       }
-    } catch (error) {
-      console.error("Error reverse geocoding location:", error);
-      return null;
-    }
-  }, []);
+    },
+    [],
+  );
 
   const weatherFetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitialWeatherFetch = useRef(false);
@@ -1750,7 +2025,11 @@ const handleLogout = async () => {
       try {
         const locationName = await reverseGeocodeLocation(lat, lng);
         if (!locationName) {
-          console.warn("Could not determine location name for coordinates:", lat, lng);
+          console.warn(
+            "Could not determine location name for coordinates:",
+            lat,
+            lng,
+          );
           setWeatherData(null);
           setWeatherError("Could not determine location name.");
           setResolvedLocationName(null);
@@ -1777,30 +2056,32 @@ const handleLogout = async () => {
         console.log(data);
         const parsedWeather = {
           temp: Math.round(data.temperature?.degrees) || 0,
-          condition: data.weatherCondition?.description?.text?.toLowerCase() || data.weatherCondition?.type?.toLowerCase() || "unknown",
+          condition:
+            data.weatherCondition?.description?.text?.toLowerCase() ||
+            data.weatherCondition?.type?.toLowerCase() ||
+            "unknown",
           location: locationName,
           humidity: data.relativeHumidity || undefined,
-          windSpeed: data.wind?.speed?.value ? (data.wind.speed.value / 3.6).toFixed(2) : undefined,
+          windSpeed: data.wind?.speed?.value
+            ? (data.wind.speed.value / 3.6).toFixed(2)
+            : undefined,
         };
         setWeatherData(parsedWeather);
         hasInitialWeatherFetch.current = true;
         console.log("Weather data set:", parsedWeather);
       } catch (error) {
         console.error("Error fetching weather:", error);
-        setWeatherError(error instanceof Error ? error.message : "Unknown error");
+        setWeatherError(
+          error instanceof Error ? error.message : "Unknown error",
+        );
         setWeatherData(null);
         setResolvedLocationName(null);
       } finally {
         setWeatherLoading(false);
       }
     },
-    [reverseGeocodeLocation]
+    [reverseGeocodeLocation],
   );
-
-
-  
-
-
 
   useEffect(() => {
     if (weatherFetchTimeoutRef.current) {
@@ -1815,20 +2096,27 @@ const handleLogout = async () => {
       return;
     }
     const [lat, lng] = passengerLiveLocation;
-    if (typeof lat !== "number" || typeof lng !== "number" || isNaN(lat) || isNaN(lng)) {
+    if (
+      typeof lat !== "number" ||
+      typeof lng !== "number" ||
+      isNaN(lat) ||
+      isNaN(lng)
+    ) {
       console.warn("Invalid coordinates:", passengerLiveLocation);
-      console.log("passenger live location coords", {lat, lng})
+      console.log("passenger live location coords", { lat, lng });
       setWeatherData(null);
       setWeatherError("Invalid location coordinates.");
       return;
     }
     if (!hasInitialWeatherFetch.current) {
       console.log("First valid location detected, fetching weather...");
-      console.log("passenger live location coords", {lat, lng})
+      console.log("passenger live location coords", { lat, lng });
       fetchWeatherData(lat, lng);
       return;
     }
-    console.log("Location updated, but initial weather already fetched. Skipping.");
+    console.log(
+      "Location updated, but initial weather already fetched. Skipping.",
+    );
     return () => {
       if (weatherFetchTimeoutRef.current) {
         clearTimeout(weatherFetchTimeoutRef.current);
@@ -1836,90 +2124,84 @@ const handleLogout = async () => {
     };
   }, [hasHydrated, isAuthenticated, passengerLiveLocation, fetchWeatherData]);
 
+  const { isLoaded: isGoogleMapsLoaded, loadError: googleMapsLoadError } =
+    useJsApiLoader({
+      id: "google-map-script",
+      googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+      libraries: ["places", "geometry"],
+    });
 
-   const { isLoaded: isGoogleMapsLoaded, loadError: googleMapsLoadError } =
-      useJsApiLoader({
-        id: "google-map-script",
-        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-        libraries: ["places", "geometry"],
-      });
-  
-    if (googleMapsLoadError) {
-      console.error("Failed to load Google Maps API:", googleMapsLoadError);
-      return <div>Error loading Google Maps.</div>;
-    }
-
-
-useEffect(() => {
-  const initStatusBar = async () => {
-    if (Capacitor.isNativePlatform()) {
-      await StatusBar.setBackgroundColor({ color: '#059669' });
-      await StatusBar.setStyle({ style: Style.Dark }); // 'Dark' enum = White text on Dark background
-    }
-  };
-  initStatusBar();
-}, []);
-
-
-useEffect(() => {
-  const showHandler = Keyboard.addListener('keyboardWillShow', () => {
-    // Small delay to allow the resize to happen first
-    setTimeout(() => {
-      if (document.activeElement) {
-        document.activeElement.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center' 
-        });
-      }
-    }, 100);
-  });
-
-  return () => {
-    showHandler.remove();
-  };
-}, []);
-
-const [showGpsError, setShowGpsError] = useState(false);
-
-
-useEffect(() => {
-  if (error?.includes('timeout')) {
-    setShowGpsError(true);
-
-    const timer = setTimeout(() => {
-      setShowGpsError(false);
-    }, 5000);
-
-    return () => clearTimeout(timer);
+  if (googleMapsLoadError) {
+    console.error("Failed to load Google Maps API:", googleMapsLoadError);
+    return <div>Error loading Google Maps.</div>;
   }
-}, [error]);
 
-    // only show on ios
-// if (showIOSInstallGuide) {
-//   return (
-//     <div className="fixed inset-0 flex items-center justify-center bg-achrams-bg-primary">
-//       <div className="p-4 bg-[#059669] text-white text-center rounded-lg max-w-sm mx-4">
-//         <p className="text-lg font-semibold mb-2">Install ACHRAMS</p>
-//         <p>
-//           Tap <b>Share</b> → <b>Add to Home Screen</b> for the full app experience!
-//         </p>
-//       </div>
-//     </div>
-//   );
-// }
+  useEffect(() => {
+    const initStatusBar = async () => {
+      if (Capacitor.isNativePlatform()) {
+        await StatusBar.setBackgroundColor({ color: "#059669" });
+        await StatusBar.setStyle({ style: Style.Dark }); // 'Dark' enum = White text on Dark background
+      }
+    };
+    initStatusBar();
+  }, []);
 
+  useEffect(() => {
+    const showHandler = Keyboard.addListener("keyboardWillShow", () => {
+      // Small delay to allow the resize to happen first
+      setTimeout(() => {
+        if (document.activeElement) {
+          document.activeElement.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }
+      }, 100);
+    });
 
+    return () => {
+      showHandler.remove();
+    };
+  }, []);
 
+  const [showGpsError, setShowGpsError] = useState(false);
 
+  useEffect(() => {
+    if (error?.includes("timeout")) {
+      setShowGpsError(true);
 
-  if (!hasHydrated || isAuthLoading || !initComplete ) {
+      const timer = setTimeout(() => {
+        setShowGpsError(false);
+      }, 5000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  // only show on ios
+  // if (showIOSInstallGuide) {
+  //   return (
+  //     <div className="fixed inset-0 flex items-center justify-center bg-achrams-bg-primary">
+  //       <div className="p-4 bg-[#059669] text-white text-center rounded-lg max-w-sm mx-4">
+  //         <p className="text-lg font-semibold mb-2">Install ACHRAMS</p>
+  //         <p>
+  //           Tap <b>Share</b> → <b>Add to Home Screen</b> for the full app experience!
+  //         </p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
+
+  if (!hasHydrated || isAuthLoading || !initComplete) {
     return (
-      <div 
-      suppressHydrationWarning
-      className="fixed inset-0 flex items-center justify-center bg-achrams-bg-primary z-50">
-        <div 
+      <div
         suppressHydrationWarning
-        className="absolute inset-0 bg-gradient-to-br from-achrams-primary-solid/5 via-achrams-secondary-solid/5 to-achrams-bg-primary"></div>
+        className="fixed inset-0 flex items-center justify-center bg-achrams-bg-primary z-50"
+      >
+        <div
+          suppressHydrationWarning
+          className="absolute inset-0 bg-gradient-to-br from-achrams-primary-solid/5 via-achrams-secondary-solid/5 to-achrams-bg-primary"
+        ></div>
         <div className="relative z-10 flex flex-col items-center space-y-6">
           <div className="relative">
             <div
@@ -1953,7 +2235,8 @@ useEffect(() => {
         </div>
         <style jsx>{`
           @keyframes pulse {
-            0%, 100% {
+            0%,
+            100% {
               opacity: 0.3;
               transform: scale(1);
             }
@@ -2025,8 +2308,6 @@ useEffect(() => {
             : undefined
         }
         screenPaddingClass={screenPaddingClass}
-
-
         showVehicleCategories={showVehicleCategories}
         setShowVehicleCategories={setShowVehicleCategories}
         selectedCategory={selectedCategory}
@@ -2037,18 +2318,21 @@ useEffect(() => {
         handleBackToCategories={handleBackToCategories}
         onDestinationSelected={handleDestinationSelected}
         getCategoryIcon={getCategoryIcon}
-
         numberOfSeats={numberOfSeats}
         setNumberOfSeats={setNumberOfSeats}
         isStrictPreferences={isStrictPreferences}
         setIsStrictPreferences={setIsStrictPreferences}
-
         passengerLiveLocation={passengerLiveLocation} // NEW
         onRefreshLocation={handleRefreshLocation} // NEW
       />
     );
   } else if (screen === "assigning") {
-    mainContent = <AssigningScreen status={tripRequestStatus} isAuthenticated={isAuthenticated} />;
+    mainContent = (
+      <AssigningScreen
+        status={tripRequestStatus}
+        isAuthenticated={isAuthenticated}
+      />
+    );
   } else if (screen === "driver-assigned") {
     mainContent = (
       <DriverAssignedScreen
@@ -2156,7 +2440,6 @@ useEffect(() => {
           setVehicle(null);
           setTripProgress(0);
           setVerificationCode(null);
-         
         }}
         onShowWallet={() => setShowWallet(true)}
         onShowSettings={() => setShowSettings(true)}
@@ -2201,7 +2484,12 @@ useEffect(() => {
       />
     );
   } else if (showWallet) {
-    mainContent = <WalletScreen balance={walletBalance} onBack={() => setShowWallet(false)} />;
+    mainContent = (
+      <WalletScreen
+        balance={walletBalance}
+        onBack={() => setShowWallet(false)}
+      />
+    );
   } else if (showSettings) {
     mainContent = (
       <SettingsScreen
@@ -2239,7 +2527,6 @@ useEffect(() => {
             overflow-y-auto
           "
         >
-
           <IOSInstallBanner />
 
           {currentNotification && (
@@ -2265,7 +2552,6 @@ useEffect(() => {
             bookAsGuest={bookAsGuest}
             setTripRequestStatus={setTripRequestStatus}
             setTripRequestError={setTripRequestError}
-
             numberOfSeats={numberOfSeats}
             setNumberOfSeats={setNumberOfSeats}
             isStrictPreferences={isStrictPreferences}
@@ -2274,21 +2560,27 @@ useEffect(() => {
             fareEstimate={fareEstimate}
             keyboardHeight={keyboardHeight}
           />
-          {hasHydrated && !['trip-progress', 'trip-complete', 'booking', 'dashboard'].includes(screen) &&(
-            <DirectionsModal
-              isOpen={showDirections}
-              onClose={() => setShowDirections(false)}
-              pickup={pickup}
-              pickupCoords={pickupCoords}
-              destination={destination}
-              destinationCoords={destinationCoords}
-              driverLocation={driver?.location || null}
-              passengerLocation={passengerLiveLocation}
-              airportPickupArea={airportPickupArea}
-              isGoogleMapsLoaded={isGoogleMapsLoaded}
-              googleMapsLoadError={googleMapsLoadError}
-            />
-          )}
+          {hasHydrated &&
+            ![
+              "trip-progress",
+              "trip-complete",
+              "booking",
+              "dashboard",
+            ].includes(screen) && (
+              <DirectionsModal
+                isOpen={showDirections}
+                onClose={() => setShowDirections(false)}
+                pickup={pickup}
+                pickupCoords={pickupCoords}
+                destination={destination}
+                destinationCoords={destinationCoords}
+                driverLocation={driver?.location || null}
+                passengerLocation={passengerLiveLocation}
+                airportPickupArea={airportPickupArea}
+                isGoogleMapsLoaded={isGoogleMapsLoaded}
+                googleMapsLoadError={googleMapsLoadError}
+              />
+            )}
           <PanicModal
             isOpen={showPanic}
             onClose={() => setShowPanic(false)}
@@ -2333,18 +2625,19 @@ useEffect(() => {
               ...passengerData,
               password: signupPasswordForOtp,
             }}
-            
-            onComplete={ async () => {
-
-              await new Promise(resolve => setTimeout(resolve, 300));
+            onComplete={async () => {
+              await new Promise((resolve) => setTimeout(resolve, 300));
 
               await checkAuthStatus();
-              
+
               setCurrentNotification({
                 message: "Account Creation was Successful. Welcome",
                 type: "success",
               });
-              console.log("Testing if user is authenticated: ", isAuthenticated)
+              console.log(
+                "Testing if user is authenticated: ",
+                isAuthenticated,
+              );
 
               setScreen("dashboard");
               setShowOTP(false);
@@ -2373,7 +2666,11 @@ useEffect(() => {
             message={tripRequestError}
             onClose={() => {
               setTripRequestStatus(null);
-              if (typeof window !== "undefined" && window.sessionStorage && tripRequestStatus === "no-driver") {
+              if (
+                typeof window !== "undefined" &&
+                window.sessionStorage &&
+                tripRequestStatus === "no-driver"
+              ) {
                 console.log("Clearing TripData in session");
                 preserveBookingContext();
                 sessionStorage.removeItem("tripData");
@@ -2383,7 +2680,10 @@ useEffect(() => {
               }
             }}
             onConfirm={() => {
-              if (tripRequestStatus === "no-driver" || tripRequestStatus === "error") {
+              if (
+                tripRequestStatus === "no-driver" ||
+                tripRequestStatus === "error"
+              ) {
                 console.log("Retrying booking process...");
                 setTripRequestStatus(null);
                 setBookTripRetry(true);
@@ -2404,7 +2704,10 @@ useEffect(() => {
             onLoginSuccess={handleLoginSuccess}
             onRequires2FA={handleRequires2FA}
             onLoginError={(errorMessage) => {
-              console.log("page.tsx: Received login error from modal:", errorMessage);
+              console.log(
+                "page.tsx: Received login error from modal:",
+                errorMessage,
+              );
               showNotification(errorMessage, "error");
             }}
             setShowPasswordResetModal={setShowPasswordResetModal}
@@ -2534,15 +2837,15 @@ useEffect(() => {
       )}
 
       {showGpsError && (
-      <div className="p-3 bg-yellow-50 border-l-4 border-yellow-500 absolute top-0 w-full z-[1000]">
-        <p className="text-sm text-yellow-800">
-          GPS signal weak? Ensure:
-          <br />• Location is ON
-          <br />• Battery optimization is OFF for ACHRAMS
-          <br />• Try moving outdoors
-        </p>
-      </div>
-    )}
+        <div className="p-3 bg-yellow-50 border-l-4 border-yellow-500 absolute top-0 w-full z-[1000]">
+          <p className="text-sm text-yellow-800">
+            GPS signal weak? Ensure:
+            <br />• Location is ON
+            <br />• Battery optimization is OFF for ACHRAMS
+            <br />• Try moving outdoors
+          </p>
+        </div>
+      )}
 
       {/* {process.env.NODE_ENV === 'development' && passengerLiveLocation && (
         <div 
