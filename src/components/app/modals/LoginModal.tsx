@@ -165,7 +165,11 @@ export default function LoginModal({
     
     >
       <div className="bg-white max-w-md mx-auto w-full rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border"
-      style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      // style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      style={{
+        maxHeight: keyboardHeight ? `calc(85dvh - ${keyboardHeight}px)` : '85dvh',
+        paddingBottom: keyboardHeight ? '16px' : undefined
+      }}
       >
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-xl font-bold text-achrams-text-primary">Sign In to your account</h3>

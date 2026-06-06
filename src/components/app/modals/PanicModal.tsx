@@ -146,7 +146,12 @@ export default function PanicModal({
       <div
         className="w-full max-w-md bg-white rounded-2xl shadow-lg overflow-hidden sm:rounded-3xl transform transition-all duration-300"
 
-        style={{ transform: `translateY(-${keyboardHeight}px)` }}
+        // style={{ transform: `translateY(-${keyboardHeight}px)` }}
+
+        style={{
+        maxHeight: keyboardHeight ? `calc(85dvh - ${keyboardHeight}px)` : '85dvh',
+        paddingBottom: keyboardHeight ? '16px' : undefined
+      }}
 
         onClick={(e) => e.stopPropagation()} // prevent closing on inner click
       >

@@ -92,7 +92,12 @@ export default function PassengerDetailsModal({
     <div className=" fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50"> 
       {/* The modal content */}
       <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border"
-      style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      // style={{ transform: `translateY(-${keyboardHeight}px)` }}
+
+      style={{
+          maxHeight: keyboardHeight ? `calc(85dvh - ${keyboardHeight}px)` : '85dvh',
+          paddingBottom: keyboardHeight ? '16px' : undefined
+        }}
       >
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold text-achrams-text-primary">Passenger details</h3>

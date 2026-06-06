@@ -61,7 +61,7 @@ import IOSInstallBanner from "@/components/app/ui/IOSInstallBanner";
 import NoInternetModal from "./modals/NoInternetModal";
 import { useLocation } from "@/hooks/useLocation";
 import { useStatusBarTheme } from "@/hooks/useStatusBarTheme";
-import { Keyboard, KeyboardResize } from "@capacitor/keyboard";
+import { Keyboard, KeyboardInfo, KeyboardResize } from "@capacitor/keyboard";
 import { Capacitor } from "@capacitor/core";
 import { StatusBar, Style } from "@capacitor/status-bar";
 
@@ -347,27 +347,57 @@ export default function ACHRAMApp() {
 
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-  useEffect(() => {
-    if (Capacitor.getPlatform() !== "ios") return;
+  // useEffect(() => {
+  //   if (Capacitor.getPlatform() !== "ios") return;
 
-    Keyboard.setResizeMode({ mode: KeyboardResize.Body });
-    Keyboard.setScroll({ isDisabled: true });
+  //   Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+  //   Keyboard.setScroll({ isDisabled: true });
 
-    const show = Keyboard.addListener("keyboardWillShow", (info) => {
+  //   const show = Keyboard.addListener("keyboardWillShow", (info) => {
+  //     setKeyboardHeight(info.keyboardHeight);
+  //   });
+  //   const hide = Keyboard.addListener("keyboardWillHide", () => {
+  //     setKeyboardHeight(0);
+  //   });
+  //   return () => {
+  //     show.remove();
+  //     hide.remove();
+  //   };
+  // }, []);
+
+ const isNative = Capacitor.isNativePlatform();
+
+useEffect(() => {
+  if (!isNative) return;
+
+  // Let the WebView resize, don't also scroll
+  Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+  Keyboard.setScroll({ isDisabled: true });
+
+  const show = Keyboard.addListener('keyboardDidShow', (info: KeyboardInfo) => {
+    setKeyboardHeight(info.keyboardHeight);
+  });
+  
+  const hide = Keyboard.addListener('keyboardDidHide', () => {
+    setKeyboardHeight(0);
+  });
+
+  // iOS also fires WillShow earlier, use it for smoother animation
+  let showWill: any;
+  if (Capacitor.getPlatform() === 'ios') {
+    showWill = Keyboard.addListener('keyboardWillShow', (info) => {
       setKeyboardHeight(info.keyboardHeight);
     });
-    const hide = Keyboard.addListener("keyboardWillHide", () => {
-      setKeyboardHeight(0);
-    });
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
+  }
 
-  useEffect(() => {
-    console.log(keyboardHeight);
-  }, [keyboardHeight]);
+  return () => {
+    show.remove();
+    hide.remove();
+    showWill?.remove();
+  };
+}, [isNative]);
+
+
 
   useEffect(() => {
     const shouldRequestLocation = () => {
