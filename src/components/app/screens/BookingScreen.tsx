@@ -73,7 +73,6 @@ interface BookingScreenProps {
   handleCategorySelect: (category: any) => void;
   handleBackToCategories: () => void;
   onDestinationSelected: (
-
     destination: string,
     coords: [number, number],
     destinationFareZone: string,
@@ -83,7 +82,7 @@ interface BookingScreenProps {
   setNumberOfSeats: (val: number) => void;
   isStrictPreferences: boolean;
   setIsStrictPreferences: (val: boolean) => void;
-  passengerLiveLocation: [number, number] | null; 
+  passengerLiveLocation: [number, number] | null;
   onRefreshLocation?: () => void; // NEW: Optional refresh handler
 }
 
@@ -153,7 +152,7 @@ export default function BookingScreen({
   setNumberOfSeats,
   isStrictPreferences,
   setIsStrictPreferences,
-  passengerLiveLocation, 
+  passengerLiveLocation,
   onRefreshLocation,
 }: BookingScreenProps) {
   const [pickupOpen, setPickupOpen] = useState(false);
@@ -323,7 +322,7 @@ export default function BookingScreen({
     let locality: string | null = null;
     let sublocality: string | null = null;
 
-    console.log('Place Object', place);
+    console.log("Place Object", place);
 
     place.address_components?.forEach((component) => {
       const types = component.types;
@@ -430,19 +429,18 @@ export default function BookingScreen({
           });
           setDestOpen(false);
 
-          
-
-           onDestinationSelected(fullAddress, [lng, lat], fareZone || fullAddress);
+          onDestinationSelected(
+            fullAddress,
+            [lng, lat],
+            fareZone || fullAddress,
+          );
           //  alert(fareZone)
-
         } else {
           console.error("Place selected but no geometry.location found.");
         }
       }
     }
   }, [isGoogleMapsLoaded, onDestinationSelected]);
-
-
 
   const handlePickupPlaceChanged = useCallback(() => {
     if (isGoogleMapsLoaded && pickupSearchBoxRef.current) {
@@ -572,81 +570,85 @@ export default function BookingScreen({
   //   }
   // }, [error, requestPermission]);
 
-
   const handleUseCurrentLocation = useCallback(async () => {
-  // FIRST: Check if we already have valid coordinates from parent
-  if (passengerLiveLocation && 
-      passengerLiveLocation.length === 2 && 
-      !isNaN(passengerLiveLocation[0]) && 
-      !isNaN(passengerLiveLocation[1])) {
-    console.log('✅ Using existing coordinates:', passengerLiveLocation);
-    
-    // Use existing coordinates to find airports
-    const [lat, lng] = passengerLiveLocation;
-    const airports = await findNearestAirport(lng, lat);
-    setPickupOpen(false);
-    
-    if (airports && airports.length > 0) {
-      if (airports.length === 1) {
-        setPickupLocationData({
-          name: airports[0].name,
-          coords: [lng, lat],
-          id: airports[0].id,
-          codename: airports[0].codename,
-        });
-      } else {
-        setAirportsToSelect(airports);
-        setShowAirportSelectionModal(true);
-        geolocationCoordsRef.current = [lng, lat];
+    // FIRST: Check if we already have valid coordinates from parent
+    if (
+      passengerLiveLocation &&
+      passengerLiveLocation.length === 2 &&
+      !isNaN(passengerLiveLocation[0]) &&
+      !isNaN(passengerLiveLocation[1])
+    ) {
+      console.log("✅ Using existing coordinates:", passengerLiveLocation);
+
+      // Use existing coordinates to find airports
+      const [lat, lng] = passengerLiveLocation;
+      const airports = await findNearestAirport(lng, lat);
+      setPickupOpen(false);
+
+      if (airports && airports.length > 0) {
+        if (airports.length === 1) {
+          setPickupLocationData({
+            name: airports[0].name,
+            coords: [lng, lat],
+            id: airports[0].id,
+            codename: airports[0].codename,
+          });
+        } else {
+          setAirportsToSelect(airports);
+          setShowAirportSelectionModal(true);
+          geolocationCoordsRef.current = [lng, lat];
+        }
+        return; // Exit early, no need to request permission
       }
-      return; // Exit early, no need to request permission
     }
-  }
-  
-  // SECOND: If no existing coordinates, request fresh location
-  console.log('⚠️ No existing coordinates, requesting fresh location...');
-  
-  if (error?.includes("denied")) {
-    setShowLocationSettingsModal(true);
+
+    // SECOND: If no existing coordinates, request fresh location
+    console.log("⚠️ No existing coordinates, requesting fresh location...");
+
+    if (error?.includes("denied")) {
+      setShowLocationSettingsModal(true);
+      setPickupOpen(false);
+      return;
+    }
+
+    setIsFetchingLocation(true);
     setPickupOpen(false);
-    return;
-  }
-  
-  setIsFetchingLocation(true);
-  setPickupOpen(false);
-  
-  try {
-    const position = await requestPermission();
-    if (!position) throw new Error("No coordinates");
-    
-    const { latitude, longitude } = position;
-    const coords = [longitude, latitude] as [number, number];
-    geolocationCoordsRef.current = coords;
-    
-    const airports = await findNearestAirport(longitude, latitude);
-    
-    if (airports && airports.length > 0) {
-      if (airports.length === 1) {
-        setPickupLocationData({
-          name: airports[0].name,
-          coords,
-          id: airports[0].id,
-          codename: airports[0].codename,
-        });
+
+    try {
+      const position = await requestPermission();
+      if (!position) throw new Error("No coordinates");
+
+      const { latitude, longitude } = position;
+      const coords = [longitude, latitude] as [number, number];
+      geolocationCoordsRef.current = coords;
+
+      const airports = await findNearestAirport(longitude, latitude);
+
+      if (airports && airports.length > 0) {
+        if (airports.length === 1) {
+          setPickupLocationData({
+            name: airports[0].name,
+            coords,
+            id: airports[0].id,
+            codename: airports[0].codename,
+          });
+        } else {
+          setAirportsToSelect(airports);
+          setShowAirportSelectionModal(true);
+        }
       } else {
-        setAirportsToSelect(airports);
-        setShowAirportSelectionModal(true);
+        setShowOutsideServiceModal(true);
       }
-    } else {
-      setShowOutsideServiceModal(true);
+    } catch (err) {
+      console.error("Location fetch failed:", err);
+      showNotification(
+        "Location fetch failed. Please search manually.",
+        "error",
+      );
+    } finally {
+      setIsFetchingLocation(false);
     }
-  } catch (err) {
-    console.error("Location fetch failed:", err);
-    showNotification('Location fetch failed. Please search manually.', 'error');
-  } finally {
-    setIsFetchingLocation(false);
-  }
-}, [error, requestPermission, passengerLiveLocation]); // ← Add passengerLiveLocation to deps
+  }, [error, requestPermission, passengerLiveLocation]); // ← Add passengerLiveLocation to deps
 
   const handleAirportSelectedFromModal = useCallback((airport: Airport) => {
     const geolocationCoords = geolocationCoordsRef.current;
@@ -713,7 +715,7 @@ export default function BookingScreen({
   }, []);
 
   return (
-    <div className="bg-achrams-primary flex flex-col flex-1">
+    <div className="bg-red-600 flex flex-col ">
       <AirportSelectionModal
         isOpen={showAirportSelectionModal}
         onClose={() => setShowAirportSelectionModal(false)}
@@ -955,64 +957,84 @@ export default function BookingScreen({
         )} */}
 
         {fareEstimate !== null && selectedCategory && (
-  <div className="mt-6 animate-scaleIn">
-    <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 rounded-2xl p-5 shadow-sm border-2 border-emerald-200">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4 pb-4 border-b border-emerald-200">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center border border-emerald-100">
-            {getCategoryIcon(selectedCategory) === 'Shield' && <Shield className="w-6 h-6 text-emerald-600" />}
-            {getCategoryIcon(selectedCategory) === 'Car' && <Car className="w-6 h-6 text-emerald-600" />}
-            {getCategoryIcon(selectedCategory) === 'Smartphone' && <Smartphone className="w-6 h-6 text-emerald-600" />}
-            {getCategoryIcon(selectedCategory) === 'Leaf' && <Leaf className="w-6 h-6 text-emerald-600" />}
-            {getCategoryIcon(selectedCategory) === 'Zap' && <Zap className="w-6 h-6 text-emerald-600" />}
-          </div>
-          <div>
-            <div className="font-semibold text-achrams-text-primary">
-              {vehicleQuotes.find(q => q.categoryValue === selectedCategory)?.name || 'Selected Ride'}
+          <div className="mt-6 animate-scaleIn">
+            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 rounded-2xl p-5 shadow-sm border-2 border-emerald-200">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4 pb-4 border-b border-emerald-200">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center border border-emerald-100">
+                    {getCategoryIcon(selectedCategory) === "Shield" && (
+                      <Shield className="w-6 h-6 text-emerald-600" />
+                    )}
+                    {getCategoryIcon(selectedCategory) === "Car" && (
+                      <Car className="w-6 h-6 text-emerald-600" />
+                    )}
+                    {getCategoryIcon(selectedCategory) === "Smartphone" && (
+                      <Smartphone className="w-6 h-6 text-emerald-600" />
+                    )}
+                    {getCategoryIcon(selectedCategory) === "Leaf" && (
+                      <Leaf className="w-6 h-6 text-emerald-600" />
+                    )}
+                    {getCategoryIcon(selectedCategory) === "Zap" && (
+                      <Zap className="w-6 h-6 text-emerald-600" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-achrams-text-primary">
+                      {vehicleQuotes.find(
+                        (q) => q.categoryValue === selectedCategory,
+                      )?.name || "Selected Ride"}
+                    </div>
+                    <div className="text-xs text-achrams-text-secondary">
+                      {
+                        vehicleQuotes.find(
+                          (q) => q.categoryValue === selectedCategory,
+                        )?.description
+                      }
+                    </div>
+                  </div>
+                </div>
+                {fareIsFlatRate && (
+                  <span className="inline-flex items-center px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full">
+                    Flat Rate
+                  </span>
+                )}
+              </div>
+
+              {/* Price */}
+              <div className="flex justify-between items-center">
+                <div>
+                  <div className="text-sm text-achrams-text-secondary font-medium">
+                    Estimated fare
+                  </div>
+                  <div className="text-xs text-achrams-text-tertiary flex items-center gap-1 mt-0.5">
+                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                    Pay with cash or card
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                    ₦{fareEstimate.toLocaleString()}
+                  </div>
+                  {fareIsFlatRate && (
+                    <div className="text-xs text-amber-600 mt-0.5">
+                      Subject to bargain
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Back to Categories */}
+              <button
+                onClick={handleBackToCategories}
+                className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Change vehicle category
+              </button>
             </div>
-            <div className="text-xs text-achrams-text-secondary">
-              {vehicleQuotes.find(q => q.categoryValue === selectedCategory)?.description}
-            </div>
           </div>
-        </div>
-        {fareIsFlatRate && (
-          <span className="inline-flex items-center px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full">
-            Flat Rate
-          </span>
         )}
-      </div>
-
-      {/* Price */}
-      <div className="flex justify-between items-center">
-        <div>
-          <div className="text-sm text-achrams-text-secondary font-medium">Estimated fare</div>
-          <div className="text-xs text-achrams-text-tertiary flex items-center gap-1 mt-0.5">
-            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-            Pay with cash or card
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-            ₦{fareEstimate.toLocaleString()}
-          </div>
-          {fareIsFlatRate && (
-            <div className="text-xs text-amber-600 mt-0.5">Subject to bargain</div>
-          )}
-        </div>
-      </div>
-
-      {/* Back to Categories */}
-      <button
-        onClick={handleBackToCategories}
-        className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
-      >
-        <ChevronLeft className="w-4 h-4" />
-        Change vehicle category
-      </button>
-    </div>
-  </div>
-)}
       </div>
 
       {/* <div className={` p-6 ${isAuthenticated ? 'mb-24' : ''}`}>
@@ -1033,8 +1055,8 @@ export default function BookingScreen({
         </button>
       </div> */}
 
-      <div className={`p-4 ${isAuthenticated ? 'mb-24' : ''}`}>
-  {/* {selectedCategory && fareEstimate && (
+      <div className={`p-4 ${isAuthenticated ? "mb-24" : ""}`}>
+        {/* {selectedCategory && fareEstimate && (
     <button
       onClick={handleBackToCategories}
       className="w-full bg-white border-2 border-achrams-border text-achrams-text-primary py-3.5 rounded-xl font-medium mb-2.5 hover:bg-achrams-bg-secondary transition-colors flex items-center justify-center gap-2"
@@ -1043,20 +1065,20 @@ export default function BookingScreen({
       Back to Categories
     </button>
   )} */}
-  <button
-    onClick={onProceed}
-    disabled={!fareEstimate || !selectedCategory}
-    className={`w-full py-4 rounded-xl text-base font-semibold text-achrams-text-light transition-all ${
-      fareEstimate && selectedCategory
-        ? "bg-achrams-gradient-primary hover:opacity-95 active:scale-[0.98] shadow-md"
-        : "bg-achrams-secondary-solid opacity-75 cursor-not-allowed"
-    }`}
-  >
-    {fareEstimate && selectedCategory
-      ? `Proceed • ₦${fareEstimate.toLocaleString()}`
-      : "Enter destinations"}
-  </button>
-</div>
+        <button
+          onClick={onProceed}
+          disabled={!fareEstimate || !selectedCategory}
+          className={`w-full py-4 rounded-xl text-base font-semibold text-achrams-text-light transition-all ${
+            fareEstimate && selectedCategory
+              ? "bg-achrams-gradient-primary hover:opacity-95 active:scale-[0.98] shadow-md"
+              : "bg-achrams-secondary-solid opacity-75 cursor-not-allowed"
+          }`}
+        >
+          {fareEstimate && selectedCategory
+            ? `Proceed • ₦${fareEstimate.toLocaleString()}`
+            : "Enter destinations"}
+        </button>
+      </div>
 
       {!isAuthenticated && (
         <div className="w-full flex justify-end mb-4">
@@ -1074,97 +1096,132 @@ export default function BookingScreen({
       {!isAuthenticated && <ACHRAMFooter />}
 
       {/* Vehicle Categories Modal */}
-{showVehicleCategories && (
-  <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center sm:justify-center z-50 animate-fadeIn">
-    <div className="bg-white w-full sm:max-w-2xl sm:rounded-2xl rounded-t-2xl animate-slideUp max-h-[90vh] overflow-y-auto shadow-xl">
-      {/* Header */}
-      <div className="sticky top-0 bg-white border-b border-achrams-border px-4 sm:px-6 py-4 sm:rounded-t-2xl z-10">
-        <div className="flex justify-between items-center">
-          <div>
-            <h3 className="text-xl sm:text-2xl font-bold text-achrams-text-primary">Choose your ride</h3>
-            <p className="text-sm text-achrams-text-secondary mt-0.5">Select the vehicle category that suits your needs</p>
-          </div>
-          <button
-            onClick={() => setShowVehicleCategories(false)}
-            className="p-2 hover:bg-achrams-bg-secondary rounded-full transition-colors text-achrams-text-secondary hover:text-achrams-text-primary"
-            aria-label="Close modal"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Loading State */}
-      {isFetchingVehicles ? (
-        <div className="px-4 sm:px-6 py-12 flex flex-col items-center justify-center">
-          <Loader className="w-10 h-10 text-achrams-primary-solid animate-spin mb-3" />
-          <p className="text-achrams-text-secondary text-sm">Fetching available vehicles...</p>
-        </div>
-      ) : (
-        <>
-          {/* Vehicle List */}
-          <div className="px-4 sm:px-6 py-4 space-y-3">
-            {vehicleQuotes.map((category) => {
-              const IconComponent = getCategoryIcon(category.categoryValue);
-              return (
+      {showVehicleCategories && (
+        <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center sm:justify-center z-50 animate-fadeIn">
+          <div className="bg-white w-full sm:max-w-2xl sm:rounded-2xl rounded-t-2xl animate-slideUp max-h-[90vh] overflow-y-auto shadow-xl">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-achrams-border px-4 sm:px-6 py-4 sm:rounded-t-2xl z-10">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl sm:text-2xl font-bold text-achrams-text-primary">
+                    Choose your ride
+                  </h3>
+                  <p className="text-sm text-achrams-text-secondary mt-0.5">
+                    Select the vehicle category that suits your needs
+                  </p>
+                </div>
                 <button
-                  key={category.id}
-                  onClick={() => handleCategorySelect(category)}
-                  className="w-full bg-white rounded-xl p-4 hover:border-achrams-primary-solid border-2 border-achrams-border transition-all text-left group hover:shadow-md"
+                  onClick={() => setShowVehicleCategories(false)}
+                  className="p-2 hover:bg-achrams-bg-secondary rounded-full transition-colors text-achrams-text-secondary hover:text-achrams-text-primary"
+                  aria-label="Close modal"
                 >
-                  <div className="flex items-center gap-4">
-                    {/* Icon with brand gradient background */}
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center flex-shrink-0 border border-emerald-100">
-                      {IconComponent === 'Shield' && <Shield className="w-6 h-6 text-emerald-600" />}
-                      {IconComponent === 'Car' && <Car className="w-6 h-6 text-emerald-600" />}
-                      {IconComponent === 'Smartphone' && <Smartphone className="w-6 h-6 text-emerald-600" />}
-                      {IconComponent === 'Leaf' && <Leaf className="w-6 h-6 text-emerald-600" />}
-                      {IconComponent === 'Zap' && <Zap className="w-6 h-6 text-emerald-600" />}
-                    </div>
-
-                    {/* Details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-achrams-text-primary text-base">{category.name}</div>
-                      <div className="text-sm text-achrams-text-secondary mt-0.5 line-clamp-1">{category.description}</div>
-                      <div className="flex items-center gap-1.5 mt-1 text-xs text-achrams-text-tertiary">
-                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                        <span>Available • {category.eta}</span>
-                      </div>
-                    </div>
-
-                    {/* Price */}
-                    <div className="text-right flex-shrink-0">
-                      <div className="text-lg font-bold text-achrams-text-primary">
-                        {category.formattedPrice}
-                      </div>
-                      <div className="text-xs text-achrams-text-tertiary mt-0.5">Estimated</div>
-                    </div>
-                  </div>
+                  <X className="w-5 h-5" />
                 </button>
-              );
-            })}
-          </div>
-
-          {/* Info Note */}
-          <div className="px-4 sm:px-6 pb-6">
-            <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 flex items-start gap-3">
-              <div className="text-blue-600 mt-0.5">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="12" y1="16" x2="12" y2="12"/>
-                  <line x1="12" y1="8" x2="12.01" y2="8"/>
-                </svg>
               </div>
-              <p className="text-sm text-gray-700">
-                <span className="font-medium">Note:</span> Final prices may vary based on traffic, route, and real-time demand.
-              </p>
             </div>
+
+            {/* Loading State */}
+            {isFetchingVehicles ? (
+              <div className="px-4 sm:px-6 py-12 flex flex-col items-center justify-center">
+                <Loader className="w-10 h-10 text-achrams-primary-solid animate-spin mb-3" />
+                <p className="text-achrams-text-secondary text-sm">
+                  Fetching available vehicles...
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Vehicle List */}
+                <div className="px-4 sm:px-6 py-4 space-y-3">
+                  {vehicleQuotes.map((category) => {
+                    const IconComponent = getCategoryIcon(
+                      category.categoryValue,
+                    );
+                    return (
+                      <button
+                        key={category.id}
+                        onClick={() => handleCategorySelect(category)}
+                        className="w-full bg-white rounded-xl p-4 hover:border-achrams-primary-solid border-2 border-achrams-border transition-all text-left group hover:shadow-md"
+                      >
+                        <div className="flex items-center gap-4">
+                          {/* Icon with brand gradient background */}
+                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center flex-shrink-0 border border-emerald-100">
+                            {IconComponent === "Shield" && (
+                              <Shield className="w-6 h-6 text-emerald-600" />
+                            )}
+                            {IconComponent === "Car" && (
+                              <Car className="w-6 h-6 text-emerald-600" />
+                            )}
+                            {IconComponent === "Smartphone" && (
+                              <Smartphone className="w-6 h-6 text-emerald-600" />
+                            )}
+                            {IconComponent === "Leaf" && (
+                              <Leaf className="w-6 h-6 text-emerald-600" />
+                            )}
+                            {IconComponent === "Zap" && (
+                              <Zap className="w-6 h-6 text-emerald-600" />
+                            )}
+                          </div>
+
+                          {/* Details */}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-achrams-text-primary text-base">
+                              {category.name}
+                            </div>
+                            <div className="text-sm text-achrams-text-secondary mt-0.5 line-clamp-1">
+                              {category.description}
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-1 text-xs text-achrams-text-tertiary">
+                              <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                              <span>Available • {category.eta}</span>
+                            </div>
+                          </div>
+
+                          {/* Price */}
+                          <div className="text-right flex-shrink-0">
+                            <div className="text-lg font-bold text-achrams-text-primary">
+                              {category.formattedPrice}
+                            </div>
+                            <div className="text-xs text-achrams-text-tertiary mt-0.5">
+                              Estimated
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Info Note */}
+                <div className="px-4 sm:px-6 pb-6">
+                  <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 flex items-start gap-3">
+                    <div className="text-blue-600 mt-0.5">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </div>
+                    <p className="text-sm text-gray-700">
+                      <span className="font-medium">Note:</span> Final prices
+                      may vary based on traffic, route, and real-time demand.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
-        </>
+        </div>
       )}
-    </div>
-  </div>
-)}
     </div>
   );
 }
