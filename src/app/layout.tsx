@@ -27,8 +27,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning={true}>
-      <body className="bg-achrams-background-primary" suppressHydrationWarning={true}>
-        
+      <body className="bg-achrams-background-primary
+      min-h-dvh flex flex-col
+      " suppressHydrationWarning={true}>
+        <main className="flex-1 min-h-0 flex flex-col">
 
         <ClientProviders>
           <BiometricGate>
@@ -37,6 +39,9 @@ export default function RootLayout({
           </PostHogProvider>
           </BiometricGate>
         </ClientProviders>
+
+        </main>
+
 
         
       </body>
