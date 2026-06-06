@@ -715,7 +715,7 @@ export default function BookingScreen({
   }, []);
 
   return (
-    <div className="bg-red-600 flex flex-col ">
+    <div className="bg-achrams-background-primary flex flex-col min-h-dvh">
       <AirportSelectionModal
         isOpen={showAirportSelectionModal}
         onClose={() => setShowAirportSelectionModal(false)}
