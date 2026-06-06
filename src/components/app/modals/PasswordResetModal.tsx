@@ -139,10 +139,10 @@ export default function PasswordResetModal({
       <div className="bg-white w-full max-w-sm mx-auto rounded-t-3xl p-6 border-t border-achrams-border"
       
       // style={{ transform: `translateY(-${keyboardHeight}px)` }}
-      style={{
-        maxHeight: keyboardHeight ? `calc(85dvh - ${keyboardHeight}px)` : '85dvh',
-        paddingBottom: keyboardHeight ? '16px' : undefined
-      }}
+      // style={{
+      //   maxHeight: keyboardHeight ? `calc(85dvh - ${keyboardHeight}px)` : '85dvh',
+      //   paddingBottom: keyboardHeight ? '16px' : undefined
+      // }}
       >
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-achrams-text-primary">Reset Password</h3>

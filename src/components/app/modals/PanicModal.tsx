@@ -148,10 +148,10 @@ export default function PanicModal({
 
         // style={{ transform: `translateY(-${keyboardHeight}px)` }}
 
-        style={{
-        maxHeight: keyboardHeight ? `calc(85dvh - ${keyboardHeight}px)` : '85dvh',
-        paddingBottom: keyboardHeight ? '16px' : undefined
-      }}
+      //   style={{
+      //   maxHeight: keyboardHeight ? `calc(85dvh - ${keyboardHeight}px)` : '85dvh',
+      //   paddingBottom: keyboardHeight ? '16px' : undefined
+      // }}
 
         onClick={(e) => e.stopPropagation()} // prevent closing on inner click
       >
