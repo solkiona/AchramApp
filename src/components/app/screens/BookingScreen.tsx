@@ -61,6 +61,7 @@ interface BookingScreenProps {
     type: "info" | "success" | "warning" | "error",
   ) => void;
   isAuthenticated: boolean;
+  token: string | null;
   onBackToDashboard: () => void;
   screenPaddingClass: string;
 
@@ -137,6 +138,7 @@ export default function BookingScreen({
   showNotification,
   onShowLogin,
   isAuthenticated,
+  token,
   onBackToDashboard,
   screenPaddingClass,
   showVehicleCategories,
@@ -163,6 +165,7 @@ export default function BookingScreen({
   const [showOutsideServiceModal, setShowOutsideServiceModal] = useState(false);
   const [showLocationSettingsModal, setShowLocationSettingsModal] =
     useState(false);
+  
 
   const searchBoxRef = useRef<google.maps.places.SearchBox | null>(null);
   const destinationInputRef = useRef<HTMLInputElement>(null);
@@ -459,7 +462,7 @@ export default function BookingScreen({
           (async () => {
             setIsFetchingLocation(true);
             try {
-              const airports = await findNearestAirport(lng, lat);
+              const airports = await findNearestAirport(lng, lat, isAuthenticated, token ?? undefined);
               if (airports && airports.length > 0) {
                 if (airports.length === 1) {
                   setPickupLocationData({
@@ -582,7 +585,7 @@ export default function BookingScreen({
 
       // Use existing coordinates to find airports
       const [lat, lng] = passengerLiveLocation;
-      const airports = await findNearestAirport(lng, lat);
+      const airports = await findNearestAirport(lng, lat, isAuthenticated, token ?? undefined);
       setPickupOpen(false);
 
       if (airports && airports.length > 0) {
@@ -622,7 +625,7 @@ export default function BookingScreen({
       const coords = [longitude, latitude] as [number, number];
       geolocationCoordsRef.current = coords;
 
-      const airports = await findNearestAirport(longitude, latitude);
+      const airports = await findNearestAirport(longitude, latitude, isAuthenticated, token ?? undefined);
 
       if (airports && airports.length > 0) {
         if (airports.length === 1) {

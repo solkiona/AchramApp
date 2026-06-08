@@ -55,7 +55,7 @@ export default function AccountDeletionModal({
 
   return (
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-center justify-center z-50">
-      <div className="bg-white w-full max-w-sm mx-auto rounded-2xl p-6 border border-achrams-border shadow-lg">
+      <div className="bg-white w-full max-w-md mx-auto rounded-2xl p-6 border border-achrams-border shadow-lg">
         <div className="flex items-start gap-3 mb-4">
           <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
             <AlertCircle className="w-5 h-5 text-red-600" />

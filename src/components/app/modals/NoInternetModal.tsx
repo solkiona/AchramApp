@@ -8,7 +8,7 @@ export default function NoInternetModal({
 }) {
   return (
     <div className="fixed inset-0 bg-black/70 z-[1000] flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl p-6 max-w-sm w-full text-center shadow-2xl">
+      <div className="bg-white rounded-xl p-6 max-w-md w-full text-center shadow-2xl">
         <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <WifiOff className="w-6 h-6 text-red-600" />
         </div>

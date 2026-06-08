@@ -2329,6 +2329,7 @@ export default function ACHRAMApp() {
         onShowLogin={() => setShowLogin(true)}
         showNotification={showNotification}
         isAuthenticated={isAuthenticated}
+        token={token}
         onBackToDashboard={
           isAuthenticated
             ? () => {

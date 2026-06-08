@@ -83,7 +83,7 @@ export default function ComingSoonModal({
       />
       
       {/* Modal Content */}
-      <div className="relative bg-white w-full max-w-sm mx-4 rounded-2xl shadow-xl overflow-hidden border border-achrams-border">
+      <div className="relative bg-white w-full max-w-md mx-4 rounded-2xl shadow-xl overflow-hidden border border-achrams-border">
         {/* Header */}
         <div className="bg-gradient-to-r from-achrams-primary-solid to-achrams-secondary-solid text-achrams-text-light px-6 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
