@@ -213,6 +213,7 @@ useEffect(() => {
     if (isNative) {
       await SecureStorage.remove('auth_token');
       await SecureStorage.remove('refresh_token');
+      await biometric.setRequireFullLogin(true);
     }
      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
   });
@@ -295,6 +296,7 @@ useEffect(() => {
         if (isNative) {
           await SecureStorage.set('auth_token', access);
           if (refresh) await SecureStorage.set('refresh_token', refresh);
+          await biometric.setRequireFullLogin(false);
         }
 
         // Fetch profile using the token we just received
@@ -330,23 +332,60 @@ useEffect(() => {
     }
   }, [biometric]);
 
+  // const loginWithBiometric = useCallback(async () => {
+  //   if (!isNative) return false;
+  //   const auth = await biometric.authenticate();
+  //   if (!auth.success) return false;
+
+  //   const creds = await biometric.getSecureCredentials();
+  //   if (!creds.accessToken) return false;
+
+  //   setToken(creds.accessToken);
+  //   setIsAuthenticated(true);
+
+  //   try {
+  //     const me = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
+  //     if (me.status === 'success') setUser(me.data?? null);
+  //   } catch {}
+  //   return true;
+  // }, [biometric]);
+
   const loginWithBiometric = useCallback(async () => {
-    if (!isNative) return false;
-    const auth = await biometric.authenticate();
-    if (!auth.success) return false;
+  if (!isNative) return false;
 
-    const creds = await biometric.getSecureCredentials();
-    if (!creds.accessToken) return false;
+  // Check if full login is required before even prompting biometric
+  const requiresFull = await biometric.getRequireFullLogin();
+  if (requiresFull) return false;
 
-    setToken(creds.accessToken);
-    setIsAuthenticated(true);
+  const creds = await biometric.getSecureCredentials();
+  if (!creds.accessToken) return false;
 
-    try {
-      const me = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
-      if (me.status === 'success') setUser(me.data?? null);
-    } catch {}
-    return true;
-  }, [biometric]);
+  // Validate token BEFORE prompting biometric
+  try {
+    const check = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
+    if (check.status !== 'success') {
+      await biometric.setRequireFullLogin(true);
+      await biometric.disableBiometricLogin();
+      return false;
+    }
+  } catch {
+    await biometric.setRequireFullLogin(true);
+    await biometric.disableBiometricLogin();
+    return false;
+  }
+
+  // Token is valid — NOW prompt biometric
+  const auth = await biometric.authenticate();
+  if (!auth.success) return false;
+
+  setToken(creds.accessToken);
+  setIsAuthenticated(true);
+  try {
+    const me = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
+    if (me.status === 'success') setUser(me.data ?? null);
+  } catch {}
+  return true;
+}, [biometric]);
 
   const enableBiometricLogin = useCallback(async () => {
     if (!isNative) return false;

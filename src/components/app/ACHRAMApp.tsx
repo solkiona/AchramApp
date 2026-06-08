@@ -367,35 +367,35 @@ export default function ACHRAMApp() {
 
  const isNative = Capacitor.isNativePlatform();
 
-// useEffect(() => {
-//   if (!isNative) return;
+useEffect(() => {
+  if (!isNative) return;
 
-//   // Let the WebView resize, don't also scroll
-//   Keyboard.setResizeMode({ mode: KeyboardResize.Body });
-//   Keyboard.setScroll({ isDisabled: true });
+  // Let the WebView resize, don't also scroll
+  Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+  Keyboard.setScroll({ isDisabled: true });
 
-//   const show = Keyboard.addListener('keyboardDidShow', (info: KeyboardInfo) => {
-//     setKeyboardHeight(info.keyboardHeight);
-//   });
+  const show = Keyboard.addListener('keyboardDidShow', (info: KeyboardInfo) => {
+    setKeyboardHeight(info.keyboardHeight);
+  });
   
-//   const hide = Keyboard.addListener('keyboardDidHide', () => {
-//     setKeyboardHeight(0);
-//   });
+  const hide = Keyboard.addListener('keyboardDidHide', () => {
+    setKeyboardHeight(0);
+  });
 
-//   // iOS also fires WillShow earlier, use it for smoother animation
-//   let showWill: any;
-//   if (Capacitor.getPlatform() === 'ios') {
-//     showWill = Keyboard.addListener('keyboardWillShow', (info) => {
-//       setKeyboardHeight(info.keyboardHeight);
-//     });
-//   }
+  // iOS also fires WillShow earlier, use it for smoother animation
+  let showWill: any;
+  if (Capacitor.getPlatform() === 'ios') {
+    showWill = Keyboard.addListener('keyboardWillShow', (info) => {
+      setKeyboardHeight(info.keyboardHeight);
+    });
+  }
 
-//   return () => {
-//     show.remove();
-//     hide.remove();
-//     showWill?.remove();
-//   };
-// }, [isNative]);
+  return () => {
+    show.remove();
+    hide.remove();
+    showWill?.remove();
+  };
+}, [isNative]);
 
 
 

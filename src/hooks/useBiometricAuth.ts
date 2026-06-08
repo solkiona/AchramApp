@@ -23,6 +23,8 @@ const KEYS = {
   access: 'auth_token',
   refresh: 'refresh_token',
   enabled: 'biometric_enabled',
+  requireFullLogin: 'require_full_login',
+
 };
 
 export const useBiometricAuth = () => {
@@ -146,6 +148,15 @@ export const useBiometricAuth = () => {
     await SecureStorage.set(KEYS.access, accessToken);
   }, []);
 
+  const setRequireFullLogin = useCallback(async (value: boolean) => {
+  await SecureStorage.set(KEYS.requireFullLogin, value ? 'true' : 'false');
+}, []);
+
+const getRequireFullLogin = useCallback(async () => {
+  const val = await SecureStorage.get(KEYS.requireFullLogin);
+  return val === 'true';
+}, []);
+
   return {
     biometryResult,
     isEnabled,
@@ -156,5 +167,7 @@ export const useBiometricAuth = () => {
     getSecureCredentials,
     disableBiometricLogin,
     updateStoredAccessToken,
+    setRequireFullLogin,
+    getRequireFullLogin,
   };
 };
