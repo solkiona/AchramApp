@@ -80,11 +80,11 @@ export default function LoginOTPModal({
   return (
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50">
       <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp border-t border-achrams-border overflow-y-auto"
-      // style={{ transform: `translateY(-${keyboardHeight}px)` }}
-      style={{
-        maxHeight: keyboardHeight ? `calc(85dvh - ${keyboardHeight}px)` : '85dvh',
-        paddingBottom: keyboardHeight ? '16px' : undefined
-      }}
+      style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      // style={{
+      //   maxHeight: keyboardHeight ? `calc(85dvh - ${keyboardHeight}px)` : '85dvh',
+      //   paddingBottom: keyboardHeight ? '16px' : undefined
+      // }}
       >
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-xl font-bold text-achrams-text-primary text-center mx-auto">Verify 2FA</h3>
