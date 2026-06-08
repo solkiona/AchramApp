@@ -61,7 +61,7 @@ import { useAuth } from '@/contexts/AuthContext';
 const isNative = Capacitor.isNativePlatform();
 
 export const BiometricGate = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isBiometricEnabled, loginWithBiometric, isBiometricAvailable } = useAuth();
+  const { isAuthenticated, isBiometricEnabled, loginWithBiometric, isBiometricAvailable , isBiometricBlocked} = useAuth();
   const [checking, setChecking] = useState(true);
   const [isPrompting, setIsPrompting] = useState(false);
   const hasPrompted = useRef(false);
@@ -104,7 +104,7 @@ export const BiometricGate = ({ children }: { children: React.ReactNode }) => {
   }
 
   // Locked state with tap-to-retry
-  if (isNative && isBiometricEnabled && !isAuthenticated) {
+  if (isNative && isBiometricEnabled && !isAuthenticated && !isBiometricBlocked) {
     return (
       <button
         onClick={handlePrompt}

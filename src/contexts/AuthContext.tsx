@@ -187,6 +187,7 @@ interface AuthContextType {
   loginWithBiometric: () => Promise<boolean>;
   enableBiometricLogin: () => Promise<boolean>;
   disableBiometricLogin: () => Promise<void>;
+  isBiometricBlocked: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -197,6 +198,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [isBiometricBlocked, setIsBiometricBlocked] = useState(false);
 
   const biometric = useBiometricAuth();
 
@@ -214,6 +216,7 @@ useEffect(() => {
       await SecureStorage.remove('auth_token');
       await SecureStorage.remove('refresh_token');
       await biometric.setRequireFullLogin(true);
+      setIsBiometricBlocked(true);
     }
      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
   });
@@ -297,6 +300,7 @@ useEffect(() => {
           await SecureStorage.set('auth_token', access);
           if (refresh) await SecureStorage.set('refresh_token', refresh);
           await biometric.setRequireFullLogin(false);
+          setIsBiometricBlocked(false);
         }
 
         // Fetch profile using the token we just received
@@ -355,7 +359,12 @@ useEffect(() => {
 
   // Check if full login is required before even prompting biometric
   const requiresFull = await biometric.getRequireFullLogin();
-  if (requiresFull) return false;
+  if (requiresFull) {
+
+    setIsBiometricBlocked(true);
+    return false;
+  
+  }
 
   const creds = await biometric.getSecureCredentials();
   if (!creds.accessToken) return false;
@@ -419,13 +428,15 @@ useEffect(() => {
     isLoading,
     isBiometricAvailable,
     isBiometricEnabled,
+    isBiometricBlocked,
     checkAuthStatus,
     login,
     logout,
     loginWithBiometric,
     enableBiometricLogin,
     disableBiometricLogin,
-  }), [user, token, isAuthenticated, isLoading, isBiometricAvailable, isBiometricEnabled, checkAuthStatus,login, logout, loginWithBiometric, enableBiometricLogin, disableBiometricLogin]);
+    
+  }), [user, token, isAuthenticated, isLoading, isBiometricAvailable, isBiometricEnabled,isBiometricBlocked, checkAuthStatus,login, logout, loginWithBiometric, enableBiometricLogin, disableBiometricLogin]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
