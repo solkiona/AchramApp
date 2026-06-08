@@ -161,7 +161,7 @@ export default function LoginModal({
   
 
   return (
-    <div className=" fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50"
+    <div className=" absolute inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50"
     
     >
       <div className="bg-white max-w-md mx-auto w-full rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border"
