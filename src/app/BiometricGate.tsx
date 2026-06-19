@@ -117,9 +117,9 @@ export const BiometricGate = ({ children }: { children: React.ReactNode }) => {
     }
 
     // iOS: use Native resize to avoid the RTIInputSystemClient errors you saw
-    if (Capacitor.getPlatform() === 'ios') {
-      Keyboard.setResizeMode({ mode: KeyboardResize.Native }).catch(() => {});
-    }
+    // if (Capacitor.getPlatform() === 'ios') {
+    //   Keyboard.setResizeMode({ mode: KeyboardResize.Native }).catch(() => {});
+    // }
 
     if (isAuthenticated) {
       setChecking(false);

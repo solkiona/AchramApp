@@ -313,37 +313,37 @@ export default function ACHRAMApp() {
   //   }
   // }, [screen, requestPermission]);
 
-  useEffect(() => {
-    const setupIOSKeyboard = async () => {
-      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios") {
-        // 1. Force the resize mode at runtime
-        await Keyboard.setResizeMode({ mode: KeyboardResize.Native });
+  // useEffect(() => {
+  //   const setupIOSKeyboard = async () => {
+  //     if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios") {
+  //       // 1. Force the resize mode at runtime
+  //       await Keyboard.setResizeMode({ mode: KeyboardResize.Body });
 
-        // 2. Disable webview scroll - let the keyboard handle it
-        await Keyboard.setScroll({ isDisabled: true });
+  //       // 2. Disable webview scroll - let the keyboard handle it
+  //       await Keyboard.setScroll({ isDisabled: true });
 
-        // 3. Manually scroll focused inputs into view
-        Keyboard.addListener("keyboardWillShow", (info) => {
-          setTimeout(() => {
-            document.activeElement?.scrollIntoView({
-              behavior: "smooth",
-              block: "center",
-            });
-          }, 100);
-        });
+  //       // 3. Manually scroll focused inputs into view
+  //       Keyboard.addListener("keyboardWillShow", (info) => {
+  //         setTimeout(() => {
+  //           document.activeElement?.scrollIntoView({
+  //             behavior: "smooth",
+  //             block: "center",
+  //           });
+  //         }, 100);
+  //       });
 
-        Keyboard.addListener("keyboardDidShow", () => {
-          // Extra nudge for stubborn inputs
-          document.activeElement?.scrollIntoView({
-            behavior: "instant",
-            block: "center",
-          });
-        });
-      }
-    };
+  //       Keyboard.addListener("keyboardDidShow", () => {
+  //         // Extra nudge for stubborn inputs
+  //         document.activeElement?.scrollIntoView({
+  //           behavior: "instant",
+  //           block: "center",
+  //         });
+  //       });
+  //     }
+  //   };
 
-    setupIOSKeyboard();
-  }, []);
+  //   setupIOSKeyboard();
+  // }, []);
 
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
