@@ -317,7 +317,7 @@ export default function ACHRAMApp() {
     const setupIOSKeyboard = async () => {
       if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios") {
         // 1. Force the resize mode at runtime
-        await Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+        await Keyboard.setResizeMode({ mode: KeyboardResize.Native });
 
         // 2. Disable webview scroll - let the keyboard handle it
         await Keyboard.setScroll({ isDisabled: true });
