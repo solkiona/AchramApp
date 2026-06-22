@@ -22,6 +22,7 @@ import AirportSelectionModal from "@/components/app/modals/AirportSelectionModal
 import OutsideServiceAreaModal from "@/components/app/modals/OutsideServiceAreaModal";
 import { apiClient } from "@/lib/api";
 import ACHRAMFooter from "@/components/app/ui/ACHRAMFooter";
+import { FareDestination } from "@/types/fares";
 
 interface LocationData {
   name: string;
@@ -85,6 +86,15 @@ interface BookingScreenProps {
   setIsStrictPreferences: (val: boolean) => void;
   passengerLiveLocation: [number, number] | null;
   onRefreshLocation?: () => void; // NEW: Optional refresh handler
+
+  isFetchingFares: boolean;
+  getFilteredDestinations: any;
+  selectedDestinationFareId: any;
+  setSelectedDestinationFareId: any;
+  getCategoryDescription: (value: string) => any;
+  setVehicleQuotes: any;
+  airportFares: any;
+  pickupCodename: string | null;
 }
 
 const losCoords: [number, number] = [3.330058, 6.568287];
@@ -146,6 +156,7 @@ export default function BookingScreen({
   selectedCategory,
   vehicleQuotes,
   isFetchingVehicles,
+  isFetchingFares,
   handleCategorySelect,
   handleBackToCategories,
   onDestinationSelected,
@@ -156,6 +167,14 @@ export default function BookingScreen({
   setIsStrictPreferences,
   passengerLiveLocation,
   onRefreshLocation,
+  setSelectedDestinationFareId,
+  selectedDestinationFareId,
+  setSelectedCategory,
+  getFilteredDestinations,
+  getCategoryDescription,
+  setVehicleQuotes,
+  airportFares,
+  pickupCodename,
 }: BookingScreenProps) {
   const [pickupOpen, setPickupOpen] = useState(false);
   const [destOpen, setDestOpen] = useState(false);
@@ -165,7 +184,6 @@ export default function BookingScreen({
   const [showOutsideServiceModal, setShowOutsideServiceModal] = useState(false);
   const [showLocationSettingsModal, setShowLocationSettingsModal] =
     useState(false);
-  
 
   const searchBoxRef = useRef<google.maps.places.SearchBox | null>(null);
   const destinationInputRef = useRef<HTMLInputElement>(null);
@@ -192,6 +210,64 @@ export default function BookingScreen({
       name: destination,
       coords: null,
     });
+
+  // Inside BookingScreen.tsx
+  const [destinationSearchQuery, setDestinationSearchQuery] = useState("");
+  const [filteredDestinations, setFilteredDestinations] = useState<
+    FareDestination[]
+  >([]);
+  const [showDestDropdown, setShowDestDropdown] = useState(false);
+
+  // Handle typing
+  const handleDestinationTyping = (value: string) => {
+    setDestinationSearchQuery(value);
+
+    // If user clears the field, reset everything (Spec requirement)
+    if (!value.trim()) {
+      setDestinationLocationData({ name: "", coords: null });
+      setSelectedDestinationFareId(null);
+      setFareEstimate(null);
+      setSelectedCategory(null);
+      setShowDestDropdown(false);
+      return;
+    }
+
+    const results = getFilteredDestinations(value);
+    setFilteredDestinations(results);
+    setShowDestDropdown(true);
+  };
+
+  // Handle selection from dropdown
+  const handleDestinationSelect = (dest: FareDestination) => {
+    setDestinationSearchQuery(dest.name); // Lock the input to the exact name
+    setShowDestDropdown(false);
+
+
+    setSelectedDestinationFareId(dest.id); 
+
+    // Set coordinates from the backend's anchor point
+    const coords = dest.map_data.location.geometry.coordinates;
+    setDestinationLocationData({
+      name: dest.name,
+      coords: coords,
+    });
+
+    // Map the breakdown to the vehicle quotes modal
+    const quotes = dest.breakdown.map((item) => ({
+      id: item.id, // The breakdown ID
+      name: item.category.label,
+      categoryValue: item.category.value,
+      description: getCategoryDescription(item.category.value),
+      estimatedPrice: item.amount.amount,
+      formattedPrice: item.amount.formatted,
+      currency: item.amount.currency,
+      available: true,
+      eta: "4-8 mins",
+    }));
+
+    setVehicleQuotes(quotes);
+    setShowVehicleCategories(true); // Open the "Choose your ride" modal
+  };
 
   useEffect(() => {
     console.log("DEBUG: Reset key changed, resetting booking screen state");
@@ -223,99 +299,6 @@ export default function BookingScreen({
   useEffect(() => {
     setPickupCodename(pickupLocationData.codename);
   }, [pickupLocationData.codename, setPickupCodename]);
-
-  // const fetchFareEstimate = async (
-  //   airportCodename: string,
-  //   destinationName: string
-  // ): Promise<number | null> => {
-  //   if (!airportCodename || !destinationName) {
-  //     console.warn(
-  //       "Cannot fetch fare: airport codename or destination name is missing"
-  //     );
-  //     setFareEstimate(null);
-  //     setFareIsFlatRate(null);
-  //     return null;
-  //   }
-  //   try {
-  //     console.log(
-  //       `Fetching fare for airport: ${airportCodename}, destination: ${destinationName}`
-  //     );
-  //     // The 'search' parameter is the destination address string.
-  //     // The 'airport' parameter is the airport codename.
-  //     const response = await apiClient.get(
-  //       `/fares/lookup?airport=${encodeURIComponent(
-  //         airportCodename
-  //       )}&search=${encodeURIComponent(destinationName)}`
-  //     );
-  //     // ikeja
-  //     console.log(`Estimated Fare Response: ${response}`);
-
-  //     if (response.status === "success" && response.data) {
-  //       const fareData = response.data;
-  //       console.log("Fetched fare data:", fareData);
-  //       // Return the numeric amount from the API response
-  //       setFareEstimate(fareData.amount.amount);
-  //       setFareIsFlatRate(fareData.is_flat_rate);
-  //       return fareData.amount.amount; // e.g., 100 from the example
-  //     } else {
-  //       console.log(
-  //         "Fare lookup API responded with non-success status or missing data:",
-  //         response
-  //       );
-
-  //       setFareEstimate(null);
-  //       setFareIsFlatRate(null);
-  //       return null;
-  //     }
-  //   } catch (err) {
-  //     console.error("Error fetching fare estimate:", err);
-  //     //showNotification("Could not fetch fare estimate. Using default.", "warning"); // Example
-  //     setFareEstimate(null);
-  //     setFareIsFlatRate(null);
-  //     return null;
-  //   }
-  // };
-
-  // useEffect(() => {
-  //   const getFare = async () => {
-  //     // Only proceed if both codename and destination name are present
-  //     if (pickupLocationData.codename && destinationLocationData.name) {
-  //       // Show a loading state if desired (e.g., disable proceed button, show spinner next to fare)
-  //       // setIsFetchingFare(true); // Example state
-
-  //       const fare = await fetchFareEstimate(
-  //         pickupLocationData.codename,
-  //         destinationLocationData.name
-  //       );
-
-  //       // setIsFetchingFare(false); // Example state
-
-  //       if (fare !== null) {
-  //         // Update the parent's fare estimate state
-  //         setFareEstimate(fare);
-  //       } else {
-  //         // Handle case where fare lookup failed
-  //         // You might want to clear the estimate or show an error
-  //         setFareIsFlatRate(null);
-  //         setFareEstimate(null); // Or keep the previous value, or set to -1 to indicate error
-  //         // showNotification("Failed to get fare estimate.", "error"); // Example
-  //       }
-  //     } else {
-  //       // If either codename or destination name is missing, clear the estimate
-  //       setFareEstimate(null);
-  //       setFareIsFlatRate(null);
-  //     }
-  //   };
-
-  //   getFare(); // Call the async function
-
-  //   // Depend on the codename and destination name to re-run the effect when they change
-  // }, [
-  //   pickupLocationData.codename,
-  //   destinationLocationData.name,
-  //   setFareEstimate,
-  //   setFareIsFlatRate,
-  // ]);
 
   // Helper: Extract fare zone from Google Places result
   const getFareZone = (
@@ -377,39 +360,7 @@ export default function BookingScreen({
 
   const geolocationCoordsRef = useRef<[number, number] | null>(null);
 
-  // const handlePlaceChanged = useCallback(() => {
-  //   if (isGoogleMapsLoaded && searchBoxRef.current) {
 
-  //     // NEW: Only run if API is loaded
-  //     const places = searchBoxRef.current.getPlaces();
-
-  //     if (places && places.length > 0) {
-  //       const place = places[0];
-
-  //       const components = place.address_components || [];
-
-  //       components.forEach((component) => {
-  //         console.log(component.long_name, component.types);
-  //       });
-
-  //       if (place.geometry && place.geometry.location) {
-  //         const lat = place.geometry.location.lat();
-  //         const lng = place.geometry.location.lng();
-  //         setDestinationLocationData({
-  //           name: place.formatted_address || place.name || "", // Prefer formatted address, fallback to name
-  //           coords: [lng, lat], // [longitude, latitude]
-  //         });
-  //         setDestOpen(false); // Close the dropdown after selection
-  //       } else {
-  //         console.error("Place selected but no geometry.location found.");
-  //       }
-  //     } else {
-  //       console.log("No places found from search box.");
-  //       // Optionally clear coordinates if user clears the input and presses enter/selects nothing
-  //       setDestinationLocationData((prev) => ({ ...prev, coords: null }));
-  //     }
-  //   }
-  // }, [isGoogleMapsLoaded]);
 
   const handlePlaceChanged = useCallback(() => {
     if (isGoogleMapsLoaded && searchBoxRef.current) {
@@ -462,7 +413,12 @@ export default function BookingScreen({
           (async () => {
             setIsFetchingLocation(true);
             try {
-              const airports = await findNearestAirport(lng, lat, isAuthenticated, token ?? undefined);
+              const airports = await findNearestAirport(
+                lng,
+                lat,
+                isAuthenticated,
+                token ?? undefined,
+              );
               if (airports && airports.length > 0) {
                 if (airports.length === 1) {
                   setPickupLocationData({
@@ -509,70 +465,6 @@ export default function BookingScreen({
     destinationInputRef.current?.focus();
   }, []);
 
-  // const handleUseCurrentLocation = useCallback(async () => {
-  //   if (error?.includes("denied")) {
-  //     setShowLocationSettingsModal(true);
-  //     setPickupOpen(false);
-  //     return;
-  //   }
-
-  //   setIsFetchingLocation(true);
-  //   setPickupOpen(false);
-
-  //   try {
-  //     const position = await requestPermission();
-  //     if (!position) throw new Error("No coordinates");
-
-  //     const { latitude, longitude } = position;
-  //     console.log(
-  //       "DEBUG: handleUseCurrentLocation - Got geolocation:",
-  //       longitude,
-  //       latitude,
-  //     );
-
-  //     const coords = [longitude, latitude] as [number, number];
-
-  //     geolocationCoordsRef.current = coords;
-
-  //     const airports = await findNearestAirport(longitude, latitude);
-
-  //     console.log(
-  //       "DEBUG: handleUseCurrentLocation - Found airports:",
-  //       airports,
-  //     );
-  //     if (airports && airports.length > 0) {
-  //       if (airports.length === 1) {
-  //         console.log(
-  //           "DEBUG: handleUseCurrentLocation - Setting single airport:",
-  //           airports[0].name,
-  //           "with coords:",
-  //           [longitude, latitude],
-  //         );
-
-  //         setPickupLocationData({
-  //           name: airports[0].name,
-  //           coords: [longitude, latitude],
-  //           id: airports[0].id,
-  //           codename: airports[0].codename,
-  //         });
-  //       } else {
-  //         setAirportsToSelect(airports);
-  //         setShowAirportSelectionModal(true);
-  //       }
-  //     } else {
-  //       setShowOutsideServiceModal(true);
-  //     }
-  //   } catch (err) {
-  //     console.error("Location fetch failed:", err);
-  //     showNotification(
-  //       `Location fetch failed, Kindly search your location  `,
-  //       "error",
-  //     );
-  //   } finally {
-  //     setIsFetchingLocation(false);
-  //   }
-  // }, [error, requestPermission]);
-
   const handleUseCurrentLocation = useCallback(async () => {
     // FIRST: Check if we already have valid coordinates from parent
     if (
@@ -585,7 +477,12 @@ export default function BookingScreen({
 
       // Use existing coordinates to find airports
       const [lat, lng] = passengerLiveLocation;
-      const airports = await findNearestAirport(lng, lat, isAuthenticated, token ?? undefined);
+      const airports = await findNearestAirport(
+        lng,
+        lat,
+        isAuthenticated,
+        token ?? undefined,
+      );
       setPickupOpen(false);
 
       if (airports && airports.length > 0) {
@@ -625,7 +522,12 @@ export default function BookingScreen({
       const coords = [longitude, latitude] as [number, number];
       geolocationCoordsRef.current = coords;
 
-      const airports = await findNearestAirport(longitude, latitude, isAuthenticated, token ?? undefined);
+      const airports = await findNearestAirport(
+        longitude,
+        latitude,
+        isAuthenticated,
+        token ?? undefined,
+      );
 
       if (airports && airports.length > 0) {
         if (airports.length === 1) {
@@ -645,7 +547,7 @@ export default function BookingScreen({
     } catch (err) {
       console.error("Location fetch failed:", err);
       showNotification(
-        "Location fetch failed. Please search manually.",
+        "Couldn't fetch Airport. Please make sure to allow Location Access or check your internet Connection.",
         "error",
       );
     } finally {
@@ -714,7 +616,7 @@ export default function BookingScreen({
         airportId,
       );
     }
-    setPickupOpen(false);
+    setPickupOpen(false); 
   }, []);
 
   return (
@@ -806,20 +708,20 @@ export default function BookingScreen({
                 />
               </div>
             ) : (
-              <StandaloneSearchBox
-                onLoad={(ref) => (pickupSearchBoxRef.current = ref)}
-                onUnmount={() => (pickupSearchBoxRef.current = null)}
-                onPlacesChanged={handlePickupPlaceChanged}
-              >
+              // <StandaloneSearchBox
+              //   onLoad={(ref) => (pickupSearchBoxRef.current = ref)}
+              //   onUnmount={() => (pickupSearchBoxRef.current = null)}
+              //   onPlacesChanged={handlePickupPlaceChanged}
+              // >
                 <div className=" left-0 flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border h-14 w-full">
                   <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
                   <input
                     ref={pickupInputRef}
                     type="text"
-                    placeholder="Search pickup location"
+                    placeholder="Select pickup location"
                     value={
                       showFetchingUI
-                        ? "Getting your location..."
+                        ? "Fetching Airports..."
                         : pickupLocationData.name
                     }
                     onChange={(e) =>
@@ -857,7 +759,7 @@ export default function BookingScreen({
                     )}
                   </button>
                 </div>
-              </StandaloneSearchBox>
+              // </StandaloneSearchBox>
             )}
 
             {pickupOpen && !showFetchingUI && isGoogleMapsLoaded && (
@@ -867,7 +769,8 @@ export default function BookingScreen({
                   className="w-full px-4 py-3 flex items-center gap-3 hover:bg-achrams-bg-secondary text-left"
                 >
                   <MapPin className="w-5 h-5 text-achrams-primary-solid" />
-                  <span>Use my current location</span>
+                  {/* <span>Use my current location</span> */}
+                  <span>See available Airports</span>
                 </button>
                 {/* Optionally: Add "Or type to search" hint */}
               </div>
@@ -875,7 +778,7 @@ export default function BookingScreen({
           </div>
 
           {/* Destination */}
-          <div className="relative w-full">
+          {/* <div className="relative w-full">
             {!isGoogleMapsLoaded ? (
               <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border">
                 <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
@@ -890,7 +793,7 @@ export default function BookingScreen({
                 />
               </div>
             ) : (
-              // NEW: Render the StandaloneSearchBox only when API is loaded
+              
               <StandaloneSearchBox
                 onLoad={(ref) => {
                   searchBoxRef.current = ref; // Store the reference
@@ -935,7 +838,69 @@ export default function BookingScreen({
                 </div>
               </StandaloneSearchBox>
             )}
+          </div> */}
+
+          <div className="relative w-full">
+            <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border h-14">
+              <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
+              <input
+                type="text"
+                placeholder="Enter destination"
+                value={destinationSearchQuery}
+                onChange={(e) => handleDestinationTyping(e.target.value)}
+                onFocus={() => destinationSearchQuery.length >= 2 && setShowDestDropdown(true)}
+                // If a destination is selected, make it read-only until cleared
+                readOnly={!!selectedDestinationFareId} 
+                className="flex-1 bg-transparent outline-none text-base text-achrams-text-primary"
+              />
+              {selectedDestinationFareId && (
+                <button 
+                  onClick={() => handleDestinationTyping("")} // Clears the field
+                  className="p-2 text-achrams-text-secondary hover:text-achrams-text-primary"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+
+            {/* Custom Dropdown */}
+            {showDestDropdown && filteredDestinations.length > 0 && (
+              <div className="absolute top-full w-full mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 max-h-64 overflow-y-auto">
+                {filteredDestinations.map((dest) => {
+                  // Show the 'legacy' (Regular) price as the baseline in the dropdown
+                  const baseFare = dest.breakdown.find(b => b.category.value === 'legacy') || dest.breakdown[0];
+                  
+                  return (
+                    <button
+                      key={dest.name}
+                      onClick={() => handleDestinationSelect(dest)}
+                      className="w-full px-4 py-3 flex items-center justify-between hover:bg-achrams-bg-secondary text-left border-b border-achrams-border last:border-0"
+                    >
+                      <div className="flex items-center gap-3">
+                        <MapPin className="w-4 h-4 text-achrams-text-secondary" />
+                        <span className="font-medium text-achrams-text-primary">{dest.name}</span>
+                      </div>
+                      <span className="text-sm font-bold text-achrams-primary-solid">
+                        {baseFare?.amount.formatted}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Error States (Spec Requirement) */}
+            {showDestDropdown && destinationSearchQuery.length >= 2 && filteredDestinations.length === 0 && !isFetchingFares && (
+              <div className="absolute top-full w-full mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 p-4 text-center">
+                <p className="text-achrams-text-secondary text-sm">No destinations found. Try a different search.</p>
+              </div>
+            )}
+            
+            {airportFares.length === 0 && !isFetchingFares && pickupCodename && (
+              <p className="text-xs text-red-500 mt-1">Destinations are not available at this time. Please speak to an agent.</p>
+            )}
           </div>
+
         </div>
 
         {/* {fareEstimate !== null && (
@@ -1070,7 +1035,7 @@ export default function BookingScreen({
   )} */}
         <button
           onClick={onProceed}
-          disabled={!fareEstimate || !selectedCategory}
+          disabled={!fareEstimate || !selectedCategory || !selectedDestinationFareId}
           className={`w-full py-4 rounded-xl text-base font-semibold text-achrams-text-light transition-all ${
             fareEstimate && selectedCategory
               ? "bg-achrams-gradient-primary hover:opacity-95 active:scale-[0.98] shadow-md"

@@ -64,6 +64,7 @@ import { useStatusBarTheme } from "@/hooks/useStatusBarTheme";
 import { Keyboard, KeyboardInfo, KeyboardResize } from "@capacitor/keyboard";
 import { Capacitor } from "@capacitor/core";
 import { StatusBar, Style } from "@capacitor/status-bar";
+import { FareDestination } from "@/types/fares";
 
 export default function ACHRAMApp() {
   const {
@@ -534,6 +535,62 @@ export default function ACHRAMApp() {
     elderly: false,
   });
 
+
+const [airportFares, setAirportFares] = useState<FareDestination[]>([]);
+const [selectedDestinationFareId, setSelectedDestinationFareId] = useState<string | null>(null);
+const [isFetchingFares, setIsFetchingFares] = useState(false);
+
+
+const fetchAirportFares = useCallback(async (airportCodename: string) => {
+  if (!airportCodename) return;
+  setIsFetchingFares(true);
+  try {
+    const response = await apiClient.get(`/fares/lookup?airport=${encodeURIComponent(airportCodename)}`);
+    if (response.status === "success" && Array.isArray(response.data)) {
+      setAirportFares(response.data);
+    } else {
+      setAirportFares([]);
+      showNotification("Destinations are not available at this time.", "error");
+    }
+  } catch (err) {
+    console.error("Failed to fetch airport fares:", err);
+    setAirportFares([]);
+    showNotification("Unable to load destinations. Check your connection.", "error");
+  } finally {
+    setIsFetchingFares(false);
+  }
+}, [showNotification]);
+
+
+useEffect(() => {
+  if (pickupCodename) {
+    fetchAirportFares(pickupCodename);
+    setDestination(""); 
+    setDestinationCoords(null);
+    setSelectedDestinationFareId(null);
+    setFareEstimate(null);
+    setSelectedCategory(null);
+  } else {
+    setAirportFares([]);
+  }
+}, [pickupCodename, fetchAirportFares]);
+
+
+
+const getFilteredDestinations = useCallback((searchQuery: string): FareDestination[] => {
+  if (!searchQuery || searchQuery.length < 2) return [];
+  
+  const query = searchQuery.toLowerCase();
+  return airportFares.filter(dest => 
+    dest.name.toLowerCase().includes(query) || 
+    dest.search_text.toLowerCase().includes(query)
+  );
+}, [airportFares]);
+
+
+
+
+
   const { handleRequestRide } = useBooking({
     tripHistory,
     pickup,
@@ -570,6 +627,7 @@ export default function ACHRAMApp() {
     numberOfSeats,
     isStrictPreferences,
     sourceDomain,
+    selectedDestinationFareId,
   });
 
   useDriverTracking({
@@ -1097,24 +1155,41 @@ export default function ACHRAMApp() {
     }
   };
 
+  // const handleCategorySelect = (category: any) => {
+  //   const categoryValue =
+  //     category?.categoryValue || category?.category?.value || category?.id;
+  //   const price =
+  //     category?.estimatedPrice ||
+  //     category?.amount?.amount ||
+  //     category?.basePrice;
+
+  //   if (!categoryValue) {
+  //     showNotification("Invalid vehicle category selected", "error");
+  //     return;
+  //   }
+
+  //   setSelectedCategory(categoryValue);
+  //   setFareEstimate(typeof price === "number" ? price : null);
+  //   setFareIsFlatRate(fareIsFlatRate);
+  //   setShowVehicleCategories(false);
+  // };
+
   const handleCategorySelect = (category: any) => {
-    const categoryValue =
-      category?.categoryValue || category?.category?.value || category?.id;
-    const price =
-      category?.estimatedPrice ||
-      category?.amount?.amount ||
-      category?.basePrice;
+  const categoryValue = category?.categoryValue;
+  // const fareId = category?.id; // <--- THIS IS THE BREAKDOWN ID
+ 
+  const price = category?.estimatedPrice;
 
-    if (!categoryValue) {
-      showNotification("Invalid vehicle category selected", "error");
-      return;
-    }
+  if (!categoryValue) {
+    showNotification("Invalid vehicle category selected", "error");
+    return;
+  }
 
-    setSelectedCategory(categoryValue);
-    setFareEstimate(typeof price === "number" ? price : null);
-    setFareIsFlatRate(fareIsFlatRate);
-    setShowVehicleCategories(false);
-  };
+  setSelectedCategory(categoryValue);
+  // setSelectedDestinationFareId(fareId); // <--- STORE THE FARE ID
+  setFareEstimate(typeof price === "number" ? price : null);
+  setShowVehicleCategories(false);
+};
 
   const handleBackToCategories = () => {
     setSelectedCategory(null);
@@ -2326,6 +2401,7 @@ export default function ACHRAMApp() {
         resetKey={resetBookingKey}
         setPickupId={setPickupId}
         setPickupCodename={setPickupCodename}
+        pickupCodename={pickupCodename}
         onShowLogin={() => setShowLogin(true)}
         showNotification={showNotification}
         isAuthenticated={isAuthenticated}
@@ -2355,6 +2431,14 @@ export default function ACHRAMApp() {
         setIsStrictPreferences={setIsStrictPreferences}
         passengerLiveLocation={passengerLiveLocation} // NEW
         onRefreshLocation={handleRefreshLocation} // NEW
+        airportFares={airportFares}
+
+        isFetchingFares={isFetchingFares}
+        getFilteredDestinations={getFilteredDestinations}
+        selectedDestinationFareId={selectedDestinationFareId}
+        setSelectedDestinationFareId={setSelectedDestinationFareId}
+        getCategoryDescription={getCategoryDescription}
+        setVehicleQuotes={setVehicleQuotes}
       />
     );
   } else if (screen === "assigning") {

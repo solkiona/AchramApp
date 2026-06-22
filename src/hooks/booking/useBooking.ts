@@ -4,6 +4,7 @@ import { buildTripData } from "@/lib/booking/buildTripData";
 import { formatPhoneNumber } from "@/lib/booking/formatPhone";
 import { findNearestAirport, KNOWN_AIRPORTS } from "@/lib/airports";
 import posthog from "posthog-js";
+import { VehicleCategory } from "@/types/booking";
 
 type UseBookingProps = {
   tripHistory: any[];
@@ -40,6 +41,7 @@ type UseBookingProps = {
   numberOfSeats: number;
   isStrictPreferences: boolean;
   sourceDomain: string;
+  selectedDestinationFareId: string | null;
 
 };
 
@@ -78,11 +80,16 @@ export const useBooking = ({
   numberOfSeats,
   isStrictPreferences,
   sourceDomain,
+  selectedDestinationFareId,
 }: UseBookingProps) => {
 
   
 
   const handleRequestRide = useCallback(async () => {
+
+
+   
+
     let tripData: any = null;
     
     if (
@@ -107,13 +114,20 @@ export const useBooking = ({
           return;
         }
       }
-      if (!pickupCoords || !destinationCoords) {
-        showNotification(
-          "Pickup and destination locations are required.",
-          "error"
-        );
-        return;
-      }
+      // if (!pickupCoords || !destinationCoords) {
+      //   showNotification(
+      //     "Pickup and destination locations are required.",
+      //     "error"
+      //   );
+      //   return;
+      // }
+
+       if (!selectedDestinationFareId) {
+      showNotification("Please select a valid destination and vehicle category.", "error");
+      return;
+    }
+
+
       let airportId: string | null = null;
       
       if (pickup.startsWith("Use my current location")) {
@@ -185,18 +199,16 @@ export const useBooking = ({
       }
 
       tripData = buildTripData(
-        fareEstimate,
         pickup,
-        destination,
         pickupCoords,
-        destinationCoords,
         passengerData,
         requirements,
         airportId,
         bookAsGuest,
         isAuthenticated,
         formatPhoneNumber,
-        selectedCategory,
+        selectedDestinationFareId, // <--- Pass the new ID
+        selectedCategory as VehicleCategory,
         numberOfSeats,
         isStrictPreferences,
         sourceDomain,
@@ -316,9 +328,9 @@ export const useBooking = ({
         
         setTripRequestError(response.message);
         
-        if (response?.details?.pickup_location || response?.details?.destination_location) {
+        if (response?.details?.pickup_location || response?.details?.destination_location || response.details?.fare) {
           setTripRequestStatus("error");
-          setTripRequestError(response?.details?.pickup_location?.[0] || response?.details?.destination_location?.[0]);
+          setTripRequestError(response?.details?.pickup_location?.[0] || response?.details?.destination_location?.[0] ||  response?.details?.fare?.[0]);
         }
         
         setTripRequestStatus("error");
@@ -373,6 +385,7 @@ export const useBooking = ({
     numberOfSeats,
     isStrictPreferences,
     sourceDomain,
+    selectedDestinationFareId,
   ]);
 
   return { handleRequestRide };
