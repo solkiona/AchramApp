@@ -9,6 +9,7 @@ import { VehicleCategory } from "@/types/booking";
 type UseBookingProps = {
   tripHistory: any[];
   pickup: string;
+  airportId: string | undefined;
   destination: string;
   fareEstimate: number | null;
   pickupCoords: [number, number] | null;
@@ -48,6 +49,7 @@ type UseBookingProps = {
 export const useBooking = ({
   tripHistory,
   pickup,
+  airportId,
   destination,
   fareEstimate,
   pickupCoords,
@@ -128,67 +130,67 @@ export const useBooking = ({
     }
 
 
-      let airportId: string | null = null;
+      // let airportId: string | null = null;
       
-      if (pickup.startsWith("Use my current location")) {
-        const nearestAirports = await findNearestAirport(
-          pickupCoords[0],
-          pickupCoords[1]
-        );
-        if (!nearestAirports || !nearestAirports.length) {
-          setTripRequestStatus("error");
-          setTripRequestError(
-            "You're outside our service area. Booking not available from this location."
-          );
-          return;
-        }
-        const selectedAirport = nearestAirports.find(
-          (apt) => { 
-            alert(`airport name: ${apt.name}, pickup name: ${pickup}`)
-            return apt.name === pickup
-          }
-        );
-        if (!selectedAirport) {
-          console.error(
-            "Selected pickup name does not match any fetched airport:",
-            pickup,
-            nearestAirports
-          );
-          setTripRequestStatus("error");
-          setTripRequestError(
-            "Could not confirm selected pickup location. Please try again."
-          );
-          return;
-        }
-        airportId = selectedAirport.id;
-      } else if (pickup in KNOWN_AIRPORTS) {
-        airportId = KNOWN_AIRPORTS[pickup];
-      } else {
-        const nearestAirports = await findNearestAirport(
-          pickupCoords[0],
-          pickupCoords[1]
-        );
-        if (!nearestAirports || !nearestAirports.length) {
-          setTripRequestStatus("error");
-          setTripRequestError(
-            "Pickup location is not near a supported airport."
-          );
-          return;
-        }
-        const selectedAirport = nearestAirports.find(
-          (apt) => apt.name === pickup
-        );
-        if (selectedAirport) {
-          airportId = selectedAirport.id;
-        } else {
-          console.warn(
-            "Typed pickup name did not match any fetched airport name, using first result.",
-            pickup,
-            nearestAirports
-          );
-          airportId = nearestAirports[0].id;
-        }
-      }
+      // if (pickup.startsWith("Use my current location")) {
+      //   const nearestAirports = await findNearestAirport(
+      //     pickupCoords[0],
+      //     pickupCoords[1]
+      //   );
+      //   if (!nearestAirports || !nearestAirports.length) {
+      //     setTripRequestStatus("error");
+      //     setTripRequestError(
+      //       "You're outside our service area. Booking not available from this location."
+      //     );
+      //     return;
+      //   }
+      //   const selectedAirport = nearestAirports.find(
+      //     (apt) => { 
+      //       alert(`airport name: ${apt.name}, pickup name: ${pickup}`)
+      //       return apt.name === pickup
+      //     }
+      //   );
+      //   if (!selectedAirport) {
+      //     console.error(
+      //       "Selected pickup name does not match any fetched airport:",
+      //       pickup,
+      //       nearestAirports
+      //     );
+      //     setTripRequestStatus("error");
+      //     setTripRequestError(
+      //       "Could not confirm selected pickup location. Please try again."
+      //     );
+      //     return;
+      //   }
+      //   airportId = selectedAirport.id;
+      // } else if (pickup in KNOWN_AIRPORTS) {
+      //   airportId = KNOWN_AIRPORTS[pickup];
+      // } else {
+      //   const nearestAirports = await findNearestAirport(
+      //     pickupCoords[0],
+      //     pickupCoords[1]
+      //   );
+      //   if (!nearestAirports || !nearestAirports.length) {
+      //     setTripRequestStatus("error");
+      //     setTripRequestError(
+      //       "Pickup location is not near a supported airport."
+      //     );
+      //     return;
+      //   }
+      //   const selectedAirport = nearestAirports.find(
+      //     (apt) => apt.name === pickup
+      //   );
+      //   if (selectedAirport) {
+      //     airportId = selectedAirport.id;
+      //   } else {
+      //     console.warn(
+      //       "Typed pickup name did not match any fetched airport name, using first result.",
+      //       pickup,
+      //       nearestAirports
+      //     );
+      //     airportId = nearestAirports[0].id;
+      //   }
+      // }
       if (!airportId) {
         console.error("Airport ID not available for booking.");
         showNotification(
@@ -352,6 +354,7 @@ export const useBooking = ({
   }, [
     tripHistory,
     pickup,
+    airportId,
     destination,
     fareEstimate,
     pickupCoords,

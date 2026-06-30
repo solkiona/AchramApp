@@ -104,6 +104,7 @@ export default function ACHRAMApp() {
   const [pickupCodename, setPickupCodename] = useState<string | undefined>(
     undefined,
   );
+  const [airportId, setAirportId] = useState<string | undefined>(undefined);
   const [destinationCoords, setDestinationCoords] = useState<
     [number, number] | null
   >(null);
@@ -594,6 +595,7 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
   const { handleRequestRide } = useBooking({
     tripHistory,
     pickup,
+    airportId,
     destination,
     fareEstimate,
     pickupCoords,
@@ -2380,6 +2382,8 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
       <BookingScreen
         pickup={pickup}
         setPickup={setPickup}
+        airportId={airportId}
+        setAirportId={setAirportId}
         destination={destination}
         setDestination={setDestination}
         fareEstimate={fareEstimate}

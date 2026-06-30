@@ -34,6 +34,8 @@ interface LocationData {
 interface BookingScreenProps {
   pickup: string;
   setPickup: (val: string) => void;
+  airportId: string | null;
+  setAirportId: (val: string | null) => void;
   destination: string;
   setDestination: (val: string) => void;
   fareEstimate: number | null;
@@ -130,6 +132,8 @@ function useDebounceCallback<T extends (...args: any[]) => any>(
 export default function BookingScreen({
   pickup,
   setPickup,
+  airportId,
+  setAirportId,
   destination,
   setDestination,
   fareEstimate,
@@ -272,6 +276,7 @@ export default function BookingScreen({
   useEffect(() => {
     console.log("DEBUG: Reset key changed, resetting booking screen state");
     setPickupLocationData({ name: "", coords: null });
+    setAirportId(null);
     setDestinationLocationData({ name: "", coords: null });
   }, [resetKey]); // Depend on resetKey
 
@@ -427,6 +432,7 @@ export default function BookingScreen({
                     id: airports[0].id,
                     codename: airports[0].codename,
                   });
+                  setAirportId(pickupLocationData.id)
                 } else {
                   setAirportsToSelect(airports);
                   setShowAirportSelectionModal(true);
@@ -486,6 +492,7 @@ export default function BookingScreen({
       setPickupOpen(false);
 
       if (airports && airports.length > 0) {
+        
         if (airports.length === 1) {
           setPickupLocationData({
             name: airports[0].name,
@@ -493,6 +500,9 @@ export default function BookingScreen({
             id: airports[0].id,
             codename: airports[0].codename,
           });
+          console.log('airport length is one', airportId)
+          setAirportId(airports[0].id)
+          console.log('Airport Id is set: ', airportId);
         } else {
           setAirportsToSelect(airports);
           setShowAirportSelectionModal(true);
@@ -537,6 +547,7 @@ export default function BookingScreen({
             id: airports[0].id,
             codename: airports[0].codename,
           });
+          setAirportId(airports[0].id)
         } else {
           setAirportsToSelect(airports);
           setShowAirportSelectionModal(true);
@@ -574,6 +585,7 @@ export default function BookingScreen({
       id: airport.id,
       codename: airport.codename,
     });
+    setAirportId(airport.id)
     setShowAirportSelectionModal(false);
   }, []);
 
@@ -973,7 +985,7 @@ export default function BookingScreen({
               <div className="flex justify-between items-center">
                 <div>
                   <div className="text-sm text-achrams-text-secondary font-medium">
-                    Estimated fare
+                    Flat Rate
                   </div>
                   <div className="text-xs text-achrams-text-tertiary flex items-center gap-1 mt-0.5">
                     <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
@@ -1150,7 +1162,7 @@ export default function BookingScreen({
                               {category.formattedPrice}
                             </div>
                             <div className="text-xs text-achrams-text-tertiary mt-0.5">
-                              Estimated
+                              Flat Rate
                             </div>
                           </div>
                         </div>
