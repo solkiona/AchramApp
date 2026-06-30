@@ -168,302 +168,14 @@
 
 
 
-// 'use client';
-// import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
-// import { Capacitor } from '@capacitor/core';
-// import { SecureStorage } from '@aparajita/capacitor-secure-storage';
-// import { apiClient } from '@/lib/api';
-// import { useBiometricAuth } from '@/hooks/useBiometricAuth';
-// import { setUnauthorizedHandler } from '@/lib/api';
-// import { useRouter } from 'next/navigation';
-
-// const isNative = Capacitor.isNativePlatform();
-
-// interface AuthContextType {
-//   user: any | null;
-//   token: string | null;
-//   isAuthenticated: boolean;
-//   isLoading: boolean;
-//   isBiometricAvailable: boolean | null;
-//   isBiometricEnabled: boolean;
-//   login: (email: string, password: string) => Promise<{ success: boolean; requires2FA?: boolean; message?: string }>;
-//   checkAuthStatus: () => Promise<boolean>;
-//   logout: () => Promise<void>;
-//   loginWithBiometric: () => Promise<boolean>;
-//   enableBiometricLogin: () => Promise<boolean>;
-//   disableBiometricLogin: () => Promise<void>;
-//   isBiometricBlocked: boolean;
-// }
-
-// const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// export const AuthProvider = ({ children }: { children: ReactNode }) => {
-//   const [user, setUser] = useState<any | null>(null);
-//   const [token, setToken] = useState<string | null>(null);
-//   const [isAuthenticated, setIsAuthenticated] = useState(false);
-//   const [isLoading, setIsLoading] = useState(true);
-//   const [mounted, setMounted] = useState(false);
-//   const [isBiometricBlocked, setIsBiometricBlocked] = useState(false);
-
-//   const biometric = useBiometricAuth();
-
-//   useEffect(() => setMounted(true), []);
-
-//   const router = useRouter();
-
-// useEffect(() => {
-//   if (!mounted) return;
-//   setUnauthorizedHandler(async () => {
-//     setUser(null);
-//     setToken(null);
-//     setIsAuthenticated(false);
-//     if (isNative) {
-//       await SecureStorage.remove('auth_token');
-//       await SecureStorage.remove('refresh_token');
-//       await biometric.setRequireFullLogin(true);
-//       setIsBiometricBlocked(true);
-//     }
-//      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-//   });
-// }, [mounted, router]);
-
-//  useEffect(() => {
-//   if (!mounted) return;
-
-//   if (isNative) {
-//     // Native: hydrate token for later use, but do NOT set isAuthenticated
-//     biometric.getSecureCredentials().then(c => {
-//       if (c.accessToken) setToken(c.accessToken);
-//     });
-//     biometric.checkAvailability();
-//     setIsLoading(false);
-//     return;
-//   }
-
-//   // Web only: verify httpOnly cookie
-//   checkAuthStatus();
-// }, [mounted]);
-
-
-   
-//   const checkAuthStatus = useCallback(async () => {
-//   // Native must go through BiometricGate, never auto-login via token/cookie
-//   if (isNative) {
-//     setIsLoading(false);
-//     return false;
-//   }
-
-//   console.log("AuthContext: Checking authentication status via cookie...");
-//   setIsLoading(true);
-//   try {
-//     const response = await apiClient.get(
-//       '/auth/passenger/authenticated',
-//       undefined,
-//       false,
-//       undefined,
-//       true
-//     );
-
-//     if (response.status === 'success') {
-//       setIsAuthenticated(true);
-//       // populate user for web
-//       try {
-//         const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
-//         if (me.status === 'success') setUser(me.data ?? null);
-//       } catch {}
-//       return true;
-//     } else {
-//       setIsAuthenticated(false);
-//       setUser(null);
-//       setToken(null);
-//       return false;
-//     }
-//   } catch (err) {
-//     setIsAuthenticated(false);
-//     setUser(null);
-//     setToken(null);
-//     return false;
-//   } finally {
-//     setIsLoading(false);
-//   }
-// }, []);
-    
-//   const login = useCallback(async (email: string, password: string) => {
-//     setIsLoading(true);
-//     try {
-//       const res = await apiClient.post('/auth/passenger/login', { email, password }, undefined, undefined, true);
-//       if (res.status === 'success' && res.data?.token) {
-//         console.log(res.data?.token)
-//         const access = res.data.token as string;
-//         const refresh = res.data.refresh as string | undefined;
-
-//         setToken(access);
-//         setIsAuthenticated(true);
-
-//         // Native: store tokens immediately so first profile fetch works
-//         if (isNative) {
-//           await SecureStorage.set('auth_token', access);
-//           if (refresh) await SecureStorage.set('refresh_token', refresh);
-//           await biometric.setRequireFullLogin(false);
-//           setIsBiometricBlocked(false);
-//         }
-
-//         // Fetch profile using the token we just received
-//         try {
-//           const me = await apiClient.get('/auth/passenger/me', access, false, undefined, true);
-//           if (me.status === 'success') setUser(me.data?? null);
-//         } catch {}
-
-//         setIsLoading(false);
-//         return { success: true };
-//       }
-//       if (res.status === 'success' && res.data?.two_factor) {
-//         setIsLoading(false);
-//         return { success: true, requires2FA: true };
-//       }
-//       setIsLoading(false);
-//       return { success: false, message: res.message || 'Login failed' };
-//     } catch {
-//       setIsLoading(false);
-//       return { success: false, message: 'Login error' };
-//     }
-//   }, []);
-
-//   const logout = useCallback(async () => {
-//     try { await apiClient.post('/auth/logout', {}, token ?? undefined, undefined, true); } catch {}
-//     setUser(null);
-//     setToken(null);
-//     setIsAuthenticated(false);
-//     if (isNative) {
-//       await biometric.disableBiometricLogin();
-//       await SecureStorage.remove('auth_token');
-//       await SecureStorage.remove('refresh_token');
-//     }
-//   }, [biometric]);
-
-//   // const loginWithBiometric = useCallback(async () => {
-//   //   if (!isNative) return false;
-//   //   const auth = await biometric.authenticate();
-//   //   if (!auth.success) return false;
-
-//   //   const creds = await biometric.getSecureCredentials();
-//   //   if (!creds.accessToken) return false;
-
-//   //   setToken(creds.accessToken);
-//   //   setIsAuthenticated(true);
-
-//   //   try {
-//   //     const me = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
-//   //     if (me.status === 'success') setUser(me.data?? null);
-//   //   } catch {}
-//   //   return true;
-//   // }, [biometric]);
-
-//   const loginWithBiometric = useCallback(async () => {
-//   if (!isNative) return false;
-
-//   // Check if full login is required before even prompting biometric
-//   const requiresFull = await biometric.getRequireFullLogin();
-//   if (requiresFull) {
-
-//     setIsBiometricBlocked(true);
-//     return false;
-  
-//   }
-
-//   const creds = await biometric.getSecureCredentials();
-//   if (!creds.accessToken) return false;
-
-//   // Validate token BEFORE prompting biometric
-//   try {
-//     const check = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
-//     if (check.status !== 'success') {
-//       await biometric.setRequireFullLogin(true);
-//       await biometric.disableBiometricLogin();
-//       return false;
-//     }
-//   } catch {
-//     await biometric.setRequireFullLogin(true);
-//     await biometric.disableBiometricLogin();
-//     return false;
-//   }
-
-//   // Token is valid — NOW prompt biometric
-//   const auth = await biometric.authenticate();
-//   if (!auth.success) return false;
-
-//   setToken(creds.accessToken);
-//   setIsAuthenticated(true);
-//   try {
-//     const me = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
-//     if (me.status === 'success') setUser(me.data ?? null);
-//   } catch {}
-//   return true;
-// }, [biometric]);
-
-//   const enableBiometricLogin = useCallback(async () => {
-//     if (!isNative) return false;
-//     let t = token;
-//     if (!t) {
-//       const creds = await biometric.getSecureCredentials();
-//       t = creds.accessToken;
-//       if (t) setToken(t);
-//     }
-//     if (!t) return false;
-//     const creds = await biometric.getSecureCredentials();
-//     const ok = await biometric.enableBiometricLogin(t, creds.refreshToken?? undefined);
-//     return ok;
-//   }, [token, biometric]);
-
-//   const disableBiometricLogin = useCallback(async () => {
-//     if (isNative) await biometric.disableBiometricLogin();
-//   }, [biometric]);
-
-//   useEffect(() => {
-//     setIsLoading(false);
-//   }, []);
-
-//   const isBiometricAvailable = isNative && mounted? (biometric.biometryResult?.isAvailable?? null) : null;
-//   const isBiometricEnabled = isNative && mounted? biometric.isEnabled : false;
-
-//   const value = useMemo(() => ({
-//     user,
-//     token,
-//     isAuthenticated,
-//     isLoading,
-//     isBiometricAvailable,
-//     isBiometricEnabled,
-//     isBiometricBlocked,
-//     checkAuthStatus,
-//     login,
-//     logout,
-//     loginWithBiometric,
-//     enableBiometricLogin,
-//     disableBiometricLogin,
-    
-//   }), [user, token, isAuthenticated, isLoading, isBiometricAvailable, isBiometricEnabled,isBiometricBlocked, checkAuthStatus,login, logout, loginWithBiometric, enableBiometricLogin, disableBiometricLogin]);
-
-//   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-// };
-
-// export const useAuth = () => {
-//   const ctx = useContext(AuthContext);
-//   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-//   return ctx;
-// };
-
-
-// src/contexts/AuthContext.tsx
-
-
 'use client';
-
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { App } from '@capacitor/app';
 import { SecureStorage } from '@aparajita/capacitor-secure-storage';
-import { apiClient, setUnauthorizedHandler } from '@/lib/api';
+import { apiClient } from '@/lib/api';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
+import { setUnauthorizedHandler } from '@/lib/api';
+import { useRouter } from 'next/navigation';
 
 const isNative = Capacitor.isNativePlatform();
 
@@ -474,13 +186,13 @@ interface AuthContextType {
   isLoading: boolean;
   isBiometricAvailable: boolean | null;
   isBiometricEnabled: boolean;
-  isBiometricBlocked: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; requires2FA?: boolean; message?: string }>;
-  logout: () => Promise<void>;
   checkAuthStatus: () => Promise<boolean>;
+  logout: () => Promise<void>;
   loginWithBiometric: () => Promise<boolean>;
   enableBiometricLogin: () => Promise<boolean>;
   disableBiometricLogin: () => Promise<void>;
+  isBiometricBlocked: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -490,216 +202,246 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isBiometricBlocked, setIsBiometricBlocked] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [isBiometricBlocked, setIsBiometricBlocked] = useState(false);
 
-  // ✅ hook at top level - never inside useEffect
   const biometric = useBiometricAuth();
 
   useEffect(() => setMounted(true), []);
 
-  // ✅ set unauthorized handler once
-  useEffect(() => {
-    if (!mounted) return;
-    setUnauthorizedHandler(async () => {
+  const router = useRouter();
+
+useEffect(() => {
+  if (!mounted) return;
+  setUnauthorizedHandler(async () => {
+    setUser(null);
+    setToken(null);
+    setIsAuthenticated(false);
+    if (isNative) {
+      await SecureStorage.remove('auth_token');
+      await SecureStorage.remove('refresh_token');
+      await biometric.setRequireFullLogin(true);
+      setIsBiometricBlocked(true);
+    }
+     window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+  });
+}, [mounted, router]);
+
+ useEffect(() => {
+  if (!mounted) return;
+
+  if (isNative) {
+    // Native: hydrate token for later use, but do NOT set isAuthenticated
+    biometric.getSecureCredentials().then(c => {
+      if (c.accessToken) setToken(c.accessToken);
+    });
+    biometric.checkAvailability();
+    setIsLoading(false);
+    return;
+  }
+
+  // Web only: verify httpOnly cookie
+  checkAuthStatus();
+}, [mounted]);
+
+
+   
+  const checkAuthStatus = useCallback(async () => {
+  // Native must go through BiometricGate, never auto-login via token/cookie
+  if (isNative) {
+    setIsLoading(false);
+    return false;
+  }
+
+  console.log("AuthContext: Checking authentication status via cookie...");
+  setIsLoading(true);
+  try {
+    const response = await apiClient.get(
+      '/auth/passenger/authenticated',
+      undefined,
+      false,
+      undefined,
+      true
+    );
+
+    if (response.status === 'success') {
+      setIsAuthenticated(true);
+      // populate user for web
+      try {
+        const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
+        if (me.status === 'success') setUser(me.data ?? null);
+      } catch {}
+      return true;
+    } else {
+      setIsAuthenticated(false);
       setUser(null);
       setToken(null);
-      setIsAuthenticated(false);
-      (apiClient as any).setAuthToken?.(null);
-      if (isNative) {
-        await SecureStorage.remove('auth_token').catch(()=>{});
-        await SecureStorage.remove('refresh_token').catch(()=>{});
-        await biometric.setRequireFullLogin(true).catch(()=>{});
-        setIsBiometricBlocked(true);
-      }
-    });
-  }, [mounted, biometric]);
-
-  const applyToken = useCallback((t: string | null) => {
-    setToken(t);
-    // most apiClients expose this - if yours doesn't, it will just be ignored
-    (apiClient as any).setAuthToken?.(t);
-    if (t) {
-      // also set default header for axios/fetch wrappers
-      (apiClient as any).defaults?.headers?.common &&
-        ((apiClient as any).defaults.headers.common['Authorization'] = `Bearer ${t}`);
-    }
-  }, []);
-
-  const checkAuthStatus = useCallback(async () => {
-    if (isNative) return false;
-    setIsLoading(true);
-    try {
-      const res = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true);
-      if (res.status === 'success') {
-        setIsAuthenticated(true);
-        const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true).catch(()=>null);
-        if (me?.status === 'success') setUser(me.data);
-        return true;
-      }
-      setIsAuthenticated(false);
       return false;
-    } catch {
-      setIsAuthenticated(false);
-      return false;
-    } finally {
-      setIsLoading(false);
     }
-  }, []);
-
-  // ✅ hydrate AFTER iOS is active - prevents keychain freeze
-  useEffect(() => {
-    if (!mounted) return;
-
-    const init = async () => {
-      if (!isNative) {
-        await checkAuthStatus();
-        return;
-      }
-
-      setIsLoading(true);
-      try {
-        // wait for app to be foregrounded on iOS
-        await App.getState().then(s => s.isActive? Promise.resolve() : new Promise(r => {
-          const sub = App.addListener('appStateChange', ({isActive}) => {
-            if (isActive) { sub.remove(); r(null); }
-          });
-        }));
-
-        await biometric.checkAvailability().catch(()=>{});
-        const requiresFull = await biometric.getRequireFullLogin().catch(()=>true);
-        setIsBiometricBlocked(requiresFull);
-
-        const stored = await SecureStorage.get('auth_token').catch(()=>null);
-        if (stored &&!requiresFull) {
-          applyToken(stored);
-          try {
-            const me = await apiClient.get('/auth/passenger/me', stored, false, undefined, true);
-            if (me.status === 'success') {
-              setUser(me.data);
-              setIsAuthenticated(true);
-              setIsBiometricBlocked(false);
-            } else {
-              throw new Error('invalid');
-            }
-          } catch {
-            await SecureStorage.remove('auth_token').catch(()=>{});
-            await biometric.setRequireFullLogin(true);
-            setIsBiometricBlocked(true);
-            applyToken(null);
-          }
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    init();
-  }, [mounted, applyToken, biometric, checkAuthStatus]);
-
+  } catch (err) {
+    setIsAuthenticated(false);
+    setUser(null);
+    setToken(null);
+    return false;
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
+    
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     try {
       const res = await apiClient.post('/auth/passenger/login', { email, password }, undefined, undefined, true);
       if (res.status === 'success' && res.data?.token) {
+        console.log(res.data?.token)
         const access = res.data.token as string;
         const refresh = res.data.refresh as string | undefined;
 
-        // ✅ apply immediately - dashboard won't 401
-        applyToken(access);
+        setToken(access);
         setIsAuthenticated(true);
 
+        // Native: store tokens immediately so first profile fetch works
         if (isNative) {
-          // don't await - iOS keychain is slow
-          SecureStorage.set('auth_token', access).catch(()=>{});
-          if (refresh) SecureStorage.set('refresh_token', refresh).catch(()=>{});
+          await SecureStorage.set('auth_token', access);
+          if (refresh) await SecureStorage.set('refresh_token', refresh);
           await biometric.setRequireFullLogin(false);
           setIsBiometricBlocked(false);
         }
 
-        const me = await apiClient.get('/auth/passenger/me', access, false, undefined, true).catch(()=>null);
-        if (me?.status === 'success') setUser(me.data?? null);
+        // Fetch profile using the token we just received
+        try {
+          const me = await apiClient.get('/auth/passenger/me', access, false, undefined, true);
+          if (me.status === 'success') setUser(me.data?? null);
+        } catch {}
 
+        setIsLoading(false);
         return { success: true };
       }
       if (res.status === 'success' && res.data?.two_factor) {
+        setIsLoading(false);
         return { success: true, requires2FA: true };
       }
+      setIsLoading(false);
       return { success: false, message: res.message || 'Login failed' };
     } catch {
-      return { success: false, message: 'Login error' };
-    } finally {
       setIsLoading(false);
+      return { success: false, message: 'Login error' };
     }
-  }, [applyToken, biometric]);
+  }, []);
 
   const logout = useCallback(async () => {
-    try { await apiClient.post('/auth/logout', {}, token?? undefined, undefined, true); } catch {}
+    try { await apiClient.post('/auth/logout', {}, token ?? undefined, undefined, true); } catch {}
     setUser(null);
+    setToken(null);
     setIsAuthenticated(false);
-    applyToken(null);
     if (isNative) {
-      await biometric.disableBiometricLogin().catch(()=>{});
-      await SecureStorage.remove('auth_token').catch(()=>{});
-      await SecureStorage.remove('refresh_token').catch(()=>{});
-      await biometric.setRequireFullLogin(true);
-      setIsBiometricBlocked(true);
+      await biometric.disableBiometricLogin();
+      await SecureStorage.remove('auth_token');
+      await SecureStorage.remove('refresh_token');
     }
-  }, [token, applyToken, biometric]);
+  }, [biometric]);
+
+  // const loginWithBiometric = useCallback(async () => {
+  //   if (!isNative) return false;
+  //   const auth = await biometric.authenticate();
+  //   if (!auth.success) return false;
+
+  //   const creds = await biometric.getSecureCredentials();
+  //   if (!creds.accessToken) return false;
+
+  //   setToken(creds.accessToken);
+  //   setIsAuthenticated(true);
+
+  //   try {
+  //     const me = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
+  //     if (me.status === 'success') setUser(me.data?? null);
+  //   } catch {}
+  //   return true;
+  // }, [biometric]);
 
   const loginWithBiometric = useCallback(async () => {
-    if (!isNative || isBiometricBlocked) return false;
+  if (!isNative) return false;
 
-    const creds = await biometric.getSecureCredentials().catch(()=>({ accessToken: null }));
-    if (!creds.accessToken) return false;
+  // Check if full login is required before even prompting biometric
+  const requiresFull = await biometric.getRequireFullLogin();
+  if (requiresFull) {
 
-    // validate first, prompt second (prevents iOS prompt on expired token)
-    try {
-      const check = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
-      if (check.status!== 'success') throw new Error();
-    } catch {
+    setIsBiometricBlocked(true);
+    return false;
+  
+  }
+
+  const creds = await biometric.getSecureCredentials();
+  if (!creds.accessToken) return false;
+
+  // Validate token BEFORE prompting biometric
+  try {
+    const check = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
+    if (check.status !== 'success') {
       await biometric.setRequireFullLogin(true);
-      setIsBiometricBlocked(true);
+      await biometric.disableBiometricLogin();
       return false;
     }
+  } catch {
+    await biometric.setRequireFullLogin(true);
+    await biometric.disableBiometricLogin();
+    return false;
+  }
 
-    const auth = await biometric.authenticate().catch(()=>({ success: false }));
-    if (!auth.success) return false;
+  // Token is valid — NOW prompt biometric
+  const auth = await biometric.authenticate();
+  if (!auth.success) return false;
 
-    applyToken(creds.accessToken);
-    setIsAuthenticated(true);
-    const me = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true).catch(()=>null);
-    if (me?.status === 'success') setUser(me.data);
-    return true;
-  }, [biometric, isBiometricBlocked, applyToken]);
+  setToken(creds.accessToken);
+  setIsAuthenticated(true);
+  try {
+    const me = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
+    if (me.status === 'success') setUser(me.data ?? null);
+  } catch {}
+  return true;
+}, [biometric]);
 
   const enableBiometricLogin = useCallback(async () => {
-    if (!isNative ||!token) return false;
-    const creds = await biometric.getSecureCredentials().catch(()=>({ refreshToken: null }));
-    const ok = await biometric.enableBiometricLogin(token, creds.refreshToken?? undefined).catch(()=>false);
-    if (ok) {
-      await biometric.setRequireFullLogin(false);
-      setIsBiometricBlocked(false);
+    if (!isNative) return false;
+    let t = token;
+    if (!t) {
+      const creds = await biometric.getSecureCredentials();
+      t = creds.accessToken;
+      if (t) setToken(t);
     }
+    if (!t) return false;
+    const creds = await biometric.getSecureCredentials();
+    const ok = await biometric.enableBiometricLogin(t, creds.refreshToken?? undefined);
     return ok;
   }, [token, biometric]);
 
   const disableBiometricLogin = useCallback(async () => {
-    if (isNative) {
-      await biometric.disableBiometricLogin().catch(()=>{});
-      await biometric.setRequireFullLogin(true);
-      setIsBiometricBlocked(true);
-    }
+    if (isNative) await biometric.disableBiometricLogin();
   }, [biometric]);
 
+  useEffect(() => {
+    setIsLoading(false);
+  }, []);
+
+  const isBiometricAvailable = isNative && mounted? (biometric.biometryResult?.isAvailable?? null) : null;
+  const isBiometricEnabled = isNative && mounted? biometric.isEnabled : false;
+
   const value = useMemo(() => ({
-    user, token, isAuthenticated, isLoading,
-    isBiometricAvailable: mounted && isNative? biometric.biometryResult?.isAvailable?? null : null,
-    isBiometricEnabled: mounted && isNative? biometric.isEnabled : false,
+    user,
+    token,
+    isAuthenticated,
+    isLoading,
+    isBiometricAvailable,
+    isBiometricEnabled,
     isBiometricBlocked,
-    login, logout, checkAuthStatus,
-    loginWithBiometric, enableBiometricLogin, disableBiometricLogin,
-  }), [user, token, isAuthenticated, isLoading, mounted, biometric.biometryResult, biometric.isEnabled, isBiometricBlocked, login, logout, checkAuthStatus, loginWithBiometric, enableBiometricLogin, disableBiometricLogin]);
+    checkAuthStatus,
+    login,
+    logout,
+    loginWithBiometric,
+    enableBiometricLogin,
+    disableBiometricLogin,
+    
+  }), [user, token, isAuthenticated, isLoading, isBiometricAvailable, isBiometricEnabled,isBiometricBlocked, checkAuthStatus,login, logout, loginWithBiometric, enableBiometricLogin, disableBiometricLogin]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
@@ -709,3 +451,5 @@ export const useAuth = () => {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 };
+
+
