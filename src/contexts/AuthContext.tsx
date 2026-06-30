@@ -227,20 +227,61 @@ useEffect(() => {
   });
 }, [mounted, router]);
 
- useEffect(() => {
+ 
+// useEffect(() => {
+//   if (!mounted) return;
+
+//   if (isNative) {
+//     // Native: hydrate token for later use, but do NOT set isAuthenticated
+//     biometric.getSecureCredentials().then(c => {
+//       if (c.accessToken) setToken(c.accessToken);
+//     });
+//     biometric.checkAvailability();
+//     setIsLoading(false);
+//     return;
+//   }
+
+//   // Web only: verify httpOnly cookie
+//   checkAuthStatus();
+// }, [mounted]);
+
+
+
+useEffect(() => {
   if (!mounted) return;
 
   if (isNative) {
-    // Native: hydrate token for later use, but do NOT set isAuthenticated
-    biometric.getSecureCredentials().then(c => {
-      if (c.accessToken) setToken(c.accessToken);
-    });
-    biometric.checkAvailability();
-    setIsLoading(false);
-    return;
+    let cancelled = false;
+
+    const withTimeout = <T,>(p: Promise<T>, ms = 5000): Promise<T> =>
+      Promise.race([
+        p,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error('native call timed out')), ms)
+        ),
+      ]);
+
+    (async () => {
+      try {
+        // sequential, not parallel — avoids concurrent Keychain/LAContext access on iOS
+        const c = await withTimeout(biometric.getSecureCredentials());
+        if (!cancelled && c.accessToken) setToken(c.accessToken);
+      } catch (e) {
+        console.warn('getSecureCredentials failed/timed out', e);
+      }
+
+      try {
+        await withTimeout(biometric.checkAvailability());
+      } catch (e) {
+        console.warn('checkAvailability failed/timed out', e);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
   }
 
-  // Web only: verify httpOnly cookie
   checkAuthStatus();
 }, [mounted]);
 
