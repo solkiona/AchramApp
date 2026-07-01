@@ -42,6 +42,12 @@ interface LoginResult {
       if (response.status === 'success') {
         console.log("AuthContext: Authentication verified via API call. User is logged in.");
         setIsAuthenticated(true);
+
+         try {
+        const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
+        if (me.status === 'success') setUser(me.data ?? null);
+      } catch {}
+      return true;
         // Optional: Fetch user details here if needed, or rely on initial state from login
         // setUser(response?.data.user);
         // setToken(response?.data.token); // Store if returned
