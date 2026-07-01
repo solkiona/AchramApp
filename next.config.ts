@@ -9,7 +9,10 @@ const nextConfig: NextConfig = {
   //   removeConsole: true,
   // },
 
+
   images: {
+    
+  unoptimized: true,
   remotePatterns: [
     { hostname: 'localhost' },
     { hostname: 'app.achrams.com.ng' },
