@@ -3,7 +3,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ClientProviders from "@/providers/ClientProviders"; // We'll create this
 import {PostHogProvider} from "@/providers/PostHogProvider";
-import { BiometricGate } from '@/app/_BiometricGate';
+import { BiometricGate } from '@/app/BiometricGate';
 
 export const metadata: Metadata = {
   title: "ACHRAMS Passenger App",
@@ -34,11 +34,11 @@ export default function RootLayout({
         <main className="flex-1 min-h-0 flex flex-col">
 
         <ClientProviders>
-          {/* <BiometricGate> */}
+          <BiometricGate>
           <PostHogProvider>
           {children}
           </PostHogProvider>
-          {/* </BiometricGate> */}
+          </BiometricGate>
         </ClientProviders>
 
         </main>
