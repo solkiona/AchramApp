@@ -32,12 +32,12 @@ const buildHeaders = async (
   if (!isFormData) headers['Content-Type'] = 'application/json';
 
   let effectiveToken = token;
-  // if (isAndroid && isAuthRequest && !effectiveToken) {
-  //   try {
-  //     const stored = await SecureStorage.get('auth_token');
-  //     if (stored) effectiveToken = stored;
-  //   } catch {}
-  // }
+  if (isAndroid && isAuthRequest && !effectiveToken) {
+    try {
+      const stored = await SecureStorage.get('auth_token');
+      if (stored) effectiveToken = stored;
+    } catch {}
+  }
   if (effectiveToken && (!isAuthRequest || isNative)) {
     headers['Authorization'] = `Bearer ${effectiveToken}`;
   }
