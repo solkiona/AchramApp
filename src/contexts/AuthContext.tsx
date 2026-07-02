@@ -1,206 +1,206 @@
-'use client';
+// 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { apiClient } from '@/lib/api';
+// import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+// import { apiClient } from '@/lib/api';
 
-interface AuthContextType {
-  user: any | null;
-  token: string | null; // Potentially still useful if the backend also returns a token alongside the cookie
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
-  checkAuthStatus: () => Promise<void>;
-}
+// interface AuthContextType {
+//   user: any | null;
+//   token: string | null; // Potentially still useful if the backend also returns a token alongside the cookie
+//   isAuthenticated: boolean;
+//   isLoading: boolean;
+//   login: (email: string, password: string) => Promise<boolean>;
+//   logout: () => void;
+//   checkAuthStatus: () => Promise<void>;
+// }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<any | null>(null);
-  const [token, setToken] = useState<string | null>(null); // Store token if backend provides one
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+// export const AuthProvider = ({ children }: { children: ReactNode }) => {
+//   const [user, setUser] = useState<any | null>(null);
+//   const [token, setToken] = useState<string | null>(null); // Store token if backend provides one
+//   const [isAuthenticated, setIsAuthenticated] = useState(false);
+//   const [isLoading, setIsLoading] = useState(true);
 
 
-interface LoginResult {
-  success: boolean;
-  requires2FA?: boolean;
-  message?: string; // Add an optional message field for errors
-}
+// interface LoginResult {
+//   success: boolean;
+//   requires2FA?: boolean;
+//   message?: string; // Add an optional message field for errors
+// }
 
 
 
   
     
-  // const checkAuthStatus = async () => {
-  //   console.log("AuthContext: Checking authentication status via API call to /auth/passenger/authenticated...");
-  //   // setIsLoading(true); // Don't set loading here if login function already handles it, or manage carefully to avoid conflicts
-  //   try {
-  //     // Call the authenticated check API using apiClient, indicating it's an auth request relying on cookies
-  //     const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true); // isAuthRequest = true
+//   // const checkAuthStatus = async () => {
+//   //   console.log("AuthContext: Checking authentication status via API call to /auth/passenger/authenticated...");
+//   //   // setIsLoading(true); // Don't set loading here if login function already handles it, or manage carefully to avoid conflicts
+//   //   try {
+//   //     // Call the authenticated check API using apiClient, indicating it's an auth request relying on cookies
+//   //     const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true); // isAuthRequest = true
 
-  //     if (response.status === 'success') {
-  //       console.log("AuthContext: Authentication verified via API call. User is logged in.");
-  //       setIsAuthenticated(true);
+//   //     if (response.status === 'success') {
+//   //       console.log("AuthContext: Authentication verified via API call. User is logged in.");
+//   //       setIsAuthenticated(true);
 
-  //        try {
-  //       const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
-  //       if (me.status === 'success') setUser(me.data ?? null);
-  //     } catch {}
-  //     return true;
-  //       // Optional: Fetch user details here if needed, or rely on initial state from login
-  //       // setUser(response?.data.user);
-  //       // setToken(response?.data.token); // Store if returned
-  //     } else {
-  //       console.log("AuthContext: API responded with non-success status during auth check (likely 401). User is not authenticated.", response);
-  //       setIsAuthenticated(false);
-  //       setUser(null);
-  //       setToken(null);
-  //     }
-  //   } catch (err: any) {
-  //     console.error("AuthContext: Error checking authentication status via API call:", err);
-  //     // Consider the user unauthenticated on error
-  //     setIsAuthenticated(false);
-  //     setUser(null);
-  //     setToken(null);
-  //   } finally {
-  //     setIsLoading(false); // Stop loading state after auth check completes
-  //   }
-  // };
+//   //        try {
+//   //       const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
+//   //       if (me.status === 'success') setUser(me.data ?? null);
+//   //     } catch {}
+//   //     return true;
+//   //       // Optional: Fetch user details here if needed, or rely on initial state from login
+//   //       // setUser(response?.data.user);
+//   //       // setToken(response?.data.token); // Store if returned
+//   //     } else {
+//   //       console.log("AuthContext: API responded with non-success status during auth check (likely 401). User is not authenticated.", response);
+//   //       setIsAuthenticated(false);
+//   //       setUser(null);
+//   //       setToken(null);
+//   //     }
+//   //   } catch (err: any) {
+//   //     console.error("AuthContext: Error checking authentication status via API call:", err);
+//   //     // Consider the user unauthenticated on error
+//   //     setIsAuthenticated(false);
+//   //     setUser(null);
+//   //     setToken(null);
+//   //   } finally {
+//   //     setIsLoading(false); // Stop loading state after auth check completes
+//   //   }
+//   // };
 
 
-  // src/contexts/AuthContext.tsx
-const checkAuthStatus = async () => {
-  console.log("🔍 [Auth] Starting checkAuthStatus...");
-  setIsLoading(true);
-  try {
-    console.log("🔍 [Auth] Calling API...");
-    const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true);
-    console.log("🔍 [Auth] API responded:", response.status);
+//   // src/contexts/AuthContext.tsx
+// const checkAuthStatus = async () => {
+//   console.log("🔍 [Auth] Starting checkAuthStatus...");
+//   setIsLoading(true);
+//   try {
+//     console.log("🔍 [Auth] Calling API...");
+//     const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true);
+//     console.log("🔍 [Auth] API responded:", response.status);
     
-    if (response.status === 'success') {
-      console.log("AuthContext: Authentication verified via API call. User is logged in.");
-      setIsAuthenticated(true);
-      try {
-        const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
-        if (me.status === 'success') setUser(me.data ?? null);
-      } catch {}
-    } else {
-      console.log("AuthContext: API responded with non-success status during auth check (likely 401). User is not authenticated.", response);
-      setIsAuthenticated(false);
-      setUser(null);
-      setToken(null);
-    }
-  } catch (err: any) {
-    console.error("🔍 [Auth] Error checking authentication status:", err);
-    setIsAuthenticated(false);
-    setUser(null);
-    setToken(null);
-  } finally {
-    console.log("🔍 [Auth] Setting isLoading to false");
-    setIsLoading(false); 
-  }
-};
+//     if (response.status === 'success') {
+//       console.log("AuthContext: Authentication verified via API call. User is logged in.");
+//       setIsAuthenticated(true);
+//       try {
+//         const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
+//         if (me.status === 'success') setUser(me.data ?? null);
+//       } catch {}
+//     } else {
+//       console.log("AuthContext: API responded with non-success status during auth check (likely 401). User is not authenticated.", response);
+//       setIsAuthenticated(false);
+//       setUser(null);
+//       setToken(null);
+//     }
+//   } catch (err: any) {
+//     console.error("🔍 [Auth] Error checking authentication status:", err);
+//     setIsAuthenticated(false);
+//     setUser(null);
+//     setToken(null);
+//   } finally {
+//     console.log("🔍 [Auth] Setting isLoading to false");
+//     setIsLoading(false); 
+//   }
+// };
 
 
-  const login = async (email: string, password: string): Promise<LoginResult> => { // Change return type to Promise<LoginResult>
-  console.log("AuthContext: Attempting login for user:", email);
-  setIsLoading(true);
-  try {
-    const loginResponse = await apiClient.post('/auth/passenger/login', {
-      email,
-      password,
-    }, undefined, undefined, true);
+//   const login = async (email: string, password: string): Promise<LoginResult> => { // Change return type to Promise<LoginResult>
+//   console.log("AuthContext: Attempting login for user:", email);
+//   setIsLoading(true);
+//   try {
+//     const loginResponse = await apiClient.post('/auth/passenger/login', {
+//       email,
+//       password,
+//     }, undefined, undefined, true);
 
-    console.log("AuthContext: Login API Response:", loginResponse);
+//     console.log("AuthContext: Login API Response:", loginResponse);
 
-    if (loginResponse.status === 'success' && loginResponse.data && loginResponse.data.token) {
-      console.log("AuthContext: Login successful via API call. Token received (though cookie is primary auth).");
-      await new Promise(resolve => setTimeout(resolve, 500));
-      await checkAuthStatus();
-      return { success: true }; // Return success object
-    } else if(loginResponse.status === 'success' && loginResponse.data?.two_factor === true){
-      console.log("Authcontext: login successful, but 2FA verification is required");
-      setIsLoading(false);
-      return {success: true, requires2FA: true};
-    }
+//     if (loginResponse.status === 'success' && loginResponse.data && loginResponse.data.token) {
+//       console.log("AuthContext: Login successful via API call. Token received (though cookie is primary auth).");
+//       await new Promise(resolve => setTimeout(resolve, 500));
+//       await checkAuthStatus();
+//       return { success: true }; // Return success object
+//     } else if(loginResponse.status === 'success' && loginResponse.data?.two_factor === true){
+//       console.log("Authcontext: login successful, but 2FA verification is required");
+//       setIsLoading(false);
+//       return {success: true, requires2FA: true};
+//     }
     
-    else {
-      // NEW: Extract error message from API response
-      let errorMessage = "Login failed. Please try again."; // Default message
-      if (loginResponse.message) {
-          errorMessage = loginResponse.message; // Use top-level message if available
-      } 
+//     else {
+//       // NEW: Extract error message from API response
+//       let errorMessage = "Login failed. Please try again."; // Default message
+//       if (loginResponse.message) {
+//           errorMessage = loginResponse.message; // Use top-level message if available
+//       } 
       
-      if (loginResponse.details && loginResponse.details.non_field_errors && Array.isArray(loginResponse.details.non_field_errors)) {
-          // Attempt to get the first specific error from details
-          const specificError = loginResponse.details.non_field_errors[0];
-          if (specificError) {
-              errorMessage = specificError;
-          }
-      }
-      // NEW: Use the extracted or default error message
-      console.error("AuthContext: Login API responded with non-success status or missing token/data:", loginResponse);
-      setIsLoading(false);
-      // Do NOT call showNotification here, let the caller (page.tsx) handle it
-      return { success: false, message: errorMessage }; // Return failure object with message
-    }
-  } catch (err: any) {
-    console.error("AuthContext: Error during login API call:", err);
-    setIsLoading(false);
-    // NEW: Provide a generic error message for network/other errors
-    return { success: false, message: "An error occurred during login. Please check your connection." };
-  }
-};
-  const logout = async () => {
-    console.log("AuthContext: Attempting logout...");
-    try {
-      // If there's a backend logout endpoint, call it.
-      // await apiClient.post('/auth/logout', {}, token, undefined, true); // Example, if needed
-      console.log("AuthContext: Logout request sent (or session assumed invalidated by server). Clearing frontend state.");
-      // Clear context state
-      setUser(null);
-      setToken(null);
-      setIsAuthenticated(false);
-    } catch (err) {
-      console.error("AuthContext: Error during logout API call:", err);
-      // Clear frontend state anyway on error
-      setUser(null);
-      setToken(null);
-      setIsAuthenticated(false);
-    }
-  };
+//       if (loginResponse.details && loginResponse.details.non_field_errors && Array.isArray(loginResponse.details.non_field_errors)) {
+//           // Attempt to get the first specific error from details
+//           const specificError = loginResponse.details.non_field_errors[0];
+//           if (specificError) {
+//               errorMessage = specificError;
+//           }
+//       }
+//       // NEW: Use the extracted or default error message
+//       console.error("AuthContext: Login API responded with non-success status or missing token/data:", loginResponse);
+//       setIsLoading(false);
+//       // Do NOT call showNotification here, let the caller (page.tsx) handle it
+//       return { success: false, message: errorMessage }; // Return failure object with message
+//     }
+//   } catch (err: any) {
+//     console.error("AuthContext: Error during login API call:", err);
+//     setIsLoading(false);
+//     // NEW: Provide a generic error message for network/other errors
+//     return { success: false, message: "An error occurred during login. Please check your connection." };
+//   }
+// };
+//   const logout = async () => {
+//     console.log("AuthContext: Attempting logout...");
+//     try {
+//       // If there's a backend logout endpoint, call it.
+//       // await apiClient.post('/auth/logout', {}, token, undefined, true); // Example, if needed
+//       console.log("AuthContext: Logout request sent (or session assumed invalidated by server). Clearing frontend state.");
+//       // Clear context state
+//       setUser(null);
+//       setToken(null);
+//       setIsAuthenticated(false);
+//     } catch (err) {
+//       console.error("AuthContext: Error during logout API call:", err);
+//       // Clear frontend state anyway on error
+//       setUser(null);
+//       setToken(null);
+//       setIsAuthenticated(false);
+//     }
+//   };
 
-  // Effect to check auth status on initial load
-  useEffect(() => {
-    console.log("AuthContext: Initializing - Checking authentication status...");
-    checkAuthStatus(); // Initial check on mount
-  }, []); // Empty dependency array means this runs once on mount
+//   // Effect to check auth status on initial load
+//   useEffect(() => {
+//     console.log("AuthContext: Initializing - Checking authentication status...");
+//     checkAuthStatus(); // Initial check on mount
+//   }, []); // Empty dependency array means this runs once on mount
 
-  const contextValue: AuthContextType = {
-    user,
-    token,
-    isAuthenticated,
-    isLoading,
-    login,
-    logout,
-    checkAuthStatus,
-  };
+//   const contextValue: AuthContextType = {
+//     user,
+//     token,
+//     isAuthenticated,
+//     isLoading,
+//     login,
+//     logout,
+//     checkAuthStatus,
+//   };
 
-  return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
+//   return (
+//     <AuthContext.Provider value={contextValue}>
+//       {children}
+//     </AuthContext.Provider>
+//   );
+// };
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+// export const useAuth = () => {
+//   const context = useContext(AuthContext);
+//   if (context === undefined) {
+//     throw new Error('useAuth must be used within an AuthProvider');
+//   }
+//   return context;
+// };
 
 
 ///////////////////////////////////////////////////
@@ -883,3 +883,219 @@ export const useAuth = () => {
 //   return ctx;
 // };
 
+
+
+
+
+////////////////////////////////
+///////////////////////////////
+
+
+'use client';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { apiClient, setUnauthorizedHandler } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+
+const isNative = Capacitor.isNativePlatform();
+
+interface LoginResult {
+  success: boolean;
+  requires2FA?: boolean;
+  message?: string;
+}
+
+interface AuthContextType {
+  user: any | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<LoginResult>;
+  logout: () => Promise<void>;
+  checkAuthStatus: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<any | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  // Register unauthorized handler once mounted
+  useEffect(() => {
+    if (!mounted) return;
+    setUnauthorizedHandler(async () => {
+      setUser(null);
+      setToken(null);
+      setIsAuthenticated(false);
+      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+    });
+  }, [mounted]);
+
+  const checkAuthStatus = useCallback(async () => {
+    // Native has no cookie — auth state lives in React token state only
+    if (isNative) {
+      setIsLoading(false);
+      return;
+    }
+
+    console.log('[Auth] Checking cookie session...');
+    setIsLoading(true);
+    try {
+      const response = await apiClient.get(
+        '/auth/passenger/authenticated',
+        undefined, false, undefined, true
+      );
+
+      if (response.status === 'success') {
+        setIsAuthenticated(true);
+        try {
+          const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
+          if (me.status === 'success') setUser(me.data ?? null);
+        } catch {}
+      } else {
+        setIsAuthenticated(false);
+        setUser(null);
+        setToken(null);
+      }
+    } catch (err) {
+      console.error('[Auth] checkAuthStatus error:', err);
+      setIsAuthenticated(false);
+      setUser(null);
+      setToken(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Boot: native has no cookie to check, web verifies cookie
+  useEffect(() => {
+    if (!mounted) return;
+
+    if (isNative) {
+      // Nothing to rehydrate without SecureStorage
+      // User must log in fresh each session
+      setIsLoading(false);
+      return;
+    }
+
+    checkAuthStatus();
+  }, [mounted]);
+
+  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
+    console.log('[Auth] Attempting login...');
+    setIsLoading(true);
+
+    try {
+      const res = await apiClient.post(
+        '/auth/passenger/login',
+        { email, password },
+        undefined, undefined, true
+      );
+
+      // 2FA path
+      if (res.status === 'success' && res.data?.two_factor) {
+        setIsLoading(false);
+        return { success: true, requires2FA: true };
+      }
+
+      if (res.status === 'success') {
+        if (isNative) {
+          // Native: backend returns token, no cookie involved
+          if (!res.data?.token) {
+            setIsLoading(false);
+            return { success: false, message: 'No token returned from server' };
+          }
+
+          const access = res.data.token as string;
+
+          // Set state immediately — no Keychain, no async native calls
+          setToken(access);
+          setIsAuthenticated(true);
+          setIsLoading(false);
+
+          // Fetch profile in background — detached from login flow
+          Promise.resolve().then(async () => {
+            try {
+              const me = await apiClient.get(
+                '/auth/passenger/me',
+                access, false, undefined, true
+              );
+              if (me.status === 'success') setUser(me.data ?? null);
+            } catch {}
+          });
+
+          return { success: true };
+
+        } else {
+          // Web: server set httpOnly cookie, just confirm session
+          setIsAuthenticated(true);
+          setIsLoading(false);
+
+          Promise.resolve().then(async () => {
+            try {
+              const me = await apiClient.get(
+                '/auth/passenger/me',
+                undefined, false, undefined, true
+              );
+              if (me.status === 'success') setUser(me.data ?? null);
+            } catch {}
+          });
+
+          return { success: true };
+        }
+      }
+
+      // API returned error
+      const errorMessage =
+        res.details?.non_field_errors?.[0] ??
+        res.message ??
+        'Login failed. Please try again.';
+
+      setIsLoading(false);
+      return { success: false, message: errorMessage };
+
+    } catch (err) {
+      console.error('[Auth] Login error:', err);
+      setIsLoading(false);
+      return { success: false, message: 'Network error. Please check your connection.' };
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      await apiClient.post('/auth/logout', {}, token ?? undefined, undefined, true);
+    } catch {}
+
+    setUser(null);
+    setToken(null);
+    setIsAuthenticated(false);
+  }, [token]);
+
+  const value = useMemo(() => ({
+    user,
+    token,
+    isAuthenticated,
+    isLoading,
+    login,
+    logout,
+    checkAuthStatus,
+  }), [user, token, isAuthenticated, isLoading, login, logout, checkAuthStatus]);
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
+};
