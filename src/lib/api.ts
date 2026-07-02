@@ -4,6 +4,10 @@ import { SecureStorage } from '@aparajita/capacitor-secure-storage';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 const isNative = Capacitor.isNativePlatform();
+const platform = Capacitor.getPlatform(); // 'ios' | 'android' | 'web'
+const isAndroid = platform === 'android';
+
+
 
 interface ApiResponse<T = unknown> {
   status: 'success' | 'error';
@@ -28,22 +32,11 @@ const buildHeaders = async (
   if (!isFormData) headers['Content-Type'] = 'application/json';
 
   let effectiveToken = token;
-  if (isNative && isAuthRequest && !effectiveToken) {
-    // try {
-    //   const stored = await SecureStorage.get('auth_token');
-    //   if (stored) effectiveToken = stored;
-    // } catch {}
-
-  //   try {
-  //   // ✅ FIX: Add a timeout to prevent hanging the entire app if Keychain is unresponsive
-  //   const stored = await Promise.race([
-  //     SecureStorage.get('auth_token'),
-  //     new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)) // 3 second timeout
-  //   ]);
-  //   if (stored) effectiveToken = stored;
-  // } catch (e) {
-  //   console.warn('SecureStorage.get timed out or failed on iOS:', e);
-  // }
+  if (isAndroid && isAuthRequest && !effectiveToken) {
+    try {
+      const stored = await SecureStorage.get('auth_token');
+      if (stored) effectiveToken = stored;
+    } catch {}
   }
   if (effectiveToken && (!isAuthRequest || isNative)) {
     headers['Authorization'] = `Bearer ${effectiveToken}`;
@@ -203,11 +196,6 @@ export const apiClient = {
     }
   },
 };
-
-
-
-
-
 
 
 // // src/lib/api.ts -working v2
@@ -640,249 +628,6 @@ export const apiClient = {
 // };
 
 
-
-
-
-
-
-
-
-
-// // src/lib/api.ts
-// import { Capacitor } from '@capacitor/core';
-
-// const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
-// const isNative = Capacitor.isNativePlatform();
-
-// interface ApiResponse<T = unknown> {
-//   status: 'success' | 'error';
-//   message: string;
-//   data?: T;
-//   details?: Record<string, string[]>;
-// }
-
-// // Unauthorized handler — set once by AuthContext on mount
-// let onUnauthorized: (() => Promise<void>) | null = null;
-// export const setUnauthorizedHandler = (handler: () => Promise<void>) => {
-//   onUnauthorized = handler;
-// };
-
-// const handleUnauthorized = () => {
-//   onUnauthorized?.();
-// };
-
-// // Fully synchronous — never touches Keychain
-// // Token is always passed in explicitly from AuthContext state
-// const buildHeaders = (
-//   token?: string,
-//   isGuest = false,
-//   guestId?: string,
-//   isFormData = false,
-//   isAuthRequest = false
-// ): Record<string, string> => {
-//   const headers: Record<string, string> = {};
-
-//   if (!isFormData) {
-//     headers['Content-Type'] = 'application/json';
-//   }
-
-//   // Native: always use Bearer token from memory (passed from AuthContext)
-//   // Web: cookie handles auth, no Authorization header needed
-//   if (token && (isNative || !isAuthRequest)) {
-//     headers['Authorization'] = `Bearer ${token}`;
-//   }
-
-//   if (isGuest && guestId) {
-//     headers['X-Guest-Id'] = guestId;
-//   }
-
-//   return headers;
-// };
-
-// export const apiClient = {
-//   post: async <T = unknown>(
-//     endpoint: string,
-//     data: unknown,
-//     token?: string,
-//     guestId?: string,
-//     isAuthRequest = false
-//   ): Promise<ApiResponse<T>> => {
-//     const isGuestRequest =
-//       endpoint.includes('/guest-booking') ||
-//       endpoint.includes('/cancel') ||
-//       endpoint.includes('/rate') ||
-//       guestId !== undefined;
-
-//     try {
-//       const fetchOptions: RequestInit = {
-//         method: 'POST',
-//         headers: buildHeaders(token, isGuestRequest, guestId, false, isAuthRequest),
-//         body: JSON.stringify(data),
-//       };
-
-//       // Native uses Bearer token — no cookies needed
-//       // Web uses httpOnly cookies — needs credentials: include
-//       if (isAuthRequest) {
-//         fetchOptions.credentials = isNative ? 'omit' : 'include';
-//       }
-
-//       const res = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
-
-//       if (res.status === 401) {
-//         handleUnauthorized();
-//         return { status: 'error', message: 'Unauthorized' };
-//       }
-
-//       const responseData = await res.json().catch(() => ({}));
-
-//       if (!res.ok) {
-//         return {
-//           status: 'error',
-//           message: responseData.message || `HTTP error! status: ${res.status}`,
-//           details: responseData.details,
-//         };
-//       }
-
-//       return responseData;
-//     } catch (error) {
-//       console.error('API POST Error:', error);
-//       return {
-//         status: 'error',
-//         message: error instanceof Error ? error.message : 'Network error',
-//       };
-//     }
-//   },
-
-//   get: async <T = unknown>(
-//     endpoint: string,
-//     token?: string,
-//     isGuest = false,
-//     guestId?: string,
-//     isAuthRequest = false
-//   ): Promise<ApiResponse<T>> => {
-//     try {
-//       const fetchOptions: RequestInit = {
-//         headers: buildHeaders(token, isGuest, guestId, false, isAuthRequest),
-//       };
-
-//       if (isAuthRequest) {
-//         fetchOptions.credentials = isNative ? 'omit' : 'include';
-//       }
-
-//       const res = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
-
-//       if (res.status === 401) {
-//         handleUnauthorized();
-//         return { status: 'error', message: 'Unauthorized' };
-//       }
-
-//       const responseData = await res.json().catch(() => ({}));
-
-//       if (!res.ok) {
-//         return {
-//           status: 'error',
-//           message: responseData.message || `HTTP error! status: ${res.status}`,
-//           details: responseData.details,
-//         };
-//       }
-
-//       return responseData;
-//     } catch (error) {
-//       console.error('API GET Error:', error);
-//       return {
-//         status: 'error',
-//         message: error instanceof Error ? error.message : 'Network error',
-//       };
-//     }
-//   },
-
-//   patch: async <T = unknown>(
-//     endpoint: string,
-//     data: FormData | Record<string, unknown>,
-//     token?: string,
-//     isAuthRequest = false
-//   ): Promise<ApiResponse<T>> => {
-//     const isFormData = data instanceof FormData;
-
-//     try {
-//       const fetchOptions: RequestInit = {
-//         method: 'PATCH',
-//         headers: buildHeaders(token, false, undefined, isFormData, isAuthRequest),
-//         body: isFormData ? data : JSON.stringify(data),
-//       };
-
-//       if (isAuthRequest) {
-//         fetchOptions.credentials = isNative ? 'omit' : 'include';
-//       }
-
-//       const res = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
-
-//       if (res.status === 401) {
-//         handleUnauthorized();
-//         return { status: 'error', message: 'Unauthorized' };
-//       }
-
-//       const responseData = await res.json().catch(() => ({}));
-
-//       if (!res.ok) {
-//         return {
-//           status: 'error',
-//           message: responseData.message || `HTTP error! status: ${res.status}`,
-//           details: responseData.details,
-//         };
-//       }
-
-//       return responseData;
-//     } catch (error) {
-//       console.error('API PATCH Error:', error);
-//       return {
-//         status: 'error',
-//         message: error instanceof Error ? error.message : 'Network error',
-//       };
-//     }
-//   },
-
-//   delete: async <T = unknown>(
-//     endpoint: string,
-//     token?: string,
-//     isAuthRequest = false
-//   ): Promise<ApiResponse<T>> => {
-//     try {
-//       const fetchOptions: RequestInit = {
-//         method: 'DELETE',
-//         headers: buildHeaders(token, false, undefined, false, isAuthRequest),
-//       };
-
-//       if (isAuthRequest) {
-//         fetchOptions.credentials = isNative ? 'omit' : 'include';
-//       }
-
-//       const res = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
-
-//       if (res.status === 401) {
-//         handleUnauthorized();
-//         return { status: 'error', message: 'Unauthorized' };
-//       }
-
-//       const responseData = await res.json().catch(() => ({}));
-
-//       if (!res.ok) {
-//         return {
-//           status: 'error',
-//           message: responseData.message || `HTTP error! status: ${res.status}`,
-//         };
-//       }
-
-//       return responseData;
-//     } catch (error) {
-//       console.error('API DELETE Error:', error);
-//       return {
-//         status: 'error',
-//         message: error instanceof Error ? error.message : 'Network error',
-//       };
-//     }
-//   },
-// };
 
 
 
