@@ -34,16 +34,16 @@ const buildHeaders = async (
     //   if (stored) effectiveToken = stored;
     // } catch {}
 
-    try {
-    // ✅ FIX: Add a timeout to prevent hanging the entire app if Keychain is unresponsive
-    const stored = await Promise.race([
-      SecureStorage.get('auth_token'),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)) // 3 second timeout
-    ]);
-    if (stored) effectiveToken = stored;
-  } catch (e) {
-    console.warn('SecureStorage.get timed out or failed on iOS:', e);
-  }
+  //   try {
+  //   // ✅ FIX: Add a timeout to prevent hanging the entire app if Keychain is unresponsive
+  //   const stored = await Promise.race([
+  //     SecureStorage.get('auth_token'),
+  //     new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)) // 3 second timeout
+  //   ]);
+  //   if (stored) effectiveToken = stored;
+  // } catch (e) {
+  //   console.warn('SecureStorage.get timed out or failed on iOS:', e);
+  // }
   }
   if (effectiveToken && (!isAuthRequest || isNative)) {
     headers['Authorization'] = `Bearer ${effectiveToken}`;
