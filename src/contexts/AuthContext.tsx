@@ -32,41 +32,75 @@ interface LoginResult {
 
   
     
-  const checkAuthStatus = async () => {
-    console.log("AuthContext: Checking authentication status via API call to /auth/passenger/authenticated...");
-    // setIsLoading(true); // Don't set loading here if login function already handles it, or manage carefully to avoid conflicts
-    try {
-      // Call the authenticated check API using apiClient, indicating it's an auth request relying on cookies
-      const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true); // isAuthRequest = true
+  // const checkAuthStatus = async () => {
+  //   console.log("AuthContext: Checking authentication status via API call to /auth/passenger/authenticated...");
+  //   // setIsLoading(true); // Don't set loading here if login function already handles it, or manage carefully to avoid conflicts
+  //   try {
+  //     // Call the authenticated check API using apiClient, indicating it's an auth request relying on cookies
+  //     const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true); // isAuthRequest = true
 
-      if (response.status === 'success') {
-        console.log("AuthContext: Authentication verified via API call. User is logged in.");
-        setIsAuthenticated(true);
+  //     if (response.status === 'success') {
+  //       console.log("AuthContext: Authentication verified via API call. User is logged in.");
+  //       setIsAuthenticated(true);
 
-         try {
+  //        try {
+  //       const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
+  //       if (me.status === 'success') setUser(me.data ?? null);
+  //     } catch {}
+  //     return true;
+  //       // Optional: Fetch user details here if needed, or rely on initial state from login
+  //       // setUser(response?.data.user);
+  //       // setToken(response?.data.token); // Store if returned
+  //     } else {
+  //       console.log("AuthContext: API responded with non-success status during auth check (likely 401). User is not authenticated.", response);
+  //       setIsAuthenticated(false);
+  //       setUser(null);
+  //       setToken(null);
+  //     }
+  //   } catch (err: any) {
+  //     console.error("AuthContext: Error checking authentication status via API call:", err);
+  //     // Consider the user unauthenticated on error
+  //     setIsAuthenticated(false);
+  //     setUser(null);
+  //     setToken(null);
+  //   } finally {
+  //     setIsLoading(false); // Stop loading state after auth check completes
+  //   }
+  // };
+
+
+  // src/contexts/AuthContext.tsx
+const checkAuthStatus = async () => {
+  console.log("🔍 [Auth] Starting checkAuthStatus...");
+  setIsLoading(true);
+  try {
+    console.log("🔍 [Auth] Calling API...");
+    const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true);
+    console.log("🔍 [Auth] API responded:", response.status);
+    
+    if (response.status === 'success') {
+      console.log("AuthContext: Authentication verified via API call. User is logged in.");
+      setIsAuthenticated(true);
+      try {
         const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
         if (me.status === 'success') setUser(me.data ?? null);
       } catch {}
-      return true;
-        // Optional: Fetch user details here if needed, or rely on initial state from login
-        // setUser(response?.data.user);
-        // setToken(response?.data.token); // Store if returned
-      } else {
-        console.log("AuthContext: API responded with non-success status during auth check (likely 401). User is not authenticated.", response);
-        setIsAuthenticated(false);
-        setUser(null);
-        setToken(null);
-      }
-    } catch (err: any) {
-      console.error("AuthContext: Error checking authentication status via API call:", err);
-      // Consider the user unauthenticated on error
+    } else {
+      console.log("AuthContext: API responded with non-success status during auth check (likely 401). User is not authenticated.", response);
       setIsAuthenticated(false);
       setUser(null);
       setToken(null);
-    } finally {
-      setIsLoading(false); // Stop loading state after auth check completes
     }
-  };
+  } catch (err: any) {
+    console.error("🔍 [Auth] Error checking authentication status:", err);
+    setIsAuthenticated(false);
+    setUser(null);
+    setToken(null);
+  } finally {
+    console.log("🔍 [Auth] Setting isLoading to false");
+    setIsLoading(false); 
+  }
+};
 
 
   const login = async (email: string, password: string): Promise<LoginResult> => { // Change return type to Promise<LoginResult>

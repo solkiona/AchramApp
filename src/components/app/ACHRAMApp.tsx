@@ -349,23 +349,51 @@ export default function ACHRAMApp() {
 
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
+  // useEffect(() => {
+  //   if (Capacitor.getPlatform() !== "ios") return;
+
+  //   Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+  //   Keyboard.setScroll({ isDisabled: true });
+
+  //   const show = Keyboard.addListener("keyboardWillShow", (info) => {
+  //     setKeyboardHeight(info.keyboardHeight);
+  //   });
+  //   const hide = Keyboard.addListener("keyboardWillHide", () => {
+  //     setKeyboardHeight(0);
+  //   });
+  //   return () => {
+  //     show.remove();
+  //     hide.remove();
+  //   };
+  // }, []);
+
+
   useEffect(() => {
-    if (Capacitor.getPlatform() !== "ios") return;
+  if (Capacitor.getPlatform() !== "ios") return;
 
-    Keyboard.setResizeMode({ mode: KeyboardResize.Body });
-    Keyboard.setScroll({ isDisabled: true });
+  // ✅ FIX: Defer keyboard setup to avoid blocking the main thread during WebView launch
+  const timer = setTimeout(async () => {
+    try {
+      await Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+      await Keyboard.setScroll({ isDisabled: true });
+    } catch (e) {
+      console.warn('Keyboard setup failed:', e);
+    }
+  }, 500); // Wait 500ms for WebView to fully initialize
 
-    const show = Keyboard.addListener("keyboardWillShow", (info) => {
-      setKeyboardHeight(info.keyboardHeight);
-    });
-    const hide = Keyboard.addListener("keyboardWillHide", () => {
-      setKeyboardHeight(0);
-    });
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
+  const show = Keyboard.addListener("keyboardWillShow", (info) => {
+    setKeyboardHeight(info.keyboardHeight);
+  });
+  const hide = Keyboard.addListener("keyboardWillHide", () => {
+    setKeyboardHeight(0);
+  });
+
+  return () => {
+    clearTimeout(timer);
+    show.remove();
+    hide.remove();
+  };
+}, []);
 
 //  const isNative = Capacitor.isNativePlatform();
 

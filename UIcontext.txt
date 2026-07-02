@@ -1339,10 +1339,12 @@ import { buildTripData } from "@/lib/booking/buildTripData";
 import { formatPhoneNumber } from "@/lib/booking/formatPhone";
 import { findNearestAirport, KNOWN_AIRPORTS } from "@/lib/airports";
 import posthog from "posthog-js";
+import { VehicleCategory } from "@/types/booking";
 
 type UseBookingProps = {
   tripHistory: any[];
   pickup: string;
+  airportId: string | undefined;
   destination: string;
   fareEstimate: number | null;
   pickupCoords: [number, number] | null;
@@ -1375,12 +1377,14 @@ type UseBookingProps = {
   numberOfSeats: number;
   isStrictPreferences: boolean;
   sourceDomain: string;
+  selectedDestinationFareId: string | null;
 
 };
 
 export const useBooking = ({
   tripHistory,
   pickup,
+  airportId,
   destination,
   fareEstimate,
   pickupCoords,
@@ -1413,11 +1417,16 @@ export const useBooking = ({
   numberOfSeats,
   isStrictPreferences,
   sourceDomain,
+  selectedDestinationFareId,
 }: UseBookingProps) => {
 
   
 
   const handleRequestRide = useCallback(async () => {
+
+
+   
+
     let tripData: any = null;
     
     if (
@@ -1442,74 +1451,81 @@ export const useBooking = ({
           return;
         }
       }
-      if (!pickupCoords || !destinationCoords) {
-        showNotification(
-          "Pickup and destination locations are required.",
-          "error"
-        );
-        return;
-      }
-      let airportId: string | null = null;
+      // if (!pickupCoords || !destinationCoords) {
+      //   showNotification(
+      //     "Pickup and destination locations are required.",
+      //     "error"
+      //   );
+      //   return;
+      // }
+
+       if (!selectedDestinationFareId) {
+      showNotification("Please select a valid destination and vehicle category.", "error");
+      return;
+    }
+
+
+      // let airportId: string | null = null;
       
-      if (pickup.startsWith("Use my current location")) {
-        const nearestAirports = await findNearestAirport(
-          pickupCoords[0],
-          pickupCoords[1]
-        );
-        if (!nearestAirports || !nearestAirports.length) {
-          setTripRequestStatus("error");
-          setTripRequestError(
-            "You're outside our service area. Booking not available from this location."
-          );
-          return;
-        }
-        const selectedAirport = nearestAirports.find(
-          (apt) => { 
-            alert(`airport name: ${apt.name}, pickup name: ${pickup}`)
-            return apt.name === pickup
-          }
-        );
-        if (!selectedAirport) {
-          console.error(
-            "Selected pickup name does not match any fetched airport:",
-            pickup,
-            nearestAirports
-          );
-          setTripRequestStatus("error");
-          setTripRequestError(
-            "Could not confirm selected pickup location. Please try again."
-          );
-          return;
-        }
-        airportId = selectedAirport.id;
-      } else if (pickup in KNOWN_AIRPORTS) {
-        airportId = KNOWN_AIRPORTS[pickup];
-      } else {
-        const nearestAirports = await findNearestAirport(
-          pickupCoords[0],
-          pickupCoords[1]
-        );
-        if (!nearestAirports || !nearestAirports.length) {
-          setTripRequestStatus("error");
-          setTripRequestError(
-            "Pickup location is not near a supported airport."
-          );
-          return;
-        }
-        const selectedAirport = nearestAirports.find(
-          (apt) => apt.name === pickup
-        );
-        if (selectedAirport) {
-          airportId = selectedAirport.id;
-        } else {
-          console.warn(
-            "Typed pickup name did not match any fetched airport name, using first result.",
-            pickup,
-            nearestAirports
-          );
-          airportId = nearestAirports[0].id;
-        }
-      }
+      // if (pickup.startsWith("Use my current location")) {
+      //   const nearestAirports = await findNearestAirport(
+      //     pickupCoords[0],
+      //     pickupCoords[1]
+      //   );
+      //   if (!nearestAirports || !nearestAirports.length) {
+      //     setTripRequestStatus("error");
+      //     setTripRequestError(
+      //       "You're outside our service area. Booking not available from this location."
+      //     );
+      //     return;
+      //   }
+      //   const selectedAirport = nearestAirports.find(
+      //     (apt) => { 
+      //       alert(`airport name: ${apt.name}, pickup name: ${pickup}`)
+      //       return apt.name === pickup
+      //     }
+      //   );
+      //   if (!selectedAirport) {
+      //     console.error(
+      //       "Selected pickup name does not match any fetched airport:",
+      //       pickup,
+      //       nearestAirports
+      //     );
+      //     setTripRequestStatus("error");
+      //     setTripRequestError(
+      //       "Could not confirm selected pickup location. Please try again."
+      //     );
+      //     return;
+      //   }
+      //   airportId = selectedAirport.id;
+      // } else if (pickup in KNOWN_AIRPORTS) {
+      //   airportId = KNOWN_AIRPORTS[pickup];
+      // } else {
+      //   const nearestAirports = await findNearestAirport(
+      //     pickupCoords[0],
+      //     pickupCoords[1]
+      //   );
+      //   if (!nearestAirports || !nearestAirports.length) {
+      //     setTripRequestStatus("error");
+      //     setTripRequestError(
+      //       "Pickup location is not near a supported airport."
+      //     );
+      //     return;
+      //   }
+      //   const selectedAirport = nearestAirports.find(
+      //     (apt) => apt.name === pickup
+      //   );
+      //   if (selectedAirport) {
+      //     airportId = selectedAirport.id;
+      //   } else {
+      //     console.warn(
+      //       "Typed pickup name did not match any fetched airport name, using first result.",
+      //       pickup,
+      //       nearestAirports
+      //     );
+      //     airportId = nearestAirports[0].id;
+      //   }
+      // }
       if (!airportId) {
         console.error("Airport ID not available for booking.");
         showNotification(
@@ -1520,18 +1536,16 @@ export const useBooking = ({
       }
 
       tripData = buildTripData(
-        fareEstimate,
         pickup,
-        destination,
         pickupCoords,
-        destinationCoords,
         passengerData,
         requirements,
         airportId,
         bookAsGuest,
         isAuthenticated,
         formatPhoneNumber,
-        selectedCategory,
+        selectedDestinationFareId, // <--- Pass the new ID
+        selectedCategory as VehicleCategory,
         numberOfSeats,
         isStrictPreferences,
         sourceDomain,
@@ -1651,9 +1665,9 @@ export const useBooking = ({
         
         setTripRequestError(response.message);
         
-        if (response?.details?.pickup_location || response?.details?.destination_location) {
+        if (response?.details?.pickup_location || response?.details?.destination_location || response.details?.fare) {
           setTripRequestStatus("error");
-          setTripRequestError(response?.details?.pickup_location?.[0] || response?.details?.destination_location?.[0]);
+          setTripRequestError(response?.details?.pickup_location?.[0] || response?.details?.destination_location?.[0] ||  response?.details?.fare?.[0]);
         }
         
         setTripRequestStatus("error");
@@ -1675,6 +1689,7 @@ export const useBooking = ({
   }, [
     tripHistory,
     pickup,
+    airportId,
     destination,
     fareEstimate,
     pickupCoords,
@@ -1708,6 +1723,7 @@ export const useBooking = ({
     numberOfSeats,
     isStrictPreferences,
     sourceDomain,
+    selectedDestinationFareId,
   ]);
 
   return { handleRequestRide };
@@ -6476,454 +6492,858 @@ useEffect(() => {
 
 
 ----- FILE: src/contexts/AuthContext.tsx -----
-// 'use client';
-
-// import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-// import { apiClient } from '@/lib/api';
-
-// interface AuthContextType {
-//   user: any | null;
-//   token: string | null; // Potentially still useful if the backend also returns a token alongside the cookie
-//   isAuthenticated: boolean;
-//   isLoading: boolean;
-//   login: (email: string, password: string) => Promise<boolean>;
-//   logout: () => void;
-//   checkAuthStatus: () => Promise<void>;
-// }
-
-// const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// export const AuthProvider = ({ children }: { children: ReactNode }) => {
-//   const [user, setUser] = useState<any | null>(null);
-//   const [token, setToken] = useState<string | null>(null); // Store token if backend provides one
-//   const [isAuthenticated, setIsAuthenticated] = useState(false);
-//   const [isLoading, setIsLoading] = useState(true);
-
-
-// interface LoginResult {
-//   success: boolean;
-//   requires2FA?: boolean;
-//   message?: string; // Add an optional message field for errors
-// }
-
-
-
-  
-    
-//   const checkAuthStatus = async () => {
-//     console.log("AuthContext: Checking authentication status via API call to /auth/passenger/authenticated...");
-//     // setIsLoading(true); // Don't set loading here if login function already handles it, or manage carefully to avoid conflicts
-//     try {
-//       // Call the authenticated check API using apiClient, indicating it's an auth request relying on cookies
-//       const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true); // isAuthRequest = true
-
-//       if (response.status === 'success') {
-//         console.log("AuthContext: Authentication verified via API call. User is logged in.");
-//         setIsAuthenticated(true);
-//         // Optional: Fetch user details here if needed, or rely on initial state from login
-//         // setUser(response.data.user);
-//         // setToken(response.data.token); // Store if returned
-//       } else {
-//         console.log("AuthContext: API responded with non-success status during auth check (likely 401). User is not authenticated.", response);
-//         setIsAuthenticated(false);
-//         setUser(null);
-//         setToken(null);
-//       }
-//     } catch (err: any) {
-//       console.error("AuthContext: Error checking authentication status via API call:", err);
-//       // Consider the user unauthenticated on error
-//       setIsAuthenticated(false);
-//       setUser(null);
-//       setToken(null);
-//     } finally {
-//       setIsLoading(false); // Stop loading state after auth check completes
-//     }
-//   };
-
-
-//   const login = async (email: string, password: string): Promise<LoginResult> => { // Change return type to Promise<LoginResult>
-//   console.log("AuthContext: Attempting login for user:", email);
-//   setIsLoading(true);
-//   try {
-//     const loginResponse = await apiClient.post('/auth/passenger/login', {
-//       email,
-//       password,
-//     }, undefined, undefined, true);
-
-//     console.log("AuthContext: Login API Response:", loginResponse);
-
-//     if (loginResponse.status === 'success' && loginResponse.data && loginResponse.data.token) {
-//       console.log("AuthContext: Login successful via API call. Token received (though cookie is primary auth).");
-//       await new Promise(resolve => setTimeout(resolve, 500));
-//       await checkAuthStatus();
-//       return { success: true }; // Return success object
-//     } else if(loginResponse.status === 'success' && loginResponse.data?.two_factor === true){
-//       console.log("Authcontext: login successful, but 2FA verification is required");
-//       setIsLoading(false);
-//       return {success: true, requires2FA: true};
-//     }
-    
-//     else {
-//       // NEW: Extract error message from API response
-//       let errorMessage = "Login failed. Please try again."; // Default message
-//       if (loginResponse.message) {
-//           errorMessage = loginResponse.message; // Use top-level message if available
-//       } 
-      
-//       if (loginResponse.details && loginResponse.details.non_field_errors && Array.isArray(loginResponse.details.non_field_errors)) {
-//           // Attempt to get the first specific error from details
-//           const specificError = loginResponse.details.non_field_errors[0];
-//           if (specificError) {
-//               errorMessage = specificError;
-//           }
-//       }
-//       // NEW: Use the extracted or default error message
-//       console.error("AuthContext: Login API responded with non-success status or missing token/data:", loginResponse);
-//       setIsLoading(false);
-//       // Do NOT call showNotification here, let the caller (page.tsx) handle it
-//       return { success: false, message: errorMessage }; // Return failure object with message
-//     }
-//   } catch (err: any) {
-//     console.error("AuthContext: Error during login API call:", err);
-//     setIsLoading(false);
-//     // NEW: Provide a generic error message for network/other errors
-//     return { success: false, message: "An error occurred during login. Please check your connection." };
-//   }
-// };
-//   const logout = async () => {
-//     console.log("AuthContext: Attempting logout...");
-//     try {
-//       // If there's a backend logout endpoint, call it.
-//       // await apiClient.post('/auth/logout', {}, token, undefined, true); // Example, if needed
-//       console.log("AuthContext: Logout request sent (or session assumed invalidated by server). Clearing frontend state.");
-//       // Clear context state
-//       setUser(null);
-//       setToken(null);
-//       setIsAuthenticated(false);
-//     } catch (err) {
-//       console.error("AuthContext: Error during logout API call:", err);
-//       // Clear frontend state anyway on error
-//       setUser(null);
-//       setToken(null);
-//       setIsAuthenticated(false);
-//     }
-//   };
-
-//   // Effect to check auth status on initial load
-//   useEffect(() => {
-//     console.log("AuthContext: Initializing - Checking authentication status...");
-//     checkAuthStatus(); // Initial check on mount
-//   }, []); // Empty dependency array means this runs once on mount
-
-//   const contextValue: AuthContextType = {
-//     user,
-//     token,
-//     isAuthenticated,
-//     isLoading,
-//     login,
-//     logout,
-//     checkAuthStatus,
-//   };
-
-//   return (
-//     <AuthContext.Provider value={contextValue}>
-//       {children}
-//     </AuthContext.Provider>
-//   );
-// };
-
-// export const useAuth = () => {
-//   const context = useContext(AuthContext);
-//   if (context === undefined) {
-//     throw new Error('useAuth must be used within an AuthProvider');
-//   }
-//   return context;
-// };
-
-
 'use client';
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
-import { Capacitor } from '@capacitor/core';
-import { SecureStorage } from '@aparajita/capacitor-secure-storage';
-import { apiClient } from '@/lib/api';
-import { useBiometricAuth } from '@/hooks/useBiometricAuth';
-import { setUnauthorizedHandler } from '@/lib/api';
-import { useRouter } from 'next/navigation';
 
-const isNative = Capacitor.isNativePlatform();
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { apiClient } from '@/lib/api';
 
 interface AuthContextType {
   user: any | null;
-  token: string | null;
+  token: string | null; // Potentially still useful if the backend also returns a token alongside the cookie
   isAuthenticated: boolean;
   isLoading: boolean;
-  isBiometricAvailable: boolean | null;
-  isBiometricEnabled: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; requires2FA?: boolean; message?: string }>;
-  checkAuthStatus: () => Promise<boolean>;
-  logout: () => Promise<void>;
-  loginWithBiometric: () => Promise<boolean>;
-  enableBiometricLogin: () => Promise<boolean>;
-  disableBiometricLogin: () => Promise<void>;
-  isBiometricBlocked: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => void;
+  checkAuthStatus: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<any | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null); // Store token if backend provides one
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
-  const [isBiometricBlocked, setIsBiometricBlocked] = useState(false);
-
-  const biometric = useBiometricAuth();
-
-  useEffect(() => setMounted(true), []);
-
-  const router = useRouter();
-
-useEffect(() => {
-  if (!mounted) return;
-  setUnauthorizedHandler(async () => {
-    setUser(null);
-    setToken(null);
-    setIsAuthenticated(false);
-    if (isNative) {
-      await SecureStorage.remove('auth_token');
-      await SecureStorage.remove('refresh_token');
-      await biometric.setRequireFullLogin(true);
-      setIsBiometricBlocked(true);
-    }
-     window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-  });
-}, [mounted, router]);
-
- useEffect(() => {
-  if (!mounted) return;
-
-  if (isNative) {
-    // Native: hydrate token for later use, but do NOT set isAuthenticated
-    biometric.getSecureCredentials().then(c => {
-      if (c.accessToken) setToken(c.accessToken);
-    });
-    biometric.checkAvailability();
-    setIsLoading(false);
-    return;
-  }
-
-  // Web only: verify httpOnly cookie
-  checkAuthStatus();
-}, [mounted]);
 
 
-   
-  const checkAuthStatus = useCallback(async () => {
-  // Native must go through BiometricGate, never auto-login via token/cookie
-  if (isNative) {
-    setIsLoading(false);
-    return false;
-  }
+interface LoginResult {
+  success: boolean;
+  requires2FA?: boolean;
+  message?: string; // Add an optional message field for errors
+}
 
-  console.log("AuthContext: Checking authentication status via cookie...");
-  setIsLoading(true);
-  try {
-    const response = await apiClient.get(
-      '/auth/passenger/authenticated',
-      undefined,
-      false,
-      undefined,
-      true
-    );
 
-    if (response.status === 'success') {
-      setIsAuthenticated(true);
-      // populate user for web
-      try {
+
+  
+    
+  const checkAuthStatus = async () => {
+    console.log("AuthContext: Checking authentication status via API call to /auth/passenger/authenticated...");
+    // setIsLoading(true); // Don't set loading here if login function already handles it, or manage carefully to avoid conflicts
+    try {
+      // Call the authenticated check API using apiClient, indicating it's an auth request relying on cookies
+      const response = await apiClient.get('/auth/passenger/authenticated', undefined, false, undefined, true); // isAuthRequest = true
+
+      if (response.status === 'success') {
+        console.log("AuthContext: Authentication verified via API call. User is logged in.");
+        setIsAuthenticated(true);
+
+         try {
         const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
         if (me.status === 'success') setUser(me.data ?? null);
       } catch {}
       return true;
-    } else {
+        // Optional: Fetch user details here if needed, or rely on initial state from login
+        // setUser(response?.data.user);
+        // setToken(response?.data.token); // Store if returned
+      } else {
+        console.log("AuthContext: API responded with non-success status during auth check (likely 401). User is not authenticated.", response);
+        setIsAuthenticated(false);
+        setUser(null);
+        setToken(null);
+      }
+    } catch (err: any) {
+      console.error("AuthContext: Error checking authentication status via API call:", err);
+      // Consider the user unauthenticated on error
       setIsAuthenticated(false);
       setUser(null);
       setToken(null);
-      return false;
+    } finally {
+      setIsLoading(false); // Stop loading state after auth check completes
     }
-  } catch (err) {
-    setIsAuthenticated(false);
-    setUser(null);
-    setToken(null);
-    return false;
-  } finally {
-    setIsLoading(false);
-  }
-}, []);
+  };
+
+
+  const login = async (email: string, password: string): Promise<LoginResult> => { // Change return type to Promise<LoginResult>
+  console.log("AuthContext: Attempting login for user:", email);
+  setIsLoading(true);
+  try {
+    const loginResponse = await apiClient.post('/auth/passenger/login', {
+      email,
+      password,
+    }, undefined, undefined, true);
+
+    console.log("AuthContext: Login API Response:", loginResponse);
+
+    if (loginResponse.status === 'success' && loginResponse.data && loginResponse.data.token) {
+      console.log("AuthContext: Login successful via API call. Token received (though cookie is primary auth).");
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await checkAuthStatus();
+      return { success: true }; // Return success object
+    } else if(loginResponse.status === 'success' && loginResponse.data?.two_factor === true){
+      console.log("Authcontext: login successful, but 2FA verification is required");
+      setIsLoading(false);
+      return {success: true, requires2FA: true};
+    }
     
-  const login = useCallback(async (email: string, password: string) => {
-    setIsLoading(true);
-    try {
-      const res = await apiClient.post('/auth/passenger/login', { email, password }, undefined, undefined, true);
-      if (res.status === 'success' && res.data?.token) {
-        console.log(res.data?.token)
-        const access = res.data.token as string;
-        const refresh = res.data.refresh as string | undefined;
-
-        setToken(access);
-        setIsAuthenticated(true);
-
-        // Native: store tokens immediately so first profile fetch works
-        if (isNative) {
-          await SecureStorage.set('auth_token', access);
-          if (refresh) await SecureStorage.set('refresh_token', refresh);
-          await biometric.setRequireFullLogin(false);
-          setIsBiometricBlocked(false);
-        }
-
-        // Fetch profile using the token we just received
-        try {
-          const me = await apiClient.get('/auth/passenger/me', access, false, undefined, true);
-          if (me.status === 'success') setUser(me.data?? null);
-        } catch {}
-
-        setIsLoading(false);
-        return { success: true };
+    else {
+      // NEW: Extract error message from API response
+      let errorMessage = "Login failed. Please try again."; // Default message
+      if (loginResponse.message) {
+          errorMessage = loginResponse.message; // Use top-level message if available
+      } 
+      
+      if (loginResponse.details && loginResponse.details.non_field_errors && Array.isArray(loginResponse.details.non_field_errors)) {
+          // Attempt to get the first specific error from details
+          const specificError = loginResponse.details.non_field_errors[0];
+          if (specificError) {
+              errorMessage = specificError;
+          }
       }
-      if (res.status === 'success' && res.data?.two_factor) {
-        setIsLoading(false);
-        return { success: true, requires2FA: true };
-      }
+      // NEW: Use the extracted or default error message
+      console.error("AuthContext: Login API responded with non-success status or missing token/data:", loginResponse);
       setIsLoading(false);
-      return { success: false, message: res.message || 'Login failed' };
-    } catch {
-      setIsLoading(false);
-      return { success: false, message: 'Login error' };
+      // Do NOT call showNotification here, let the caller (page.tsx) handle it
+      return { success: false, message: errorMessage }; // Return failure object with message
     }
-  }, []);
-
-  const logout = useCallback(async () => {
-    try { await apiClient.post('/auth/logout', {}, token ?? undefined, undefined, true); } catch {}
-    setUser(null);
-    setToken(null);
-    setIsAuthenticated(false);
-    if (isNative) {
-      await biometric.disableBiometricLogin();
-      await SecureStorage.remove('auth_token');
-      await SecureStorage.remove('refresh_token');
-    }
-  }, [biometric]);
-
-  // const loginWithBiometric = useCallback(async () => {
-  //   if (!isNative) return false;
-  //   const auth = await biometric.authenticate();
-  //   if (!auth.success) return false;
-
-  //   const creds = await biometric.getSecureCredentials();
-  //   if (!creds.accessToken) return false;
-
-  //   setToken(creds.accessToken);
-  //   setIsAuthenticated(true);
-
-  //   try {
-  //     const me = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
-  //     if (me.status === 'success') setUser(me.data?? null);
-  //   } catch {}
-  //   return true;
-  // }, [biometric]);
-
-  const loginWithBiometric = useCallback(async () => {
-  if (!isNative) return false;
-
-  // Check if full login is required before even prompting biometric
-  const requiresFull = await biometric.getRequireFullLogin();
-  if (requiresFull) {
-
-    setIsBiometricBlocked(true);
-    return false;
-  
-  }
-
-  const creds = await biometric.getSecureCredentials();
-  if (!creds.accessToken) return false;
-
-  // Validate token BEFORE prompting biometric
-  try {
-    const check = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
-    if (check.status !== 'success') {
-      await biometric.setRequireFullLogin(true);
-      await biometric.disableBiometricLogin();
-      return false;
-    }
-  } catch {
-    await biometric.setRequireFullLogin(true);
-    await biometric.disableBiometricLogin();
-    return false;
-  }
-
-  // Token is valid — NOW prompt biometric
-  const auth = await biometric.authenticate();
-  if (!auth.success) return false;
-
-  setToken(creds.accessToken);
-  setIsAuthenticated(true);
-  try {
-    const me = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
-    if (me.status === 'success') setUser(me.data ?? null);
-  } catch {}
-  return true;
-}, [biometric]);
-
-  const enableBiometricLogin = useCallback(async () => {
-    if (!isNative) return false;
-    let t = token;
-    if (!t) {
-      const creds = await biometric.getSecureCredentials();
-      t = creds.accessToken;
-      if (t) setToken(t);
-    }
-    if (!t) return false;
-    const creds = await biometric.getSecureCredentials();
-    const ok = await biometric.enableBiometricLogin(t, creds.refreshToken?? undefined);
-    return ok;
-  }, [token, biometric]);
-
-  const disableBiometricLogin = useCallback(async () => {
-    if (isNative) await biometric.disableBiometricLogin();
-  }, [biometric]);
-
-  useEffect(() => {
+  } catch (err: any) {
+    console.error("AuthContext: Error during login API call:", err);
     setIsLoading(false);
-  }, []);
+    // NEW: Provide a generic error message for network/other errors
+    return { success: false, message: "An error occurred during login. Please check your connection." };
+  }
+};
+  const logout = async () => {
+    console.log("AuthContext: Attempting logout...");
+    try {
+      // If there's a backend logout endpoint, call it.
+      // await apiClient.post('/auth/logout', {}, token, undefined, true); // Example, if needed
+      console.log("AuthContext: Logout request sent (or session assumed invalidated by server). Clearing frontend state.");
+      // Clear context state
+      setUser(null);
+      setToken(null);
+      setIsAuthenticated(false);
+    } catch (err) {
+      console.error("AuthContext: Error during logout API call:", err);
+      // Clear frontend state anyway on error
+      setUser(null);
+      setToken(null);
+      setIsAuthenticated(false);
+    }
+  };
 
-  const isBiometricAvailable = isNative && mounted? (biometric.biometryResult?.isAvailable?? null) : null;
-  const isBiometricEnabled = isNative && mounted? biometric.isEnabled : false;
+  // Effect to check auth status on initial load
+  useEffect(() => {
+    console.log("AuthContext: Initializing - Checking authentication status...");
+    checkAuthStatus(); // Initial check on mount
+  }, []); // Empty dependency array means this runs once on mount
 
-  const value = useMemo(() => ({
+  const contextValue: AuthContextType = {
     user,
     token,
     isAuthenticated,
     isLoading,
-    isBiometricAvailable,
-    isBiometricEnabled,
-    isBiometricBlocked,
-    checkAuthStatus,
     login,
     logout,
-    loginWithBiometric,
-    enableBiometricLogin,
-    disableBiometricLogin,
-    
-  }), [user, token, isAuthenticated, isLoading, isBiometricAvailable, isBiometricEnabled,isBiometricBlocked, checkAuthStatus,login, logout, loginWithBiometric, enableBiometricLogin, disableBiometricLogin]);
+    checkAuthStatus,
+  };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={contextValue}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };
+
+
+///////////////////////////////////////////////////
+//////////////////////////////////////////////////
+
+
+
+// 'use client';
+// import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+// import { Capacitor } from '@capacitor/core';
+// import { SecureStorage } from '@aparajita/capacitor-secure-storage';
+// import { apiClient } from '@/lib/api';
+// import { useBiometricAuth } from '@/hooks/useBiometricAuth';
+// import { setUnauthorizedHandler } from '@/lib/api';
+// import { useRouter } from 'next/navigation';
+
+// const isNative = Capacitor.isNativePlatform();
+
+// interface AuthContextType {
+//   user: any | null;
+//   token: string | null;
+//   isAuthenticated: boolean;
+//   isLoading: boolean;
+//   isBiometricAvailable: boolean | null;
+//   isBiometricEnabled: boolean;
+//   login: (email: string, password: string) => Promise<{ success: boolean; requires2FA?: boolean; message?: string }>;
+//   checkAuthStatus: () => Promise<boolean>;
+//   logout: () => Promise<void>;
+//   loginWithBiometric: () => Promise<boolean>;
+//   enableBiometricLogin: () => Promise<boolean>;
+//   disableBiometricLogin: () => Promise<void>;
+//   isBiometricBlocked: boolean;
+// }
+
+// const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// export const AuthProvider = ({ children }: { children: ReactNode }) => {
+//   const [user, setUser] = useState<any | null>(null);
+//   const [token, setToken] = useState<string | null>(null);
+//   const [isAuthenticated, setIsAuthenticated] = useState(false);
+//   const [isLoading, setIsLoading] = useState(true);
+//   const [mounted, setMounted] = useState(false);
+//   const [isBiometricBlocked, setIsBiometricBlocked] = useState(false);
+
+//   const biometric = useBiometricAuth();
+
+//   useEffect(() => setMounted(true), []);
+
+//   const router = useRouter();
+
+// useEffect(() => {
+//   if (!mounted) return;
+//   setUnauthorizedHandler(async () => {
+//     setUser(null);
+//     setToken(null);
+//     setIsAuthenticated(false);
+//     if (isNative) {
+//       await SecureStorage.remove('auth_token');
+//       await SecureStorage.remove('refresh_token');
+//       await biometric.setRequireFullLogin(true);
+//       setIsBiometricBlocked(true);
+//     }
+//      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+//   });
+// }, [mounted, router]);
+
+ 
+// // useEffect(() => {
+// //   if (!mounted) return;
+
+// //   if (isNative) {
+// //     // Native: hydrate token for later use, but do NOT set isAuthenticated
+// //     biometric.getSecureCredentials().then(c => {
+// //       if (c.accessToken) setToken(c.accessToken);
+// //     });
+// //     biometric.checkAvailability();
+// //     setIsLoading(false);
+// //     return;
+// //   }
+
+// //   // Web only: verify httpOnly cookie
+// //   checkAuthStatus();
+// // }, [mounted]);
+
+
+
+// useEffect(() => {
+//   if (!mounted) return;
+
+//   if (isNative) {
+//     let cancelled = false;
+
+//     const withTimeout = <T,>(p: Promise<T>, ms = 5000): Promise<T> =>
+//       Promise.race([
+//         p,
+//         new Promise<T>((_, reject) =>
+//           setTimeout(() => reject(new Error('native call timed out')), ms)
+//         ),
+//       ]);
+
+//     (async () => {
+//       try {
+//         // sequential, not parallel — avoids concurrent Keychain/LAContext access on iOS
+//         const c = await withTimeout(biometric.getSecureCredentials());
+//         if (!cancelled && c.accessToken) setToken(c.accessToken);
+//       } catch (e) {
+//         console.warn('getSecureCredentials failed/timed out', e);
+//       }
+
+//       try {
+//         await withTimeout(biometric.checkAvailability());
+//       } catch (e) {
+//         console.warn('checkAvailability failed/timed out', e);
+//       } finally {
+//         if (!cancelled) setIsLoading(false);
+//       }
+//     })();
+
+//     return () => { cancelled = true; };
+//   }
+
+//   checkAuthStatus();
+// }, [mounted]);
+
+
+   
+//   const checkAuthStatus = useCallback(async () => {
+//   // Native must go through BiometricGate, never auto-login via token/cookie
+//   if (isNative) {
+//     setIsLoading(false);
+//     return false;
+//   }
+
+//   console.log("AuthContext: Checking authentication status via cookie...");
+//   setIsLoading(true);
+//   try {
+//     const response = await apiClient.get(
+//       '/auth/passenger/authenticated',
+//       undefined,
+//       false,
+//       undefined,
+//       true
+//     );
+
+//     if (response.status === 'success') {
+//       setIsAuthenticated(true);
+//       // populate user for web
+//       try {
+//         const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
+//         if (me.status === 'success') setUser(me.data ?? null);
+//       } catch {}
+//       return true;
+//     } else {
+//       setIsAuthenticated(false);
+//       setUser(null);
+//       setToken(null);
+//       return false;
+//     }
+//   } catch (err) {
+//     setIsAuthenticated(false);
+//     setUser(null);
+//     setToken(null);
+//     return false;
+//   } finally {
+//     setIsLoading(false);
+//   }
+// }, []);
+    
+//   const login = useCallback(async (email: string, password: string) => {
+//     setIsLoading(true);
+//     try {
+//       const res = await apiClient.post('/auth/passenger/login', { email, password }, undefined, undefined, true);
+//       if (res.status === 'success' && res.data?.token) {
+//         console.log(res.data?.token)
+//         const access = res.data.token as string;
+//         const refresh = res.data.refresh as string | undefined;
+
+//         setToken(access);
+//         setIsAuthenticated(true);
+
+//         // Native: store tokens immediately so first profile fetch works
+//         if (isNative) {
+//           await SecureStorage.set('auth_token', access);
+//           if (refresh) await SecureStorage.set('refresh_token', refresh);
+//           await biometric.setRequireFullLogin(false);
+//           setIsBiometricBlocked(false);
+//         }
+
+//         // Fetch profile using the token we just received
+//         try {
+//           const me = await apiClient.get('/auth/passenger/me', access, false, undefined, true);
+//           if (me.status === 'success') setUser(me.data?? null);
+//         } catch {}
+
+//         setIsLoading(false);
+//         return { success: true };
+//       }
+//       if (res.status === 'success' && res.data?.two_factor) {
+//         setIsLoading(false);
+//         return { success: true, requires2FA: true };
+//       }
+//       setIsLoading(false);
+//       return { success: false, message: res.message || 'Login failed' };
+//     } catch {
+//       setIsLoading(false);
+//       return { success: false, message: 'Login error' };
+//     }
+//   }, []);
+
+//   const logout = useCallback(async () => {
+//     try { await apiClient.post('/auth/logout', {}, token ?? undefined, undefined, true); } catch {}
+//     setUser(null);
+//     setToken(null);
+//     setIsAuthenticated(false);
+//     if (isNative) {
+//       await biometric.disableBiometricLogin();
+//       await SecureStorage.remove('auth_token');
+//       await SecureStorage.remove('refresh_token');
+//     }
+//   }, [biometric]);
+
+//   // const loginWithBiometric = useCallback(async () => {
+//   //   if (!isNative) return false;
+//   //   const auth = await biometric.authenticate();
+//   //   if (!auth.success) return false;
+
+//   //   const creds = await biometric.getSecureCredentials();
+//   //   if (!creds.accessToken) return false;
+
+//   //   setToken(creds.accessToken);
+//   //   setIsAuthenticated(true);
+
+//   //   try {
+//   //     const me = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
+//   //     if (me.status === 'success') setUser(me.data?? null);
+//   //   } catch {}
+//   //   return true;
+//   // }, [biometric]);
+
+//   const loginWithBiometric = useCallback(async () => {
+//   if (!isNative) return false;
+
+//   // Check if full login is required before even prompting biometric
+//   const requiresFull = await biometric.getRequireFullLogin();
+//   if (requiresFull) {
+
+//     setIsBiometricBlocked(true);
+//     return false;
+  
+//   }
+
+//   const creds = await biometric.getSecureCredentials();
+//   if (!creds.accessToken) return false;
+
+//   // Validate token BEFORE prompting biometric
+//   try {
+//     const check = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
+//     if (check.status !== 'success') {
+//       await biometric.setRequireFullLogin(true);
+//       await biometric.disableBiometricLogin();
+//       return false;
+//     }
+//   } catch {
+//     await biometric.setRequireFullLogin(true);
+//     await biometric.disableBiometricLogin();
+//     return false;
+//   }
+
+//   // Token is valid — NOW prompt biometric
+//   const auth = await biometric.authenticate();
+//   if (!auth.success) return false;
+
+//   setToken(creds.accessToken);
+//   setIsAuthenticated(true);
+//   try {
+//     const me = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
+//     if (me.status === 'success') setUser(me.data ?? null);
+//   } catch {}
+//   return true;
+// }, [biometric]);
+
+//   const enableBiometricLogin = useCallback(async () => {
+//     if (!isNative) return false;
+//     let t = token;
+//     if (!t) {
+//       const creds = await biometric.getSecureCredentials();
+//       t = creds.accessToken;
+//       if (t) setToken(t);
+//     }
+//     if (!t) return false;
+//     const creds = await biometric.getSecureCredentials();
+//     const ok = await biometric.enableBiometricLogin(t, creds.refreshToken?? undefined);
+//     return ok;
+//   }, [token, biometric]);
+
+//   const disableBiometricLogin = useCallback(async () => {
+//     if (isNative) await biometric.disableBiometricLogin();
+//   }, [biometric]);
+
+//   useEffect(() => {
+//     setIsLoading(false);
+//   }, []);
+
+//   const isBiometricAvailable = isNative && mounted? (biometric.biometryResult?.isAvailable?? null) : null;
+//   const isBiometricEnabled = isNative && mounted? biometric.isEnabled : false;
+
+//   const value = useMemo(() => ({
+//     user,
+//     token,
+//     isAuthenticated,
+//     isLoading,
+//     isBiometricAvailable,
+//     isBiometricEnabled,
+//     isBiometricBlocked,
+//     checkAuthStatus,
+//     login,
+//     logout,
+//     loginWithBiometric,
+//     enableBiometricLogin,
+//     disableBiometricLogin,
+    
+//   }), [user, token, isAuthenticated, isLoading, isBiometricAvailable, isBiometricEnabled,isBiometricBlocked, checkAuthStatus,login, logout, loginWithBiometric, enableBiometricLogin, disableBiometricLogin]);
+
+//   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+// };
+
+// export const useAuth = () => {
+//   const ctx = useContext(AuthContext);
+//   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+//   return ctx;
+// };
+
+
+
+
+//////////////////////////
+/////////////////////////
+
+
+// 'use client';
+// import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+// import { Capacitor } from '@capacitor/core';
+// import { SecureStorage } from '@aparajita/capacitor-secure-storage';
+// import { apiClient } from '@/lib/api';
+// import { useBiometricAuth } from '@/hooks/useBiometricAuth';
+// import { setUnauthorizedHandler } from '@/lib/api';
+// import { useRouter } from 'next/navigation';
+
+// const isNative = Capacitor.isNativePlatform();
+// const platform = Capacitor.getPlatform(); // 'ios' | 'android' | 'web'
+// const isAndroid = platform === 'android';
+// const isIos = platform === 'ios';
+
+// // Biometric is ONLY available on Android native
+// // iOS native uses token-based auth without biometric layer
+// const isBiometricSupported = isNative && isAndroid;
+
+// interface AuthContextType {
+//   user: any | null;
+//   token: string | null;
+//   isAuthenticated: boolean;
+//   isLoading: boolean;
+//   isBiometricAvailable: boolean | null;
+//   isBiometricEnabled: boolean;
+//   isBiometricBlocked: boolean;
+//   login: (email: string, password: string) => Promise<{ success: boolean; requires2FA?: boolean; message?: string }>;
+//   checkAuthStatus: () => Promise<boolean>;
+//   logout: () => Promise<void>;
+//   loginWithBiometric: () => Promise<boolean>;
+//   enableBiometricLogin: () => Promise<boolean>;
+//   disableBiometricLogin: () => Promise<void>;
+// }
+
+// const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// export const AuthProvider = ({ children }: { children: ReactNode }) => {
+//   const [user, setUser] = useState<any | null>(null);
+//   const [token, setToken] = useState<string | null>(null);
+//   const [isAuthenticated, setIsAuthenticated] = useState(false);
+//   const [isLoading, setIsLoading] = useState(true);
+//   const [mounted, setMounted] = useState(false);
+//   const [isBiometricBlocked, setIsBiometricBlocked] = useState(false);
+
+//   const biometric = useBiometricAuth();
+//   const router = useRouter();
+
+//   useEffect(() => setMounted(true), []);
+
+//   // Unauthorized handler
+//   useEffect(() => {
+//     if (!mounted) return;
+//     setUnauthorizedHandler(async () => {
+//       setUser(null);
+//       setToken(null);
+//       setIsAuthenticated(false);
+
+//       if (isNative) {
+//         await SecureStorage.remove('auth_token');
+//         await SecureStorage.remove('refresh_token');
+
+//         // Only block biometric on Android (it doesn't exist on iOS)
+//         if (isBiometricSupported) {
+//           await biometric.setRequireFullLogin(true);
+//           setIsBiometricBlocked(true);
+//         }
+//       }
+
+//       window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+//     });
+//   }, [mounted]);
+
+//   // Boot-time hydration
+//   useEffect(() => {
+//     if (!mounted) return;
+
+//     if (isNative) {
+//       (async () => {
+//         try {
+//           // Simple Keychain read — no biometric, no LAContext, safe on iOS
+//           const stored = await SecureStorage.get('auth_token');
+//           const accessToken = stored?.value ?? null;
+//           if (accessToken) setToken(accessToken);
+//         } catch (e) {
+//           console.warn('Failed to read stored token on boot:', e);
+//         }
+
+//         // Only check biometric availability on Android
+//         if (isBiometricSupported) {
+//           try {
+//             await biometric.checkAvailability();
+//           } catch (e) {
+//             console.warn('checkAvailability failed:', e);
+//           }
+//         }
+
+//         setIsLoading(false);
+//       })();
+//       return;
+//     }
+
+//     // Web: verify via httpOnly cookie
+//     checkAuthStatus();
+//   }, [mounted]);
+
+//   const checkAuthStatus = useCallback(async () => {
+//     if (isNative) {
+//       setIsLoading(false);
+//       return false;
+//     }
+
+//     setIsLoading(true);
+//     try {
+//       const response = await apiClient.get(
+//         '/auth/passenger/authenticated',
+//         undefined, false, undefined, true
+//       );
+
+//       if (response.status === 'success') {
+//         setIsAuthenticated(true);
+//         try {
+//           const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
+//           if (me.status === 'success') setUser(me.data ?? null);
+//         } catch {}
+//         return true;
+//       }
+
+//       setIsAuthenticated(false);
+//       setUser(null);
+//       setToken(null);
+//       return false;
+//     } catch {
+//       setIsAuthenticated(false);
+//       setUser(null);
+//       setToken(null);
+//       return false;
+//     } finally {
+//       setIsLoading(false);
+//     }
+//   }, []);
+
+//   const login = useCallback(async (email: string, password: string) => {
+//     setIsLoading(true);
+//     try {
+//       const res = await apiClient.post(
+//         '/auth/passenger/login',
+//         { email, password },
+//         undefined, undefined, true
+//       );
+
+//       if (res.status === 'success' && res.data?.two_factor) {
+//         setIsLoading(false);
+//         return { success: true, requires2FA: true };
+//       }
+
+//       if (res.status === 'success') {
+//         if (isNative) {
+//           // Native (both iOS and Android) — token based, no cookie
+//           if (!res.data?.token) {
+//             setIsLoading(false);
+//             return { success: false, message: 'No token returned' };
+//           }
+
+//           const access = res.data.token as string;
+//           const refresh = res.data.refresh as string | undefined;
+
+//           // Update React state immediately — release the UI before any Keychain work
+//           setToken(access);
+//           setIsAuthenticated(true);
+//           setIsBiometricBlocked(false);
+//           setIsLoading(false);
+
+//           // Keychain writes fully detached — never block the tap handler
+//           Promise.resolve().then(async () => {
+//             try {
+//               await SecureStorage.set('auth_token', access);
+//               if (refresh) await SecureStorage.set('refresh_token', refresh);
+
+//               // Only touch biometric flags on Android
+//               if (isBiometricSupported) {
+//                 await biometric.setRequireFullLogin(false);
+//               }
+//             } catch (e) {
+//               console.warn('Background token storage failed:', e);
+//             }
+//           });
+
+//           // Profile fetch also detached
+//           Promise.resolve().then(async () => {
+//             try {
+//               const me = await apiClient.get('/auth/passenger/me', access, false, undefined, true);
+//               if (me.status === 'success') setUser(me.data ?? null);
+//             } catch {}
+//           });
+
+//           return { success: true };
+
+//         } else {
+//           // Web: cookie already set by server
+//           setIsAuthenticated(true);
+//           setIsLoading(false);
+
+//           Promise.resolve().then(async () => {
+//             try {
+//               const me = await apiClient.get('/auth/passenger/me', undefined, false, undefined, true);
+//               if (me.status === 'success') setUser(me.data ?? null);
+//             } catch {}
+//           });
+
+//           return { success: true };
+//         }
+//       }
+
+//       setIsLoading(false);
+//       return { success: false, message: res.message || 'Login failed' };
+//     } catch {
+//       setIsLoading(false);
+//       return { success: false, message: 'Login error' };
+//     }
+//   }, [biometric]);
+
+//   const logout = useCallback(async () => {
+//     try {
+//       await apiClient.post('/auth/logout', {}, token ?? undefined, undefined, true);
+//     } catch {}
+
+//     setUser(null);
+//     setToken(null);
+//     setIsAuthenticated(false);
+
+//     if (isNative) {
+//       await SecureStorage.remove('auth_token');
+//       await SecureStorage.remove('refresh_token');
+
+//       // Only clean up biometric state on Android
+//       if (isBiometricSupported) {
+//         await biometric.disableBiometricLogin();
+//       }
+//     }
+//   }, [token, biometric]);
+
+//   // Biometric login — Android only, returns false immediately on iOS
+//   const loginWithBiometric = useCallback(async () => {
+//     if (!isBiometricSupported) return false;
+
+//     const requiresFull = await biometric.getRequireFullLogin();
+//     if (requiresFull) {
+//       setIsBiometricBlocked(true);
+//       return false;
+//     }
+
+//     const creds = await biometric.getSecureCredentials();
+//     if (!creds.accessToken) return false;
+
+//     // Validate token before prompting biometric
+//     try {
+//       const check = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
+//       if (check.status !== 'success') {
+//         await biometric.setRequireFullLogin(true);
+//         await biometric.disableBiometricLogin();
+//         return false;
+//       }
+//     } catch {
+//       await biometric.setRequireFullLogin(true);
+//       await biometric.disableBiometricLogin();
+//       return false;
+//     }
+
+//     // Token valid — NOW prompt biometric
+//     const auth = await biometric.authenticate();
+//     if (!auth.success) return false;
+
+//     setToken(creds.accessToken);
+//     setIsAuthenticated(true);
+
+//     try {
+//       const me = await apiClient.get('/auth/passenger/me', creds.accessToken, false, undefined, true);
+//       if (me.status === 'success') setUser(me.data ?? null);
+//     } catch {}
+
+//     return true;
+//   }, [biometric]);
+
+//   // Enable biometric — Android only
+//   const enableBiometricLogin = useCallback(async () => {
+//     if (!isBiometricSupported) return false;
+
+//     let t = token;
+//     if (!t) {
+//       const creds = await biometric.getSecureCredentials();
+//       t = creds.accessToken;
+//       if (t) setToken(t);
+//     }
+//     if (!t) return false;
+
+//     const creds = await biometric.getSecureCredentials();
+//     return biometric.enableBiometricLogin(t, creds.refreshToken ?? undefined);
+//   }, [token, biometric]);
+
+//   // Disable biometric — Android only
+//   const disableBiometricLogin = useCallback(async () => {
+//     if (isBiometricSupported) await biometric.disableBiometricLogin();
+//   }, [biometric]);
+
+//   // Biometric availability — null on iOS (feature doesn't exist there)
+//   const isBiometricAvailable = isBiometricSupported && mounted
+//     ? (biometric.biometryResult?.isAvailable ?? null)
+//     : null;
+
+//   const isBiometricEnabled = isBiometricSupported && mounted
+//     ? biometric.isEnabled
+//     : false;
+
+//   const value = useMemo(() => ({
+//     user,
+//     token,
+//     isAuthenticated,
+//     isLoading,
+//     isBiometricAvailable,
+//     isBiometricEnabled,
+//     isBiometricBlocked,
+//     checkAuthStatus,
+//     login,
+//     logout,
+//     loginWithBiometric,
+//     enableBiometricLogin,
+//     disableBiometricLogin,
+//   }), [
+//     user, token, isAuthenticated, isLoading,
+//     isBiometricAvailable, isBiometricEnabled, isBiometricBlocked,
+//     checkAuthStatus, login, logout, loginWithBiometric,
+//     enableBiometricLogin, disableBiometricLogin,
+//   ]);
+
+//   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+// };
+
+// export const useAuth = () => {
+//   const ctx = useContext(AuthContext);
+//   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+//   return ctx;
+// };
+
+
 
 ----- FILE: src/types/app.ts -----
 export type ScreenState =
@@ -7143,6 +7563,45 @@ export interface ApiResponse<T = unknown> {
   status: 'success' | 'error';
   message: string;
    T;
+}
+
+----- FILE: src/types/fares.ts -----
+// src/types/fares.ts
+export interface FareAmount {
+  formatted: string;
+  currency: string;
+  amount: number;
+}
+
+export interface FareCategory {
+  label: string; // e.g., "Regular", "VIP"
+  value: string; // e.g., "legacy", "vip"
+}
+
+export interface FareBreakdown {
+  id: string; // THIS IS THE NEW "fare" ID FOR THE PAYLOAD
+  amount: FareAmount;
+  category: FareCategory;
+}
+
+export interface FareDestination {
+  id: string;
+  name: string;
+  search_text: string; // Used for client-side fuzzy matching
+  map_data: {
+    location: {
+      type: string;
+      geometry: {
+        type: string;
+        coordinates: [number, number]; // [lng, lat]
+      };
+      properties: {
+        name: string;
+        description: string;
+      };
+    };
+  };
+  breakdown: FareBreakdown[];
 }
 
 ----- FILE: src/types/booking.ts -----
@@ -14413,6 +14872,7 @@ import { useStatusBarTheme } from "@/hooks/useStatusBarTheme";
 import { Keyboard, KeyboardInfo, KeyboardResize } from "@capacitor/keyboard";
 import { Capacitor } from "@capacitor/core";
 import { StatusBar, Style } from "@capacitor/status-bar";
+import { FareDestination } from "@/types/fares";
 
 export default function ACHRAMApp() {
   const {
@@ -14452,6 +14912,7 @@ export default function ACHRAMApp() {
   const [pickupCodename, setPickupCodename] = useState<string | undefined>(
     undefined,
   );
+  const [airportId, setAirportId] = useState<string | undefined>(undefined);
   const [destinationCoords, setDestinationCoords] = useState<
     [number, number] | null
   >(null);
@@ -14662,37 +15123,37 @@ export default function ACHRAMApp() {
   //   }
   // }, [screen, requestPermission]);
 
-  useEffect(() => {
-    const setupIOSKeyboard = async () => {
-      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios") {
-        // 1. Force the resize mode at runtime
-        await Keyboard.setResizeMode({ mode: KeyboardResize.Native });
+  // useEffect(() => {
+  //   const setupIOSKeyboard = async () => {
+  //     if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios") {
+  //       // 1. Force the resize mode at runtime
+  //       await Keyboard.setResizeMode({ mode: KeyboardResize.Body });
 
-        // 2. Disable webview scroll - let the keyboard handle it
-        await Keyboard.setScroll({ isDisabled: true });
+  //       // 2. Disable webview scroll - let the keyboard handle it
+  //       await Keyboard.setScroll({ isDisabled: true });
 
-        // 3. Manually scroll focused inputs into view
-        Keyboard.addListener("keyboardWillShow", (info) => {
-          setTimeout(() => {
-            document.activeElement?.scrollIntoView({
-              behavior: "smooth",
-              block: "center",
-            });
-          }, 100);
-        });
+  //       // 3. Manually scroll focused inputs into view
+  //       Keyboard.addListener("keyboardWillShow", (info) => {
+  //         setTimeout(() => {
+  //           document.activeElement?.scrollIntoView({
+  //             behavior: "smooth",
+  //             block: "center",
+  //           });
+  //         }, 100);
+  //       });
 
-        Keyboard.addListener("keyboardDidShow", () => {
-          // Extra nudge for stubborn inputs
-          document.activeElement?.scrollIntoView({
-            behavior: "instant",
-            block: "center",
-          });
-        });
-      }
-    };
+  //       Keyboard.addListener("keyboardDidShow", () => {
+  //         // Extra nudge for stubborn inputs
+  //         document.activeElement?.scrollIntoView({
+  //           behavior: "instant",
+  //           block: "center",
+  //         });
+  //       });
+  //     }
+  //   };
 
-    setupIOSKeyboard();
-  }, []);
+  //   setupIOSKeyboard();
+  // }, []);
 
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
@@ -14883,9 +15344,66 @@ export default function ACHRAMApp() {
     elderly: false,
   });
 
+
+const [airportFares, setAirportFares] = useState<FareDestination[]>([]);
+const [selectedDestinationFareId, setSelectedDestinationFareId] = useState<string | null>(null);
+const [isFetchingFares, setIsFetchingFares] = useState(false);
+
+
+const fetchAirportFares = useCallback(async (airportCodename: string) => {
+  if (!airportCodename) return;
+  setIsFetchingFares(true);
+  try {
+    const response = await apiClient.get(`/fares/lookup?airport=${encodeURIComponent(airportCodename)}`);
+    if (response.status === "success" && Array.isArray(response.data)) {
+      setAirportFares(response.data);
+    } else {
+      setAirportFares([]);
+      showNotification("Destinations are not available at this time.", "error");
+    }
+  } catch (err) {
+    console.error("Failed to fetch airport fares:", err);
+    setAirportFares([]);
+    showNotification("Unable to load destinations. Check your connection.", "error");
+  } finally {
+    setIsFetchingFares(false);
+  }
+}, [showNotification]);
+
+
+useEffect(() => {
+  if (pickupCodename) {
+    fetchAirportFares(pickupCodename);
+    setDestination(""); 
+    setDestinationCoords(null);
+    setSelectedDestinationFareId(null);
+    setFareEstimate(null);
+    setSelectedCategory(null);
+  } else {
+    setAirportFares([]);
+  }
+}, [pickupCodename, fetchAirportFares]);
+
+
+
+const getFilteredDestinations = useCallback((searchQuery: string): FareDestination[] => {
+  if (!searchQuery || searchQuery.length < 2) return [];
+  
+  const query = searchQuery.toLowerCase();
+  return airportFares.filter(dest => 
+    dest.name.toLowerCase().includes(query) || 
+    dest.search_text.toLowerCase().includes(query)
+  );
+}, [airportFares]);
+
+
+
+
+
   const { handleRequestRide } = useBooking({
     tripHistory,
     pickup,
+    airportId,
     destination,
     fareEstimate,
     pickupCoords,
@@ -14919,6 +15437,7 @@ export default function ACHRAMApp() {
     numberOfSeats,
     isStrictPreferences,
     sourceDomain,
+    selectedDestinationFareId,
   });
 
   useDriverTracking({
@@ -15446,24 +15965,41 @@ export default function ACHRAMApp() {
     }
   };
 
+  // const handleCategorySelect = (category: any) => {
+  //   const categoryValue =
+  //     category?.categoryValue || category?.category?.value || category?.id;
+  //   const price =
+  //     category?.estimatedPrice ||
+  //     category?.amount?.amount ||
+  //     category?.basePrice;
+
+  //   if (!categoryValue) {
+  //     showNotification("Invalid vehicle category selected", "error");
+  //     return;
+  //   }
+
+  //   setSelectedCategory(categoryValue);
+  //   setFareEstimate(typeof price === "number" ? price : null);
+  //   setFareIsFlatRate(fareIsFlatRate);
+  //   setShowVehicleCategories(false);
+  // };
+
   const handleCategorySelect = (category: any) => {
-    const categoryValue =
-      category?.categoryValue || category?.category?.value || category?.id;
-    const price =
-      category?.estimatedPrice ||
-      category?.amount?.amount ||
-      category?.basePrice;
+  const categoryValue = category?.categoryValue;
+  // const fareId = category?.id; // <--- THIS IS THE BREAKDOWN ID
+ 
+  const price = category?.estimatedPrice;
 
-    if (!categoryValue) {
-      showNotification("Invalid vehicle category selected", "error");
-      return;
-    }
+  if (!categoryValue) {
+    showNotification("Invalid vehicle category selected", "error");
+    return;
+  }
 
-    setSelectedCategory(categoryValue);
-    setFareEstimate(typeof price === "number" ? price : null);
-    setFareIsFlatRate(fareIsFlatRate);
-    setShowVehicleCategories(false);
-  };
+  setSelectedCategory(categoryValue);
+  // setSelectedDestinationFareId(fareId); // <--- STORE THE FARE ID
+  setFareEstimate(typeof price === "number" ? price : null);
+  setShowVehicleCategories(false);
+};
 
   const handleBackToCategories = () => {
     setSelectedCategory(null);
@@ -16654,6 +17190,8 @@ export default function ACHRAMApp() {
       <BookingScreen
         pickup={pickup}
         setPickup={setPickup}
+        airportId={airportId}
+        setAirportId={setAirportId}
         destination={destination}
         setDestination={setDestination}
         fareEstimate={fareEstimate}
@@ -16675,6 +17213,7 @@ export default function ACHRAMApp() {
         resetKey={resetBookingKey}
         setPickupId={setPickupId}
         setPickupCodename={setPickupCodename}
+        pickupCodename={pickupCodename}
         onShowLogin={() => setShowLogin(true)}
         showNotification={showNotification}
         isAuthenticated={isAuthenticated}
@@ -16704,6 +17243,14 @@ export default function ACHRAMApp() {
         setIsStrictPreferences={setIsStrictPreferences}
         passengerLiveLocation={passengerLiveLocation} // NEW
         onRefreshLocation={handleRefreshLocation} // NEW
+        airportFares={airportFares}
+
+        isFetchingFares={isFetchingFares}
+        getFilteredDestinations={getFilteredDestinations}
+        selectedDestinationFareId={selectedDestinationFareId}
+        setSelectedDestinationFareId={setSelectedDestinationFareId}
+        getCategoryDescription={getCategoryDescription}
+        setVehicleQuotes={setVehicleQuotes}
       />
     );
   } else if (screen === "assigning") {
@@ -18629,6 +19176,7 @@ import AirportSelectionModal from "@/components/app/modals/AirportSelectionModal
 import OutsideServiceAreaModal from "@/components/app/modals/OutsideServiceAreaModal";
 import { apiClient } from "@/lib/api";
 import ACHRAMFooter from "@/components/app/ui/ACHRAMFooter";
+import { FareDestination } from "@/types/fares";
 
 interface LocationData {
   name: string;
@@ -18640,6 +19188,8 @@ interface LocationData {
 interface BookingScreenProps {
   pickup: string;
   setPickup: (val: string) => void;
+  airportId: string | null;
+  setAirportId: (val: string | null) => void;
   destination: string;
   setDestination: (val: string) => void;
   fareEstimate: number | null;
@@ -18692,6 +19242,15 @@ interface BookingScreenProps {
   setIsStrictPreferences: (val: boolean) => void;
   passengerLiveLocation: [number, number] | null;
   onRefreshLocation?: () => void; // NEW: Optional refresh handler
+
+  isFetchingFares: boolean;
+  getFilteredDestinations: any;
+  selectedDestinationFareId: any;
+  setSelectedDestinationFareId: any;
+  getCategoryDescription: (value: string) => any;
+  setVehicleQuotes: any;
+  airportFares: any;
+  pickupCodename: string | null;
 }
 
 const losCoords: [number, number] = [3.330058, 6.568287];
@@ -18727,6 +19286,8 @@ function useDebounceCallback<T extends (...args: any[]) => any>(
 export default function BookingScreen({
   pickup,
   setPickup,
+  airportId,
+  setAirportId,
   destination,
   setDestination,
   fareEstimate,
@@ -18753,6 +19314,7 @@ export default function BookingScreen({
   selectedCategory,
   vehicleQuotes,
   isFetchingVehicles,
+  isFetchingFares,
   handleCategorySelect,
   handleBackToCategories,
   onDestinationSelected,
@@ -18763,6 +19325,14 @@ export default function BookingScreen({
   setIsStrictPreferences,
   passengerLiveLocation,
   onRefreshLocation,
+  setSelectedDestinationFareId,
+  selectedDestinationFareId,
+  setSelectedCategory,
+  getFilteredDestinations,
+  getCategoryDescription,
+  setVehicleQuotes,
+  airportFares,
+  pickupCodename,
 }: BookingScreenProps) {
   const [pickupOpen, setPickupOpen] = useState(false);
   const [destOpen, setDestOpen] = useState(false);
@@ -18772,7 +19342,6 @@ export default function BookingScreen({
   const [showOutsideServiceModal, setShowOutsideServiceModal] = useState(false);
   const [showLocationSettingsModal, setShowLocationSettingsModal] =
     useState(false);
-  
 
   const searchBoxRef = useRef<google.maps.places.SearchBox | null>(null);
   const destinationInputRef = useRef<HTMLInputElement>(null);
@@ -18800,9 +19369,68 @@ export default function BookingScreen({
       coords: null,
     });
 
+  // Inside BookingScreen.tsx
+  const [destinationSearchQuery, setDestinationSearchQuery] = useState("");
+  const [filteredDestinations, setFilteredDestinations] = useState<
+    FareDestination[]
+  >([]);
+  const [showDestDropdown, setShowDestDropdown] = useState(false);
+
+  // Handle typing
+  const handleDestinationTyping = (value: string) => {
+    setDestinationSearchQuery(value);
+
+    // If user clears the field, reset everything (Spec requirement)
+    if (!value.trim()) {
+      setDestinationLocationData({ name: "", coords: null });
+      setSelectedDestinationFareId(null);
+      setFareEstimate(null);
+      setSelectedCategory(null);
+      setShowDestDropdown(false);
+      return;
+    }
+
+    const results = getFilteredDestinations(value);
+    setFilteredDestinations(results);
+    setShowDestDropdown(true);
+  };
+
+  // Handle selection from dropdown
+  const handleDestinationSelect = (dest: FareDestination) => {
+    setDestinationSearchQuery(dest.name); // Lock the input to the exact name
+    setShowDestDropdown(false);
+
+
+    setSelectedDestinationFareId(dest.id); 
+
+    // Set coordinates from the backend's anchor point
+    const coords = dest.map_data.location.geometry.coordinates;
+    setDestinationLocationData({
+      name: dest.name,
+      coords: coords,
+    });
+
+    // Map the breakdown to the vehicle quotes modal
+    const quotes = dest.breakdown.map((item) => ({
+      id: item.id, // The breakdown ID
+      name: item.category.label,
+      categoryValue: item.category.value,
+      description: getCategoryDescription(item.category.value),
+      estimatedPrice: item.amount.amount,
+      formattedPrice: item.amount.formatted,
+      currency: item.amount.currency,
+      available: true,
+      eta: "4-8 mins",
+    }));
+
+    setVehicleQuotes(quotes);
+    setShowVehicleCategories(true); // Open the "Choose your ride" modal
+  };
+
   useEffect(() => {
     console.log("DEBUG: Reset key changed, resetting booking screen state");
     setPickupLocationData({ name: "", coords: null });
+    setAirportId(null);
     setDestinationLocationData({ name: "", coords: null });
   }, [resetKey]); // Depend on resetKey
 
@@ -18830,99 +19458,6 @@ export default function BookingScreen({
   useEffect(() => {
     setPickupCodename(pickupLocationData.codename);
   }, [pickupLocationData.codename, setPickupCodename]);
-
-  // const fetchFareEstimate = async (
-  //   airportCodename: string,
-  //   destinationName: string
-  // ): Promise<number | null> => {
-  //   if (!airportCodename || !destinationName) {
-  //     console.warn(
-  //       "Cannot fetch fare: airport codename or destination name is missing"
-  //     );
-  //     setFareEstimate(null);
-  //     setFareIsFlatRate(null);
-  //     return null;
-  //   }
-  //   try {
-  //     console.log(
-  //       `Fetching fare for airport: ${airportCodename}, destination: ${destinationName}`
-  //     );
-  //     // The 'search' parameter is the destination address string.
-  //     // The 'airport' parameter is the airport codename.
-  //     const response = await apiClient.get(
-  //       `/fares/lookup?airport=${encodeURIComponent(
-  //         airportCodename
-  //       )}&search=${encodeURIComponent(destinationName)}`
-  //     );
-  //     // ikeja
-  //     console.log(`Estimated Fare Response: ${response}`);
-
-  //     if (response.status === "success" && response.data) {
-  //       const fareData = response.data;
-  //       console.log("Fetched fare data:", fareData);
-  //       // Return the numeric amount from the API response
-  //       setFareEstimate(fareData.amount.amount);
-  //       setFareIsFlatRate(fareData.is_flat_rate);
-  //       return fareData.amount.amount; // e.g., 100 from the example
-  //     } else {
-  //       console.log(
-  //         "Fare lookup API responded with non-success status or missing data:",
-  //         response
-  //       );
-
-  //       setFareEstimate(null);
-  //       setFareIsFlatRate(null);
-  //       return null;
-  //     }
-  //   } catch (err) {
-  //     console.error("Error fetching fare estimate:", err);
-  //     //showNotification("Could not fetch fare estimate. Using default.", "warning"); // Example
-  //     setFareEstimate(null);
-  //     setFareIsFlatRate(null);
-  //     return null;
-  //   }
-  // };
-
-  // useEffect(() => {
-  //   const getFare = async () => {
-  //     // Only proceed if both codename and destination name are present
-  //     if (pickupLocationData.codename && destinationLocationData.name) {
-  //       // Show a loading state if desired (e.g., disable proceed button, show spinner next to fare)
-  //       // setIsFetchingFare(true); // Example state
-
-  //       const fare = await fetchFareEstimate(
-  //         pickupLocationData.codename,
-  //         destinationLocationData.name
-  //       );
-
-  //       // setIsFetchingFare(false); // Example state
-
-  //       if (fare !== null) {
-  //         // Update the parent's fare estimate state
-  //         setFareEstimate(fare);
-  //       } else {
-  //         // Handle case where fare lookup failed
-  //         // You might want to clear the estimate or show an error
-  //         setFareIsFlatRate(null);
-  //         setFareEstimate(null); // Or keep the previous value, or set to -1 to indicate error
-  //         // showNotification("Failed to get fare estimate.", "error"); // Example
-  //       }
-  //     } else {
-  //       // If either codename or destination name is missing, clear the estimate
-  //       setFareEstimate(null);
-  //       setFareIsFlatRate(null);
-  //     }
-  //   };
-
-  //   getFare(); // Call the async function
-
-  //   // Depend on the codename and destination name to re-run the effect when they change
-  // }, [
-  //   pickupLocationData.codename,
-  //   destinationLocationData.name,
-  //   setFareEstimate,
-  //   setFareIsFlatRate,
-  // ]);
 
   // Helper: Extract fare zone from Google Places result
   const getFareZone = (
@@ -18984,39 +19519,7 @@ export default function BookingScreen({
 
   const geolocationCoordsRef = useRef<[number, number] | null>(null);
 
-  // const handlePlaceChanged = useCallback(() => {
-  //   if (isGoogleMapsLoaded && searchBoxRef.current) {
 
-  //     // NEW: Only run if API is loaded
-  //     const places = searchBoxRef.current.getPlaces();
-
-  //     if (places && places.length > 0) {
-  //       const place = places[0];
-
-  //       const components = place.address_components || [];
-
-  //       components.forEach((component) => {
-  //         console.log(component.long_name, component.types);
-  //       });
-
-  //       if (place.geometry && place.geometry.location) {
-  //         const lat = place.geometry.location.lat();
-  //         const lng = place.geometry.location.lng();
-  //         setDestinationLocationData({
-  //           name: place.formatted_address || place.name || "", // Prefer formatted address, fallback to name
-  //           coords: [lng, lat], // [longitude, latitude]
-  //         });
-  //         setDestOpen(false); // Close the dropdown after selection
-  //       } else {
-  //         console.error("Place selected but no geometry.location found.");
-  //       }
-  //     } else {
-  //       console.log("No places found from search box.");
-  //       // Optionally clear coordinates if user clears the input and presses enter/selects nothing
-  //       setDestinationLocationData((prev) => ({ ...prev, coords: null }));
-  //     }
-  //   }
-  // }, [isGoogleMapsLoaded]);
 
   const handlePlaceChanged = useCallback(() => {
     if (isGoogleMapsLoaded && searchBoxRef.current) {
@@ -19069,7 +19572,12 @@ export default function BookingScreen({
           (async () => {
             setIsFetchingLocation(true);
             try {
-              const airports = await findNearestAirport(lng, lat, isAuthenticated, token ?? undefined);
+              const airports = await findNearestAirport(
+                lng,
+                lat,
+                isAuthenticated,
+                token ?? undefined,
+              );
               if (airports && airports.length > 0) {
                 if (airports.length === 1) {
                   setPickupLocationData({
@@ -19078,6 +19586,7 @@ export default function BookingScreen({
                     id: airports[0].id,
                     codename: airports[0].codename,
                   });
+                  setAirportId(pickupLocationData.id)
                 } else {
                   setAirportsToSelect(airports);
                   setShowAirportSelectionModal(true);
@@ -19116,70 +19625,6 @@ export default function BookingScreen({
     destinationInputRef.current?.focus();
   }, []);
 
-  // const handleUseCurrentLocation = useCallback(async () => {
-  //   if (error?.includes("denied")) {
-  //     setShowLocationSettingsModal(true);
-  //     setPickupOpen(false);
-  //     return;
-  //   }
-
-  //   setIsFetchingLocation(true);
-  //   setPickupOpen(false);
-
-  //   try {
-  //     const position = await requestPermission();
-  //     if (!position) throw new Error("No coordinates");
-
-  //     const { latitude, longitude } = position;
-  //     console.log(
-  //       "DEBUG: handleUseCurrentLocation - Got geolocation:",
-  //       longitude,
-  //       latitude,
-  //     );
-
-  //     const coords = [longitude, latitude] as [number, number];
-
-  //     geolocationCoordsRef.current = coords;
-
-  //     const airports = await findNearestAirport(longitude, latitude);
-
-  //     console.log(
-  //       "DEBUG: handleUseCurrentLocation - Found airports:",
-  //       airports,
-  //     );
-  //     if (airports && airports.length > 0) {
-  //       if (airports.length === 1) {
-  //         console.log(
-  //           "DEBUG: handleUseCurrentLocation - Setting single airport:",
-  //           airports[0].name,
-  //           "with coords:",
-  //           [longitude, latitude],
-  //         );
-
-  //         setPickupLocationData({
-  //           name: airports[0].name,
-  //           coords: [longitude, latitude],
-  //           id: airports[0].id,
-  //           codename: airports[0].codename,
-  //         });
-  //       } else {
-  //         setAirportsToSelect(airports);
-  //         setShowAirportSelectionModal(true);
-  //       }
-  //     } else {
-  //       setShowOutsideServiceModal(true);
-  //     }
-  //   } catch (err) {
-  //     console.error("Location fetch failed:", err);
-  //     showNotification(
-  //       `Location fetch failed, Kindly search your location  `,
-  //       "error",
-  //     );
-  //   } finally {
-  //     setIsFetchingLocation(false);
-  //   }
-  // }, [error, requestPermission]);
-
   const handleUseCurrentLocation = useCallback(async () => {
     // FIRST: Check if we already have valid coordinates from parent
     if (
@@ -19192,10 +19637,16 @@ export default function BookingScreen({
 
       // Use existing coordinates to find airports
       const [lat, lng] = passengerLiveLocation;
-      const airports = await findNearestAirport(lng, lat, isAuthenticated, token ?? undefined);
+      const airports = await findNearestAirport(
+        lng,
+        lat,
+        isAuthenticated,
+        token ?? undefined,
+      );
       setPickupOpen(false);
 
       if (airports && airports.length > 0) {
+        
         if (airports.length === 1) {
           setPickupLocationData({
             name: airports[0].name,
@@ -19203,6 +19654,9 @@ export default function BookingScreen({
             id: airports[0].id,
             codename: airports[0].codename,
           });
+          console.log('airport length is one', airportId)
+          setAirportId(airports[0].id)
+          console.log('Airport Id is set: ', airportId);
         } else {
           setAirportsToSelect(airports);
           setShowAirportSelectionModal(true);
@@ -19232,7 +19686,12 @@ export default function BookingScreen({
       const coords = [longitude, latitude] as [number, number];
       geolocationCoordsRef.current = coords;
 
-      const airports = await findNearestAirport(longitude, latitude, isAuthenticated, token ?? undefined);
+      const airports = await findNearestAirport(
+        longitude,
+        latitude,
+        isAuthenticated,
+        token ?? undefined,
+      );
 
       if (airports && airports.length > 0) {
         if (airports.length === 1) {
@@ -19242,6 +19701,7 @@ export default function BookingScreen({
             id: airports[0].id,
             codename: airports[0].codename,
           });
+          setAirportId(airports[0].id)
         } else {
           setAirportsToSelect(airports);
           setShowAirportSelectionModal(true);
@@ -19252,7 +19712,7 @@ export default function BookingScreen({
     } catch (err) {
       console.error("Location fetch failed:", err);
       showNotification(
-        "Location fetch failed. Please search manually.",
+        "Couldn't fetch Airport. Please make sure to allow Location Access or check your internet Connection.",
         "error",
       );
     } finally {
@@ -19279,6 +19739,7 @@ export default function BookingScreen({
       id: airport.id,
       codename: airport.codename,
     });
+    setAirportId(airport.id)
     setShowAirportSelectionModal(false);
   }, []);
 
@@ -19321,7 +19782,7 @@ export default function BookingScreen({
         airportId,
       );
     }
-    setPickupOpen(false);
+    setPickupOpen(false); 
   }, []);
 
   return (
@@ -19413,20 +19874,20 @@ export default function BookingScreen({
                 />
               </div>
             ) : (
-              <StandaloneSearchBox
-                onLoad={(ref) => (pickupSearchBoxRef.current = ref)}
-                onUnmount={() => (pickupSearchBoxRef.current = null)}
-                onPlacesChanged={handlePickupPlaceChanged}
-              >
+              // <StandaloneSearchBox
+              //   onLoad={(ref) => (pickupSearchBoxRef.current = ref)}
+              //   onUnmount={() => (pickupSearchBoxRef.current = null)}
+              //   onPlacesChanged={handlePickupPlaceChanged}
+              // >
                 <div className=" left-0 flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border h-14 w-full">
                   <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
                   <input
                     ref={pickupInputRef}
                     type="text"
-                    placeholder="Search pickup location"
+                    placeholder="Select pickup location"
                     value={
                       showFetchingUI
-                        ? "Getting your location..."
+                        ? "Fetching Airports..."
                         : pickupLocationData.name
                     }
                     onChange={(e) =>
@@ -19464,7 +19925,7 @@ export default function BookingScreen({
                     )}
                   </button>
                 </div>
-              </StandaloneSearchBox>
+              // </StandaloneSearchBox>
             )}
 
             {pickupOpen && !showFetchingUI && isGoogleMapsLoaded && (
@@ -19474,7 +19935,8 @@ export default function BookingScreen({
                   className="w-full px-4 py-3 flex items-center gap-3 hover:bg-achrams-bg-secondary text-left"
                 >
                   <MapPin className="w-5 h-5 text-achrams-primary-solid" />
-                  <span>Use my current location</span>
+                  {/* <span>Use my current location</span> */}
+                  <span>See available Airports</span>
                 </button>
                 {/* Optionally: Add "Or type to search" hint */}
               </div>
@@ -19482,7 +19944,7 @@ export default function BookingScreen({
           </div>
 
           {/* Destination */}
-          <div className="relative w-full">
+          {/* <div className="relative w-full">
             {!isGoogleMapsLoaded ? (
               <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border">
                 <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
@@ -19497,7 +19959,7 @@ export default function BookingScreen({
                 />
               </div>
             ) : (
-              // NEW: Render the StandaloneSearchBox only when API is loaded
+              
               <StandaloneSearchBox
                 onLoad={(ref) => {
                   searchBoxRef.current = ref; // Store the reference
@@ -19542,7 +20004,69 @@ export default function BookingScreen({
                 </div>
               </StandaloneSearchBox>
             )}
+          </div> */}
+
+          <div className="relative w-full">
+            <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border h-14">
+              <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
+              <input
+                type="text"
+                placeholder="Enter destination"
+                value={destinationSearchQuery}
+                onChange={(e) => handleDestinationTyping(e.target.value)}
+                onFocus={() => destinationSearchQuery.length >= 2 && setShowDestDropdown(true)}
+                // If a destination is selected, make it read-only until cleared
+                readOnly={!!selectedDestinationFareId} 
+                className="flex-1 bg-transparent outline-none text-base text-achrams-text-primary"
+              />
+              {selectedDestinationFareId && (
+                <button 
+                  onClick={() => handleDestinationTyping("")} // Clears the field
+                  className="p-2 text-achrams-text-secondary hover:text-achrams-text-primary"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+
+            {/* Custom Dropdown */}
+            {showDestDropdown && filteredDestinations.length > 0 && (
+              <div className="absolute top-full w-full mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 max-h-64 overflow-y-auto">
+                {filteredDestinations.map((dest) => {
+                  // Show the 'legacy' (Regular) price as the baseline in the dropdown
+                  const baseFare = dest.breakdown.find(b => b.category.value === 'legacy') || dest.breakdown[0];
+                  
+                  return (
+                    <button
+                      key={dest.name}
+                      onClick={() => handleDestinationSelect(dest)}
+                      className="w-full px-4 py-3 flex items-center justify-between hover:bg-achrams-bg-secondary text-left border-b border-achrams-border last:border-0"
+                    >
+                      <div className="flex items-center gap-3">
+                        <MapPin className="w-4 h-4 text-achrams-text-secondary" />
+                        <span className="font-medium text-achrams-text-primary">{dest.name}</span>
+                      </div>
+                      <span className="text-sm font-bold text-achrams-primary-solid">
+                        {baseFare?.amount.formatted}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Error States (Spec Requirement) */}
+            {showDestDropdown && destinationSearchQuery.length >= 2 && filteredDestinations.length === 0 && !isFetchingFares && (
+              <div className="absolute top-full w-full mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 p-4 text-center">
+                <p className="text-achrams-text-secondary text-sm">No destinations found. Try a different search.</p>
+              </div>
+            )}
+            
+            {airportFares.length === 0 && !isFetchingFares && pickupCodename && (
+              <p className="text-xs text-red-500 mt-1">Destinations are not available at this time. Please speak to an agent.</p>
+            )}
           </div>
+
         </div>
 
         {/* {fareEstimate !== null && (
@@ -19615,7 +20139,7 @@ export default function BookingScreen({
               <div className="flex justify-between items-center">
                 <div>
                   <div className="text-sm text-achrams-text-secondary font-medium">
-                    Estimated fare
+                    Flat Rate
                   </div>
                   <div className="text-xs text-achrams-text-tertiary flex items-center gap-1 mt-0.5">
                     <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
@@ -19677,7 +20201,7 @@ export default function BookingScreen({
   )} */}
         <button
           onClick={onProceed}
-          disabled={!fareEstimate || !selectedCategory}
+          disabled={!fareEstimate || !selectedCategory || !selectedDestinationFareId}
           className={`w-full py-4 rounded-xl text-base font-semibold text-achrams-text-light transition-all ${
             fareEstimate && selectedCategory
               ? "bg-achrams-gradient-primary hover:opacity-95 active:scale-[0.98] shadow-md"
@@ -19792,7 +20316,7 @@ export default function BookingScreen({
                               {category.formattedPrice}
                             </div>
                             <div className="text-xs text-achrams-text-tertiary mt-0.5">
-                              Estimated
+                              Flat Rate
                             </div>
                           </div>
                         </div>
@@ -21382,50 +21906,86 @@ export default function DashboardScreen({
 
 
 
------ FILE: src/app/BiometricGate.tsx -----
+----- FILE: src/app/_BiometricGate.tsx -----
+
 // 'use client';
 // import { useEffect, useRef, useState, useCallback } from 'react';
 // import { Capacitor } from '@capacitor/core';
+// import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
 // import { Lock } from 'lucide-react';
 // import { useAuth } from '@/contexts/AuthContext';
 
 // const isNative = Capacitor.isNativePlatform();
 
 // export const BiometricGate = ({ children }: { children: React.ReactNode }) => {
-//   const { isAuthenticated, isBiometricEnabled, loginWithBiometric, isBiometricAvailable , isBiometricBlocked} = useAuth();
+//   const { isAuthenticated, isBiometricEnabled, loginWithBiometric, isBiometricAvailable, isBiometricBlocked } = useAuth();
 //   const [checking, setChecking] = useState(true);
 //   const [isPrompting, setIsPrompting] = useState(false);
 //   const hasPrompted = useRef(false);
 
 //   const handlePrompt = useCallback(async () => {
-//     if (isPrompting) return;
+//     if (isPrompting || hasPrompted.current) return;
+//     hasPrompted.current = true;
 //     setIsPrompting(true);
+
 //     try {
-//       await loginWithBiometric();
+//       // timeout wrapper — critical for iOS
+//       const ok = await Promise.race([
+//         loginWithBiometric(),
+//         new Promise<boolean>(r => setTimeout(() => r(false), 3000))
+//       ]);
+
+//       if (!ok) {
+//         // let user fall through to normal login
+//         setChecking(false);
+//       }
+//     } catch (e) {
+//       console.error('Biometric error', e);
+//       setChecking(false);
 //     } finally {
 //       setIsPrompting(false);
-//       setChecking(false);
+//       // if login succeeded, isAuthenticated will flip and we unmount anyway
+//       if (!isAuthenticated) setChecking(false);
 //     }
-//   }, [isPrompting, loginWithBiometric]);
+//   }, [isPrompting, loginWithBiometric, isAuthenticated]);
 
 //   useEffect(() => {
 //     if (!isNative) {
 //       setChecking(false);
 //       return;
 //     }
+
+//     // iOS: use Native resize to avoid the RTIInputSystemClient errors you saw
+//     // if (Capacitor.getPlatform() === 'ios') {
+//     //   Keyboard.setResizeMode({ mode: KeyboardResize.Native }).catch(() => {});
+//     // }
+
 //     if (isAuthenticated) {
 //       setChecking(false);
 //       return;
 //     }
-//     if (isBiometricEnabled && !hasPrompted.current) {
-//       hasPrompted.current = true;
-//       handlePrompt();
-//     } else {
-//       setChecking(false);
-//     }
-//   }, [isAuthenticated, isBiometricEnabled, handlePrompt]);
 
-//   if (isBiometricAvailable && checking) {
+//     if (!isBiometricEnabled || isBiometricBlocked ||!isBiometricAvailable) {
+//       setChecking(false);
+//       return;
+//     }
+
+//     // WAIT for WebView — this is the fix for your freeze
+//     const t = setTimeout(() => {
+//       handlePrompt();
+//     }, 700);
+
+//     return () => clearTimeout(t);
+//   }, [isAuthenticated, isBiometricEnabled, isBiometricAvailable, isBiometricBlocked, handlePrompt]);
+
+//   // Reset prompt flag when user logs out
+//   useEffect(() => {
+//     if (!isAuthenticated) {
+//       hasPrompted.current = false;
+//     }
+//   }, [isAuthenticated]);
+
+//   if (isNative && isBiometricAvailable && checking) {
 //     return (
 //       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
 //         <Lock className="h-12 w-12 text-emerald-600 animate-pulse" />
@@ -21434,17 +21994,16 @@ export default function DashboardScreen({
 //     );
 //   }
 
-//   // Locked state with tap-to-retry
-//   if (isNative && isBiometricEnabled && !isAuthenticated && !isBiometricBlocked) {
+//   if (isNative && isBiometricEnabled &&!isAuthenticated &&!isBiometricBlocked &&!checking) {
 //     return (
 //       <button
 //         onClick={handlePrompt}
 //         disabled={isPrompting}
 //         className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-white active:bg-gray-50 transition"
 //       >
-//         <Lock className={`h-12 w-12 text-emerald-600 ${isPrompting ? 'animate-pulse' : ''}`} />
+//         <Lock className={`h-12 w-12 text-emerald-600 ${isPrompting? 'animate-pulse' : ''}`} />
 //         <p className="text-sm text-gray-600">
-//           {isPrompting ? 'Waiting for biometrics…' : 'Tap to authenticate'}
+//           {isPrompting? 'Waiting for biometrics…' : 'Tap to authenticate'}
 //         </p>
 //         <span className="text-xs text-gray-400">Authenticate to continue</span>
 //       </button>
@@ -21454,84 +22013,85 @@ export default function DashboardScreen({
 //   return <>{children}</>;
 // };
 
+
 'use client';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
 import { Lock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const isNative = Capacitor.isNativePlatform();
+const isAndroid = Capacitor.getPlatform() === 'android';
+
+// Biometric gate is only meaningful on Android native
+const isBiometricSupported = isNative && isAndroid;
 
 export const BiometricGate = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isBiometricEnabled, loginWithBiometric, isBiometricAvailable, isBiometricBlocked } = useAuth();
+  const {
+    isAuthenticated,
+    isBiometricEnabled,
+    isBiometricAvailable,
+    isBiometricBlocked,
+    loginWithBiometric,
+  } = useAuth();
+
   const [checking, setChecking] = useState(true);
   const [isPrompting, setIsPrompting] = useState(false);
   const hasPrompted = useRef(false);
 
   const handlePrompt = useCallback(async () => {
+    if (!isBiometricSupported) return;
     if (isPrompting || hasPrompted.current) return;
+
     hasPrompted.current = true;
     setIsPrompting(true);
 
     try {
-      // timeout wrapper — critical for iOS
       const ok = await Promise.race([
         loginWithBiometric(),
-        new Promise<boolean>(r => setTimeout(() => r(false), 3000))
+        new Promise<boolean>(r => setTimeout(() => r(false), 3000)),
       ]);
 
-      if (!ok) {
-        // let user fall through to normal login
-        setChecking(false);
-      }
+      if (!ok) setChecking(false);
     } catch (e) {
       console.error('Biometric error', e);
       setChecking(false);
     } finally {
       setIsPrompting(false);
-      // if login succeeded, isAuthenticated will flip and we unmount anyway
       if (!isAuthenticated) setChecking(false);
     }
   }, [isPrompting, loginWithBiometric, isAuthenticated]);
 
   useEffect(() => {
-    if (!isNative) {
+    // Non-native (web) or iOS — skip gate entirely, render children immediately
+    if (!isBiometricSupported) {
       setChecking(false);
       return;
     }
 
-    // iOS: use Native resize to avoid the RTIInputSystemClient errors you saw
-    if (Capacitor.getPlatform() === 'ios') {
-      Keyboard.setResizeMode({ mode: KeyboardResize.Native }).catch(() => {});
-    }
-
+    // Android native from here down
     if (isAuthenticated) {
       setChecking(false);
       return;
     }
 
-    if (!isBiometricEnabled || isBiometricBlocked ||!isBiometricAvailable) {
+    if (!isBiometricEnabled || isBiometricBlocked || !isBiometricAvailable) {
       setChecking(false);
       return;
     }
 
-    // WAIT for WebView — this is the fix for your freeze
-    const t = setTimeout(() => {
-      handlePrompt();
-    }, 700);
-
+    // Small delay to let WebView fully attach before prompting
+    const t = setTimeout(() => handlePrompt(), 700);
     return () => clearTimeout(t);
   }, [isAuthenticated, isBiometricEnabled, isBiometricAvailable, isBiometricBlocked, handlePrompt]);
 
-  // Reset prompt flag when user logs out
+  // Reset prompt flag on logout so it works next session
   useEffect(() => {
-    if (!isAuthenticated) {
-      hasPrompted.current = false;
-    }
+    if (!isAuthenticated) hasPrompted.current = false;
   }, [isAuthenticated]);
 
-  if (isNative && isBiometricAvailable && checking) {
+  // Android only: show lock screen while checking
+  if (isBiometricSupported && isBiometricAvailable && checking) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-white">
         <Lock className="h-12 w-12 text-emerald-600 animate-pulse" />
@@ -21540,22 +22100,24 @@ export const BiometricGate = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  if (isNative && isBiometricEnabled &&!isAuthenticated &&!isBiometricBlocked &&!checking) {
+  // Android only: show tap-to-auth screen
+  if (isBiometricSupported && isBiometricEnabled && !isAuthenticated && !isBiometricBlocked && !checking) {
     return (
       <button
         onClick={handlePrompt}
         disabled={isPrompting}
         className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-white active:bg-gray-50 transition"
       >
-        <Lock className={`h-12 w-12 text-emerald-600 ${isPrompting? 'animate-pulse' : ''}`} />
+        <Lock className={`h-12 w-12 text-emerald-600 ${isPrompting ? 'animate-pulse' : ''}`} />
         <p className="text-sm text-gray-600">
-          {isPrompting? 'Waiting for biometrics…' : 'Tap to authenticate'}
+          {isPrompting ? 'Waiting for biometrics…' : 'Tap to authenticate'}
         </p>
         <span className="text-xs text-gray-400">Authenticate to continue</span>
       </button>
     );
   }
 
+  // Web, iOS, or unauthenticated without biometric — render children normally
   return <>{children}</>;
 };
 
@@ -21620,7 +22182,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ClientProviders from "@/providers/ClientProviders"; // We'll create this
 import {PostHogProvider} from "@/providers/PostHogProvider";
-import { BiometricGate } from '@/app/BiometricGate';
+// import { BiometricGate } from '@/app/BiometricGate';
 
 export const metadata: Metadata = {
   title: "ACHRAMS Passenger App",
@@ -21651,11 +22213,11 @@ export default function RootLayout({
         <main className="flex-1 min-h-0 flex flex-col">
 
         <ClientProviders>
-          <BiometricGate>
+          {/* <BiometricGate> */}
           <PostHogProvider>
           {children}
           </PostHogProvider>
-          </BiometricGate>
+          {/* </BiometricGate> */}
         </ClientProviders>
 
         </main>
@@ -22813,52 +23375,114 @@ export const formatPhoneNumber = (input: string): string => {
 };
 
 ----- FILE: src/lib/booking/buildTripData.ts -----
+// // src/lib/booking/buildTripData.ts
+// import { Requirements, PassengerData, VehicleCategory, BookingData } from "@/types/booking";
+
+// export const buildTripData = (
+//   fareEstimate: number | null,
+//   pickup: string,
+//   destination: string,
+//   pickupCoords: [number, number] | null,
+//   destinationCoords: [number, number] | null,
+//   passengerData: PassengerData,
+//   requirements: Requirements,
+//   airportId: string,
+//   bookAsGuest: boolean,
+//   isAuthenticated: boolean,
+//   formatPhoneNumber: (input: string) => string,
+//   selectedCategory: VehicleCategory | null,
+//   numberOfSeats: number,
+//   isStrictPreferences: boolean,
+//   sourceDomain: string,
+// ) => {
+//   return {
+//     amount: {
+//       amount: fareEstimate?.toString() || "0",
+//       currency: "NGN",
+//     },
+//     airport: airportId,
+//     ...(bookAsGuest || !isAuthenticated
+//       ? {
+//           guest_name: passengerData.name,
+//           guest_email: passengerData.email,
+//           guest_phone: formatPhoneNumber(passengerData.phone),
+//         }
+//       : {}),
+//     has_extra_leg_room: requirements.elderly,
+//     has_extra_luggage: requirements.luggage,
+//     has_wheel_chair_access: requirements.wheelchair,
+//     pickup_address: pickup,
+//     pickup_location: pickupCoords,
+//     destination_address: destination,
+//     destination_location: destinationCoords,
+//     // NEW: Booking preferences
+//     category: selectedCategory,
+//     number_of_seats: numberOfSeats,
+//     is_strict_preferences: isStrictPreferences,
+//     source_domain: sourceDomain,
+//   };
+// };
+
+
 // src/lib/booking/buildTripData.ts
-import { Requirements, PassengerData, VehicleCategory, BookingData } from "@/types/booking";
+import { Requirements, PassengerData, VehicleCategory } from "@/types/booking";
+
+export interface TripRequestPayload {
+  airport: string;
+  fare: string; // The breakdown ID from /fares/lookup
+  category: VehicleCategory; // e.g., "legacy", "vip"
+  pickup_address: string;
+  pickup_location: [number, number] | null;
+  number_of_seats: number;
+  is_strict_preferences: boolean;
+  source_domain: string;
+  // Guest fields
+  guest_name?: string;
+  guest_email?: string;
+  guest_phone?: string;
+  // Requirements
+  has_extra_leg_room: boolean;
+  has_extra_luggage: boolean;
+  has_wheel_chair_access: boolean;
+}
 
 export const buildTripData = (
-  fareEstimate: number | null,
   pickup: string,
-  destination: string,
   pickupCoords: [number, number] | null,
-  destinationCoords: [number, number] | null,
   passengerData: PassengerData,
   requirements: Requirements,
   airportId: string,
   bookAsGuest: boolean,
   isAuthenticated: boolean,
   formatPhoneNumber: (input: string) => string,
-  selectedCategory: VehicleCategory | null,
+  selectedDestinationFareId: string, // The breakdown ID
+  selectedCategory: VehicleCategory,
   numberOfSeats: number,
   isStrictPreferences: boolean,
   sourceDomain: string,
-) => {
-  return {
-    amount: {
-      amount: fareEstimate?.toString() || "0",
-      currency: "NGN",
-    },
+): TripRequestPayload => {
+  
+  const basePayload: TripRequestPayload = {
     airport: airportId,
-    ...(bookAsGuest || !isAuthenticated
-      ? {
-          guest_name: passengerData.name,
-          guest_email: passengerData.email,
-          guest_phone: formatPhoneNumber(passengerData.phone),
-        }
-      : {}),
-    has_extra_leg_room: requirements.elderly,
-    has_extra_luggage: requirements.luggage,
-    has_wheel_chair_access: requirements.wheelchair,
+    fare: selectedDestinationFareId, // NO MORE amount, destination_address, or destination_location
+    category: selectedCategory,
     pickup_address: pickup,
     pickup_location: pickupCoords,
-    destination_address: destination,
-    destination_location: destinationCoords,
-    // NEW: Booking preferences
-    category: selectedCategory,
     number_of_seats: numberOfSeats,
     is_strict_preferences: isStrictPreferences,
     source_domain: sourceDomain,
+    has_extra_leg_room: requirements.elderly,
+    has_extra_luggage: requirements.luggage,
+    has_wheel_chair_access: requirements.wheelchair,
   };
+
+  if (bookAsGuest || !isAuthenticated) {
+    basePayload.guest_name = passengerData.name;
+    basePayload.guest_email = passengerData.email;
+    basePayload.guest_phone = formatPhoneNumber(passengerData.phone);
+  }
+
+  return basePayload;
 };
 
 ----- FILE: src/lib/airports.ts -----
