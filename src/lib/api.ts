@@ -29,10 +29,21 @@ const buildHeaders = async (
 
   let effectiveToken = token;
   if (isNative && isAuthRequest && !effectiveToken) {
+    // try {
+    //   const stored = await SecureStorage.get('auth_token');
+    //   if (stored) effectiveToken = stored;
+    // } catch {}
+    
     try {
-      const stored = await SecureStorage.get('auth_token');
-      if (stored) effectiveToken = stored;
-    } catch {}
+    // ✅ FIX: Add a timeout to prevent hanging the entire app if Keychain is unresponsive
+    const stored = await Promise.race([
+      SecureStorage.get('auth_token'),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)) // 3 second timeout
+    ]);
+    if (stored) effectiveToken = stored;
+  } catch (e) {
+    console.warn('SecureStorage.get timed out or failed on iOS:', e);
+  }
   }
   if (effectiveToken && (!isAuthRequest || isNative)) {
     headers['Authorization'] = `Bearer ${effectiveToken}`;
