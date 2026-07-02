@@ -3,7 +3,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ClientProviders from "@/providers/ClientProviders"; // We'll create this
 import {PostHogProvider} from "@/providers/PostHogProvider";
-import { BiometricGate } from '@/app/BiometricGate';
+import { BiometricGate } from '@/app/_BiometricGate';
 
 export const metadata: Metadata = {
   title: "ACHRAMS Passenger App",
