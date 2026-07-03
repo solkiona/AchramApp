@@ -206,6 +206,7 @@
 
 // src/lib/api.ts
 import { Capacitor } from '@capacitor/core';
+import { SecureStorage } from '@aparajita/capacitor-secure-storage';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 const isNative = Capacitor.isNativePlatform();
@@ -217,39 +218,44 @@ interface ApiResponse<T = unknown> {
   details?: Record<string, string[]>;
 }
 
-let onUnauthorized: (() => Promise<void>) | null = null;
-export const setUnauthorizedHandler = (handler: () => Promise<void>) => {
+let onUnauthorized: (() => void) | null = null;
+export const setUnauthorizedHandler = (handler: () => void) => {
   onUnauthorized = handler;
 };
-const handleUnauthorized = () => { onUnauthorized?.(); };
 
-const buildHeaders = (
+const buildHeaders = async (
   token?: string,
   isGuest = false,
   guestId?: string,
   isFormData = false,
   isAuthRequest = false
-): Record<string, string> => {
+) => {
   const headers: Record<string, string> = {};
-
   if (!isFormData) headers['Content-Type'] = 'application/json';
 
-  // Native → Bearer token from memory (never touches Keychain)
-  // Web   → no Authorization header, cookie handles it
-  if (token && (isNative || !isAuthRequest)) {
-    headers['Authorization'] = `Bearer ${token}`;
+  let effectiveToken = token;
+  
+  // Native (iOS & Android): read vault token for auth requests if caller did not pass one
+  if (isNative && isAuthRequest && !effectiveToken) {
+    try {
+      // Timeout wrapper to prevent iOS Keychain from hanging API requests
+      const stored = await Promise.race([
+        SecureStorage.get('auth_token'),
+        new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+      ]);
+      if (typeof stored === 'string') effectiveToken = stored;
+    } catch {}
   }
-
+  
+  if (effectiveToken && (!isAuthRequest || isNative)) {
+    headers['Authorization'] = `Bearer ${effectiveToken}`;
+  }
   if (isGuest && guestId) headers['X-Guest-Id'] = guestId;
-
   return headers;
 };
 
-const getCredentials = (isAuthRequest: boolean): RequestCredentials | undefined => {
-  if (!isAuthRequest) return undefined;
-  // Android localhost origin — cookies work with include
-  // iOS real origin — omit cookies, use Bearer token instead
-  return isNative ? 'omit' : 'include';
+const handleUnauthorized = () => {
+  onUnauthorized?.();
 };
 
 export const apiClient = {
@@ -265,15 +271,14 @@ export const apiClient = {
       endpoint.includes('/cancel') ||
       endpoint.includes('/rate') ||
       guestId !== undefined;
-
     try {
-      const credentials = getCredentials(isAuthRequest);
+      const headers = await buildHeaders(token, isGuestRequest, guestId, false, isAuthRequest);
       const fetchOptions: RequestInit = {
         method: 'POST',
-        headers: buildHeaders(token, isGuestRequest, guestId, false, isAuthRequest),
+        headers,
         body: JSON.stringify(data),
-        ...(credentials && { credentials }),
       };
+      if (isAuthRequest) fetchOptions.credentials = isNative ? 'omit' : 'include';
 
       const res = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
 
@@ -293,10 +298,7 @@ export const apiClient = {
       return responseData;
     } catch (error) {
       console.error('API POST Error:', error);
-      return {
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Network error',
-      };
+      return { status: 'error', message: error instanceof Error ? error.message : 'Network error' };
     }
   },
 
@@ -308,11 +310,9 @@ export const apiClient = {
     isAuthRequest = false
   ): Promise<ApiResponse<T>> => {
     try {
-      const credentials = getCredentials(isAuthRequest);
-      const fetchOptions: RequestInit = {
-        headers: buildHeaders(token, isGuest, guestId, false, isAuthRequest),
-        ...(credentials && { credentials }),
-      };
+      const headers = await buildHeaders(token, isGuest, guestId, false, isAuthRequest);
+      const fetchOptions: RequestInit = { headers };
+      if (isAuthRequest) fetchOptions.credentials = isNative ? 'omit' : 'include';
 
       const res = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
 
@@ -332,10 +332,7 @@ export const apiClient = {
       return responseData;
     } catch (error) {
       console.error('API GET Error:', error);
-      return {
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Network error',
-      };
+      return { status: 'error', message: error instanceof Error ? error.message : 'Network error' };
     }
   },
 
@@ -347,13 +344,13 @@ export const apiClient = {
   ): Promise<ApiResponse<T>> => {
     const isFormData = data instanceof FormData;
     try {
-      const credentials = getCredentials(isAuthRequest);
+      const headers = await buildHeaders(token, false, undefined, isFormData, isAuthRequest);
       const fetchOptions: RequestInit = {
         method: 'PATCH',
-        headers: buildHeaders(token, false, undefined, isFormData, isAuthRequest),
+        headers,
         body: isFormData ? data : JSON.stringify(data),
-        ...(credentials && { credentials }),
       };
+      if (isAuthRequest) fetchOptions.credentials = isNative ? 'omit' : 'include';
 
       const res = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
 
@@ -373,10 +370,7 @@ export const apiClient = {
       return responseData;
     } catch (error) {
       console.error('API PATCH Error:', error);
-      return {
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Network error',
-      };
+      return { status: 'error', message: error instanceof Error ? error.message : 'Network error' };
     }
   },
 
@@ -386,12 +380,9 @@ export const apiClient = {
     isAuthRequest = false
   ): Promise<ApiResponse<T>> => {
     try {
-      const credentials = getCredentials(isAuthRequest);
-      const fetchOptions: RequestInit = {
-        method: 'DELETE',
-        headers: buildHeaders(token, false, undefined, false, isAuthRequest),
-        ...(credentials && { credentials }),
-      };
+      const headers = await buildHeaders(token, false, undefined, false, isAuthRequest);
+      const fetchOptions: RequestInit = { method: 'DELETE', headers };
+      if (isAuthRequest) fetchOptions.credentials = isNative ? 'omit' : 'include';
 
       const res = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
 
@@ -410,10 +401,7 @@ export const apiClient = {
       return responseData;
     } catch (error) {
       console.error('API DELETE Error:', error);
-      return {
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Network error',
-      };
+      return { status: 'error', message: error instanceof Error ? error.message : 'Network error' };
     }
   },
 };
