@@ -206,10 +206,31 @@
 
 // src/lib/api.ts
 import { Capacitor } from '@capacitor/core';
-import { SecureStorage } from '@aparajita/capacitor-secure-storage';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 const isNative = Capacitor.isNativePlatform();
+
+// --- In-Memory Token Cache & Boot Lock ---
+let memoryToken: string | null = null;
+let isBootComplete = false;
+let bootResolvers: Array<() => void> = [];
+
+export const setMemoryToken = (token: string | null) => {
+  memoryToken = token;
+};
+
+export const signalBootComplete = () => {
+  isBootComplete = true;
+  bootResolvers.forEach(resolve => resolve());
+  bootResolvers = [];
+};
+
+const waitForBoot = () => {
+  if (isBootComplete) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    bootResolvers.push(resolve);
+  });
+};
 
 interface ApiResponse<T = unknown> {
   status: 'success' | 'error';
@@ -223,7 +244,8 @@ export const setUnauthorizedHandler = (handler: () => void) => {
   onUnauthorized = handler;
 };
 
-const buildHeaders = async (
+// buildHeaders is now fully synchronous (0ms execution time)
+const buildHeaders = (
   token?: string,
   isGuest = false,
   guestId?: string,
@@ -233,19 +255,9 @@ const buildHeaders = async (
   const headers: Record<string, string> = {};
   if (!isFormData) headers['Content-Type'] = 'application/json';
 
-  let effectiveToken = token;
-  
-  // Native (iOS & Android): read vault token for auth requests if caller did not pass one
-  if (isNative && isAuthRequest && !effectiveToken) {
-    try {
-      // Timeout wrapper to prevent iOS Keychain from hanging API requests
-      const stored = await Promise.race([
-        SecureStorage.get('auth_token'),
-        new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
-      ]);
-      if (typeof stored === 'string') effectiveToken = stored;
-    } catch {}
-  }
+  // 1. Passed token > 2. Memory Token. 
+  // WE NO LONGER READ FROM SECURE STORAGE HERE!
+  const effectiveToken = token ?? memoryToken;
   
   if (effectiveToken && (!isAuthRequest || isNative)) {
     headers['Authorization'] = `Bearer ${effectiveToken}`;
@@ -255,6 +267,7 @@ const buildHeaders = async (
 };
 
 const handleUnauthorized = () => {
+  memoryToken = null; // Clear memory cache on 401
   onUnauthorized?.();
 };
 
@@ -266,13 +279,16 @@ export const apiClient = {
     guestId?: string,
     isAuthRequest = false
   ): Promise<ApiResponse<T>> => {
+    await waitForBoot(); // Prevent race conditions on app launch
+    
     const isGuestRequest =
       endpoint.includes('/guest-booking') ||
       endpoint.includes('/cancel') ||
       endpoint.includes('/rate') ||
       guestId !== undefined;
+      
     try {
-      const headers = await buildHeaders(token, isGuestRequest, guestId, false, isAuthRequest);
+      const headers = buildHeaders(token, isGuestRequest, guestId, false, isAuthRequest);
       const fetchOptions: RequestInit = {
         method: 'POST',
         headers,
@@ -309,8 +325,9 @@ export const apiClient = {
     guestId?: string,
     isAuthRequest = false
   ): Promise<ApiResponse<T>> => {
+    await waitForBoot();
     try {
-      const headers = await buildHeaders(token, isGuest, guestId, false, isAuthRequest);
+      const headers = buildHeaders(token, isGuest, guestId, false, isAuthRequest);
       const fetchOptions: RequestInit = { headers };
       if (isAuthRequest) fetchOptions.credentials = isNative ? 'omit' : 'include';
 
@@ -342,9 +359,10 @@ export const apiClient = {
     token?: string,
     isAuthRequest = false
   ): Promise<ApiResponse<T>> => {
+    await waitForBoot();
     const isFormData = data instanceof FormData;
     try {
-      const headers = await buildHeaders(token, false, undefined, isFormData, isAuthRequest);
+      const headers = buildHeaders(token, false, undefined, isFormData, isAuthRequest);
       const fetchOptions: RequestInit = {
         method: 'PATCH',
         headers,
@@ -379,8 +397,9 @@ export const apiClient = {
     token?: string,
     isAuthRequest = false
   ): Promise<ApiResponse<T>> => {
+    await waitForBoot();
     try {
-      const headers = await buildHeaders(token, false, undefined, false, isAuthRequest);
+      const headers = buildHeaders(token, false, undefined, false, isAuthRequest);
       const fetchOptions: RequestInit = { method: 'DELETE', headers };
       if (isAuthRequest) fetchOptions.credentials = isNative ? 'omit' : 'include';
 
@@ -405,4 +424,3 @@ export const apiClient = {
     }
   },
 };
-

@@ -165,7 +165,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { SecureStorage } from '@aparajita/capacitor-secure-storage';
-import { apiClient, setUnauthorizedHandler } from '@/lib/api';
+import { apiClient, setUnauthorizedHandler, setMemoryToken, signalBootComplete } from '@/lib/api';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 
 const isNative = Capacitor.isNativePlatform();
@@ -212,6 +212,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(null);
       setToken(null);
       setIsAuthenticated(false);
+      setMemoryToken(null); // Clear memory cache
 
       if (isNative) {
         try {
@@ -251,11 +252,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // @aparajita/capacitor-secure-storage returns the value directly (string)
           const accessToken = typeof stored === 'string' ? stored : null;
           if (accessToken) {
+            setMemoryToken(accessToken); // Update memory cache
             setToken(accessToken);
             setIsAuthenticated(true); // Trust the token on boot to avoid login flash
           }
         } catch (e) {
           console.warn('Failed to read stored token on boot:', e);
+        } finally {
+          // ALWAYS signal boot complete, even if it timed out
+          signalBootComplete(); 
         }
 
         // Only check biometric availability on Android
@@ -273,10 +278,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // Web: verify via httpOnly cookie
+    // FIX: Web doesn't need to wait for Keychain, so signal boot complete IMMEDIATELY
+    // before making the API call to prevent deadlocks.
+    signalBootComplete(); 
     checkAuthStatus();
   }, [mounted]);
 
   const checkAuthStatus = useCallback(async () => {
+    // Web doesn't need a boot lock, but just in case:
+    if (!isNative) signalBootComplete();
+
     if (isNative) {
       setIsLoading(false);
       return false;
@@ -336,7 +347,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const access = res.data.token as string;
           const refresh = res.data.refresh as string | undefined;
 
-          // Update React state immediately — release the UI before any Keychain work
+          // Update React state & memory cache immediately — release the UI before any Keychain work
+          setMemoryToken(access); 
           setToken(access);
           setIsAuthenticated(true);
           setIsBiometricBlocked(false);
@@ -397,6 +409,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setToken(null);
     setIsAuthenticated(false);
+    setMemoryToken(null); // Clear memory cache
 
     if (isNative) {
       try {
@@ -447,6 +460,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const auth = await biometric.authenticate();
     if (!auth.success) return false;
 
+    setMemoryToken(creds.accessToken); // Update memory cache
     setToken(creds.accessToken);
     setIsAuthenticated(true);
 
@@ -466,7 +480,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!t) {
       const creds = await biometric.getSecureCredentials();
       t = creds.accessToken;
-      if (t) setToken(t);
+      if (t) { 
+        setToken(t); 
+        setMemoryToken(t); // Update memory cache
+      }
     }
     if (!t) return false;
 
@@ -517,15 +534,6 @@ export const useAuth = () => {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 };
-
-
-
-
-
-
-
-
-
 
 
 
