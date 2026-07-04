@@ -270,7 +270,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setMemoryToken(accessToken); // Update memory cache
             setToken(accessToken);
 
-            if (!isAndroid) setIsAuthenticated(true); // Trust the token on boot to avoid login flash
+            if (!isAndroid) {
+              setIsAuthenticated(true);
+            } else {
+              // Android
+              const { value } = await Preferences.get({
+                key: "biometric_enabled",
+              });
+
+              if (value !== "true") {
+                // Biometrics not enabled, so log the user in normally
+                setIsAuthenticated(true);
+              }
+              // Otherwise, BiometricGate will handle authentication
+            }
           }
         } catch (e) {
           console.warn('Failed to read stored token on boot:', e);
