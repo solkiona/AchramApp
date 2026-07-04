@@ -269,7 +269,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (accessToken) {
             setMemoryToken(accessToken); // Update memory cache
             setToken(accessToken);
-            setIsAuthenticated(true); // Trust the token on boot to avoid login flash
+
+            if (!isAndroid) setIsAuthenticated(true); // Trust the token on boot to avoid login flash
           }
         } catch (e) {
           console.warn('Failed to read stored token on boot:', e);
