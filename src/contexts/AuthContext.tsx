@@ -159,8 +159,6 @@
 // };
 
 
-
-
 'use client';
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { Capacitor } from '@capacitor/core';
@@ -174,7 +172,7 @@ const platform = Capacitor.getPlatform();
 const isAndroid = platform === 'android';
 
 // Biometric is ONLY available on Android native
-const isBiometricSupported = isNative && isAndroid;
+const isBiometricSupported = isNative //&& isAndroid;
 
 interface AuthContextType {
   user: any | null;
@@ -270,7 +268,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setMemoryToken(accessToken); // Update memory cache
             setToken(accessToken);
 
-            if (!isAndroid) {
+            if (!isNative) {
               setIsAuthenticated(true);
             } else {
               // Android

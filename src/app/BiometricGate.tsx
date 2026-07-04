@@ -114,8 +114,7 @@ import { useAuth } from '@/contexts/AuthContext';
 const isNative = Capacitor.isNativePlatform();
 const isAndroid = Capacitor.getPlatform() === 'android';
 
-// Biometric gate is only meaningful on Android native
-const isBiometricSupported = isNative && isAndroid;
+
 
 export const BiometricGate = ({ children }: { children: React.ReactNode }) => {
   const {
@@ -125,6 +124,10 @@ export const BiometricGate = ({ children }: { children: React.ReactNode }) => {
     isBiometricBlocked,
     loginWithBiometric,
   } = useAuth();
+
+
+  // Biometric gate is only meaningful on Android native
+const isBiometricSupported = isNative && isBiometricAvailable; //&& isAndroid;
 
   const [checking, setChecking] = useState(true);
   const [isPrompting, setIsPrompting] = useState(false);
