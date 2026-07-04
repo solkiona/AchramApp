@@ -52,6 +52,8 @@ export const useBiometricAuth = () => {
       });
 
       setIsEnabled(value === 'true');
+      console.log("biometric_enabled =", value);
+      
       return result.isAvailable;
     } catch (e) {
       console.error('BIO checkAvailability error', e);
