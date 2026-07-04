@@ -164,7 +164,8 @@
 'use client';
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { SecureStorage } from '@aparajita/capacitor-secure-storage';
+// import { SecureStorage } from '@aparajita/capacitor-secure-storage';
+import { Preferences } from '@capacitor/preferences';
 import { apiClient, setUnauthorizedHandler, setMemoryToken, signalBootComplete } from '@/lib/api';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 
@@ -216,8 +217,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (isNative) {
         try {
-          await SecureStorage.remove('auth_token');
-          await SecureStorage.remove('refresh_token');
+          // await SecureStorage.remove('auth_token');
+          // await SecureStorage.remove('refresh_token');
+          await Preferences.remove({
+            key: 'auth_token',
+          })
+          await Preferences.remove({
+            key: 'refresh_token'
+          })
+
         } catch (e) {
           console.warn('Failed to clear tokens on unauthorized:', e);
         }
@@ -244,13 +252,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       (async () => {
         try {
           // Timeout wrapper to prevent iOS Keychain from hanging the app forever
-          const stored = await Promise.race([
-            SecureStorage.get('auth_token'),
-            new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Keychain timeout')), 3000))
-          ]);
+          // const stored = await Promise.race([
+          //   SecureStorage.get('auth_token'),
+          //   new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Keychain timeout')), 3000))
+          // ]);
           
-          // @aparajita/capacitor-secure-storage returns the value directly (string)
-          const accessToken = typeof stored === 'string' ? stored : null;
+          // // @aparajita/capacitor-secure-storage returns the value directly (string)
+          // const accessToken = typeof stored === 'string' ? stored : null;
+
+          const { value } = await Preferences.get({
+              key: 'auth_token',
+            });
+
+            const accessToken = value;
+
           if (accessToken) {
             setMemoryToken(accessToken); // Update memory cache
             setToken(accessToken);
@@ -357,8 +372,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Keychain writes fully detached — never block the tap handler
           Promise.resolve().then(async () => {
             try {
-              await SecureStorage.set('auth_token', access);
-              if (refresh) await SecureStorage.set('refresh_token', refresh);
+              // await SecureStorage.set('auth_token', access);
+              await Preferences.set({
+              key: 'auth_token',
+              value: access,
+              })
+              if (refresh) {
+              // await SecureStorage.set('refresh_token', refresh);
+              await Preferences.set({
+              key: 'refresh_token',
+              value: refresh,
+              })
+              
+              }
 
               if (isBiometricSupported) {
                 await biometric.setRequireFullLogin(false);
@@ -413,8 +439,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (isNative) {
       try {
-        await SecureStorage.remove('auth_token');
-        await SecureStorage.remove('refresh_token');
+        // await SecureStorage.remove('auth_token');
+        await Preferences.remove({
+        key: 'auth_token'}
+        )
+        // await SecureStorage.remove('refresh_token');
+        await Preferences.remove({
+        key: 'refresh_token'
+        })
       } catch (e) {
         console.warn('Failed to clear tokens on logout:', e);
       }

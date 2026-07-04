@@ -19,6 +19,7 @@
     "@capacitor/geolocation": "^8.0.0",
     "@capacitor/keyboard": "^8.0.0",
     "@capacitor/network": "^8.0.0",
+    "@capacitor/preferences": "^8.0.1",
     "@capacitor/splash-screen": "^8.0.0",
     "@capacitor/status-bar": "^8.0.0",
     "@posthog/react": "^1.5.2",
@@ -37,14 +38,12 @@
     "reconnecting-websocket": "^4.4.0",
     "zod": "^4.1.13"
   },
-
   "browserslist": [
     "Chrome >= 60",
     "Android >= 7",
     "last 2 versions",
     "not dead"
   ],
-  
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.17",
     "@types/next-pwa": "^5.6.9",

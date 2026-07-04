@@ -8,7 +8,9 @@ import {
   AuthenticateOptions,
   BiometryType
 } from '@aparajita/capacitor-biometric-auth';
-import { SecureStorage } from '@aparajita/capacitor-secure-storage';
+// import { SecureStorage } from '@aparajita/capacitor-secure-storage';
+import { Preferences } from '@capacitor/preferences';
+
 import { Capacitor } from '@capacitor/core';
 
 const isNative = Capacitor.isNativePlatform();
@@ -43,8 +45,13 @@ export const useBiometricAuth = () => {
     try {
       const result = await BiometricAuth.checkBiometry();
       setBiometryResult(result);
-      const enabled = await SecureStorage.get(KEYS.enabled);
-      setIsEnabled(enabled === 'true');
+      // const enabled = await SecureStorage.get(KEYS.enabled);
+      // setIsEnabled(enabled === 'true');
+      const { value } = await Preferences.get({
+        key: KEYS.enabled,
+      });
+
+      setIsEnabled(value === 'true');
       return result.isAvailable;
     } catch (e) {
       console.error('BIO checkAvailability error', e);
@@ -100,9 +107,26 @@ export const useBiometricAuth = () => {
      if (!isNative) return false;
      
     try {
-      await SecureStorage.set(KEYS.access, accessToken);
-      if (refreshToken) await SecureStorage.set(KEYS.refresh, refreshToken);
-      await SecureStorage.set(KEYS.enabled, 'true');
+      // await SecureStorage.set(KEYS.access, accessToken);
+      // if (refreshToken) await SecureStorage.set(KEYS.refresh, refreshToken);
+      // await SecureStorage.set(KEYS.enabled, 'true');
+      await Preferences.set({
+        key: KEYS.access,
+        value: accessToken,
+      });
+
+      if (refreshToken) {
+        await Preferences.set({
+          key: KEYS.refresh,
+          value: refreshToken,
+        });
+      }
+
+      await Preferences.set({
+        key: KEYS.enabled,
+        value: 'true',
+      });
+
       setIsEnabled(true);
       return true;
     } catch (e) {
@@ -113,16 +137,29 @@ export const useBiometricAuth = () => {
 
   const getSecureCredentials = useCallback(async () => {
     try {
+      // const [access, refresh, enabled] = await Promise.all([
+      //   SecureStorage.get(KEYS.access),
+      //   SecureStorage.get(KEYS.refresh),
+      //   SecureStorage.get(KEYS.enabled),
+      // ]);
+      // return {
+      //   accessToken: access as string | null,
+      //   refreshToken: refresh as string | null,
+      //   enabled: enabled === 'true',
+      // };
+
       const [access, refresh, enabled] = await Promise.all([
-        SecureStorage.get(KEYS.access),
-        SecureStorage.get(KEYS.refresh),
-        SecureStorage.get(KEYS.enabled),
+        Preferences.get({ key: KEYS.access }),
+        Preferences.get({ key: KEYS.refresh }),
+        Preferences.get({ key: KEYS.enabled }),
       ]);
+
       return {
-        accessToken: access as string | null,
-        refreshToken: refresh as string | null,
-        enabled: enabled === 'true',
+        accessToken: access.value,
+        refreshToken: refresh.value,
+        enabled: enabled.value === 'true',
       };
+
     } catch (e) {
       console.error('BIO getCredentials error', e);
       return { accessToken: null, refreshToken: null, enabled: false };
@@ -132,9 +169,19 @@ export const useBiometricAuth = () => {
   const disableBiometricLogin = useCallback(async () => {
     try {
       await Promise.all([
-        SecureStorage.remove(KEYS.access),
-        SecureStorage.remove(KEYS.refresh),
-        SecureStorage.set(KEYS.enabled, 'false'),
+        // SecureStorage.remove(KEYS.access),
+        // SecureStorage.remove(KEYS.refresh),
+        // SecureStorage.set(KEYS.enabled, 'false'),
+        Preferences.remove({
+          key: KEYS.access
+        }),
+        Preferences.remove({
+          key: KEYS.refresh
+        }),
+        Preferences.set({
+          key: KEYS.enabled,
+          value: 'false'
+        })
       ]);
       setIsEnabled(false);
       return true;
@@ -145,16 +192,33 @@ export const useBiometricAuth = () => {
   }, []);
 
   const updateStoredAccessToken = useCallback(async (accessToken: string) => {
-    await SecureStorage.set(KEYS.access, accessToken);
+    // await SecureStorage.set(KEYS.access, accessToken);
+    await Preferences.set({
+      key: KEYS.access ,
+      value: accessToken,
+    })
   }, []);
 
   const setRequireFullLogin = useCallback(async (value: boolean) => {
-  await SecureStorage.set(KEYS.requireFullLogin, value ? 'true' : 'false');
+  // await SecureStorage.set(KEYS.requireFullLogin, value ? 'true' : 'false');
+
+  await Preferences.set({
+    key: KEYS.requireFullLogin,
+    value: value ? 'true' : 'false',
+  })
+
 }, []);
 
 const getRequireFullLogin = useCallback(async () => {
-  const val = await SecureStorage.get(KEYS.requireFullLogin);
-  return val === 'true';
+  // const val = await SecureStorage.get(KEYS.requireFullLogin);
+  // return val === 'true';
+
+  const { value } = await Preferences.get({
+  key: KEYS.requireFullLogin,
+});
+
+return value === 'true';
+
 }, []);
 
   return {
