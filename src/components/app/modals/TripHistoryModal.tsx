@@ -69,6 +69,12 @@ export default function TripHistoryModal({
       
       console.log("Trip history API response:", response);
 
+      if(response.count === 0) {
+        
+        showNotification("No trips yet.", "error");
+        return
+        }
+
       if (response.count > 0) {
         // ✅ FIX: response.data IS the pagination object, not nested
         const paginationData = response;

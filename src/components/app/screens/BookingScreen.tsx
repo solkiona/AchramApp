@@ -265,7 +265,7 @@ export default function BookingScreen({
       estimatedPrice: item.amount.amount,
       formattedPrice: item.amount.formatted,
       currency: item.amount.currency,
-      available: true,
+      available: item.is_enabled,
       eta: "4-8 mins",
     }));
 
@@ -631,6 +631,36 @@ export default function BookingScreen({
     setPickupOpen(false); 
   }, []);
 
+
+
+// Inside BookingScreen.tsx
+
+const getEnabledPriceRange = (breakdown: any[]): string => {
+  
+  const enabledItems = breakdown.filter(b => b.is_enabled);
+
+  if (enabledItems.length === 0) return "Unavailable";
+  const amounts = enabledItems.map(b => b.amount.amount);
+  const min = Math.min(...amounts);
+  const max = Math.max(...amounts);
+
+  const formatNaira = (num: number) => {
+    if (num >= 1000000) {
+      const val = num / 1000000;
+      return `₦${val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)}M`;
+    }
+    if (num >= 1000) {
+      const val = num / 1000;
+      return `₦${val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)}k`;
+    }
+    return `₦${Math.round(num)}`;
+  };
+  if (min === max) {
+    return formatNaira(min);
+  }
+  return `${formatNaira(min)} - ${formatNaira(max)}`;
+};
+
   return (
     <div className="bg-achrams-background-primary flex flex-col h-screen">
       <AirportSelectionModal
@@ -725,52 +755,50 @@ export default function BookingScreen({
               //   onUnmount={() => (pickupSearchBoxRef.current = null)}
               //   onPlacesChanged={handlePickupPlaceChanged}
               // >
-                <div className=" left-0 flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border h-14 w-full">
-                  <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
-                  <input
-                    ref={pickupInputRef}
-                    type="text"
-                    placeholder="Select pickup location"
-                    value={
-                      showFetchingUI
-                        ? "Fetching Airports..."
-                        : pickupLocationData.name
-                    }
-                    onChange={(e) =>
-                      !showFetchingUI &&
-                      setPickupLocationData((prev) => ({
-                        ...prev,
-                        name: e.target.value,
-                      }))
-                    }
-                    onFocus={() => !showFetchingUI && setPickupOpen(true)}
-                    readOnly={showFetchingUI}
-                    className={`flex-1 bg-transparent outline-none text-base ${
-                      showFetchingUI
-                        ? "text-achrams-text-secondary italic"
-                        : "text-achrams-text-primary"
-                    }`}
-                  />
-                  <button
-                    onClick={() =>
-                      !showFetchingUI && setPickupOpen(!pickupOpen)
-                    }
-                    disabled={showFetchingUI}
-                    className={`p-2 transition-colors ${
-                      showFetchingUI
-                        ? "text-achrams-text-secondary opacity-50 cursor-not-allowed"
-                        : "text-achrams-text-secondary hover:text-achrams-text-primary"
-                    }`}
-                  >
-                    {showFetchingUI ? (
-                      <Loader className="w-5 h-5 animate-spin text-achrams-primary-solid" />
-                    ) : pickupOpen ? (
-                      <ChevronDown className="w-5 h-5" />
-                    ) : (
-                      <Navigation className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
+              <div className=" left-0 flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border h-14 w-full">
+                <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
+                <input
+                  ref={pickupInputRef}
+                  type="text"
+                  placeholder="Select pickup location"
+                  value={
+                    showFetchingUI
+                      ? "Fetching Airports..."
+                      : pickupLocationData.name
+                  }
+                  onChange={(e) =>
+                    !showFetchingUI &&
+                    setPickupLocationData((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }))
+                  }
+                  onFocus={() => !showFetchingUI && setPickupOpen(true)}
+                  readOnly={showFetchingUI}
+                  className={`flex-1 bg-transparent outline-none text-base ${
+                    showFetchingUI
+                      ? "text-achrams-text-secondary italic"
+                      : "text-achrams-text-primary"
+                  }`}
+                />
+                <button
+                  onClick={() => !showFetchingUI && setPickupOpen(!pickupOpen)}
+                  disabled={showFetchingUI}
+                  className={`p-2 transition-colors ${
+                    showFetchingUI
+                      ? "text-achrams-text-secondary opacity-50 cursor-not-allowed"
+                      : "text-achrams-text-secondary hover:text-achrams-text-primary"
+                  }`}
+                >
+                  {showFetchingUI ? (
+                    <Loader className="w-5 h-5 animate-spin text-achrams-primary-solid" />
+                  ) : pickupOpen ? (
+                    <ChevronDown className="w-5 h-5" />
+                  ) : (
+                    <Navigation className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
               // </StandaloneSearchBox>
             )}
 
@@ -860,13 +888,16 @@ export default function BookingScreen({
                 placeholder="Enter destination"
                 value={destinationSearchQuery}
                 onChange={(e) => handleDestinationTyping(e.target.value)}
-                onFocus={() => destinationSearchQuery.length >= 2 && setShowDestDropdown(true)}
+                onFocus={() =>
+                  destinationSearchQuery.length >= 2 &&
+                  setShowDestDropdown(true)
+                }
                 // If a destination is selected, make it read-only until cleared
-                readOnly={!!selectedDestinationFareId} 
+                readOnly={!!selectedDestinationFareId}
                 className="flex-1 bg-transparent outline-none text-base text-achrams-text-primary"
               />
               {selectedDestinationFareId && (
-                <button 
+                <button
                   onClick={() => handleDestinationTyping("")} // Clears the field
                   className="p-2 text-achrams-text-secondary hover:text-achrams-text-primary"
                 >
@@ -878,7 +909,7 @@ export default function BookingScreen({
             {/* Custom Dropdown */}
             {showDestDropdown && filteredDestinations.length > 0 && (
               <div className="absolute top-full w-full mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 max-h-64 overflow-y-auto">
-                {filteredDestinations.map((dest) => {
+                {/* {filteredDestinations.map((dest) => {
                   // Show the 'legacy' (Regular) price as the baseline in the dropdown
                   const baseFare = dest.breakdown.find(b => b.category.value === 'legacy') || dest.breakdown[0];
                   
@@ -897,22 +928,61 @@ export default function BookingScreen({
                       </span>
                     </button>
                   );
+                })} */}
+
+                {filteredDestinations.map((dest) => {
+                  const priceRange = getEnabledPriceRange(dest.breakdown);
+                  const isUnavailable = priceRange === "Unavailable";
+
+                  return (
+                    <button
+                      key={dest.id}
+                      // We allow clicking even if unavailable, so the user can see the grayed-out modal
+                      onClick={() => handleDestinationSelect(dest)}
+                      className={`w-full px-4 py-3 flex items-center justify-between hover:bg-achrams-bg-secondary text-left border-b border-achrams-border last:border-0 ${
+                        isUnavailable ? "opacity-60" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <MapPin className="w-4 h-4 text-achrams-text-secondary" />
+                        <span
+                          className={`font-medium ${isUnavailable ? "text-achrams-text-secondary" : "text-achrams-text-primary"}`}
+                        >
+                          {dest.name}
+                        </span>
+                      </div>
+                      <span
+                        className={`text-sm font-bold ${isUnavailable ? "text-achrams-text-secondary italic" : "text-achrams-primary-solid"}`}
+                      >
+                        {priceRange}
+                      </span>
+                    </button>
+                  );
                 })}
               </div>
             )}
 
             {/* Error States (Spec Requirement) */}
-            {showDestDropdown && destinationSearchQuery.length >= 2 && filteredDestinations.length === 0 && !isFetchingFares && (
-              <div className="absolute top-full w-full mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 p-4 text-center">
-                <p className="text-achrams-text-secondary text-sm">No destinations found. Try a different search.</p>
-              </div>
-            )}
-            
-            {airportFares.length === 0 && !isFetchingFares && pickupCodename && (
-              <p className="text-xs text-red-500 mt-1">Destinations are not available at this time. Please speak to an agent.</p>
-            )}
-          </div>
+            {showDestDropdown &&
+              destinationSearchQuery.length >= 2 &&
+              filteredDestinations.length === 0 &&
+              !isFetchingFares && (
+                <div className="absolute top-full w-full mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 p-4 text-center">
+                  <p className="text-achrams-text-secondary text-sm">
+                    No destinations found. Try a different search.
+                  </p>
+                </div>
+              )}
 
+            {airportFares.length === 0 &&
+              !isFetchingFares &&
+              pickupCodename && (
+                <p className="text-xs text-red-500 mt-1">
+                  Destinations are not available at this time. Please speak to
+                  an agent.
+                </p>
+              )}
+          </div>
         </div>
 
         {/* {fareEstimate !== null && (
@@ -1047,7 +1117,9 @@ export default function BookingScreen({
   )} */}
         <button
           onClick={onProceed}
-          disabled={!fareEstimate || !selectedCategory || !selectedDestinationFareId}
+          disabled={
+            !fareEstimate || !selectedCategory || !selectedDestinationFareId
+          }
           className={`w-full py-4 rounded-xl text-base font-semibold text-achrams-text-light transition-all ${
             fareEstimate && selectedCategory
               ? "bg-achrams-gradient-primary hover:opacity-95 active:scale-[0.98] shadow-md"
@@ -1116,53 +1188,99 @@ export default function BookingScreen({
                     const IconComponent = getCategoryIcon(
                       category.categoryValue,
                     );
+                    const isDisabled = !category.available; // <--- CHECK availability
+
                     return (
                       <button
                         key={category.id}
-                        onClick={() => handleCategorySelect(category)}
-                        className="w-full bg-white rounded-xl p-4 hover:border-achrams-primary-solid border-2 border-achrams-border transition-all text-left group hover:shadow-md"
+                        onClick={() =>
+                          !isDisabled && handleCategorySelect(category)
+                        }
+                        disabled={isDisabled}
+                        className={`w-full rounded-xl p-4 border-2 transition-all text-left group ${
+                          isDisabled
+                            ? "bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed"
+                            : "bg-white border-achrams-border hover:border-achrams-primary-solid hover:shadow-md"
+                        }`}
                       >
                         <div className="flex items-center gap-4">
-                          {/* Icon with brand gradient background */}
-                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center flex-shrink-0 border border-emerald-100">
+                          {/* Icon Container */}
+                          <div
+                            className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 border ${
+                              isDisabled
+                                ? "bg-gray-100 border-gray-200"
+                                : "bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-100"
+                            }`}
+                          >
                             {IconComponent === "Shield" && (
-                              <Shield className="w-6 h-6 text-emerald-600" />
+                              <Shield
+                                className={`w-6 h-6 ${isDisabled ? "text-gray-400" : "text-emerald-600"}`}
+                              />
                             )}
                             {IconComponent === "Car" && (
-                              <Car className="w-6 h-6 text-emerald-600" />
+                              <Car
+                                className={`w-6 h-6 ${isDisabled ? "text-gray-400" : "text-emerald-600"}`}
+                              />
                             )}
                             {IconComponent === "Smartphone" && (
-                              <Smartphone className="w-6 h-6 text-emerald-600" />
+                              <Smartphone
+                                className={`w-6 h-6 ${isDisabled ? "text-gray-400" : "text-emerald-600"}`}
+                              />
                             )}
                             {IconComponent === "Leaf" && (
-                              <Leaf className="w-6 h-6 text-emerald-600" />
+                              <Leaf
+                                className={`w-6 h-6 ${isDisabled ? "text-gray-400" : "text-emerald-600"}`}
+                              />
                             )}
                             {IconComponent === "Zap" && (
-                              <Zap className="w-6 h-6 text-emerald-600" />
+                              <Zap
+                                className={`w-6 h-6 ${isDisabled ? "text-gray-400" : "text-emerald-600"}`}
+                              />
                             )}
                           </div>
 
                           {/* Details */}
                           <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-achrams-text-primary text-base">
+                            <div
+                              className={`font-semibold text-base ${isDisabled ? "text-gray-400" : "text-achrams-text-primary"}`}
+                            >
                               {category.name}
+                              {isDisabled && (
+                                <span className="ml-2 text-xs font-normal text-gray-400">
+                                  (Unavailable)
+                                </span>
+                              )}
                             </div>
-                            <div className="text-sm text-achrams-text-secondary mt-0.5 line-clamp-1">
+                            <div
+                              className={`text-sm mt-0.5 line-clamp-1 ${isDisabled ? "text-gray-300" : "text-achrams-text-secondary"}`}
+                            >
                               {category.description}
                             </div>
-                            <div className="flex items-center gap-1.5 mt-1 text-xs text-achrams-text-tertiary">
-                              <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                              <span>Available • {category.eta}</span>
+                            <div
+                              className={`flex items-center gap-1.5 mt-1 text-xs ${isDisabled ? "text-gray-300" : "text-achrams-text-tertiary"}`}
+                            >
+                              {!isDisabled && (
+                                <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                              )}
+                              <span>
+                                {isDisabled
+                                  ? "Not available for this route"
+                                  : `Available • ${category.eta}`}
+                              </span>
                             </div>
                           </div>
 
                           {/* Price */}
                           <div className="text-right flex-shrink-0">
-                            <div className="text-lg font-bold text-achrams-text-primary">
+                            <div
+                              className={`text-lg font-bold ${isDisabled ? "text-gray-400 line-through" : "text-achrams-text-primary"}`}
+                            >
                               {category.formattedPrice}
                             </div>
-                            <div className="text-xs text-achrams-text-tertiary mt-0.5">
-                              Flat Rate
+                            <div
+                              className={`text-xs mt-0.5 ${isDisabled ? "text-gray-300" : "text-achrams-text-tertiary"}`}
+                            >
+                              {isDisabled ? "Unavailable" : "Flat Rate"}
                             </div>
                           </div>
                         </div>

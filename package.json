@@ -55,5 +55,8 @@
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.17",
     "typescript": "^5"
-  }
+  },
+  "redeploy": "next build --webpack && pm2 reload ach-ride --update-env",
+
+  "deploy": "next build --webpack && pm2 start npm --name \"ach-ride\" -- run start -- -p 3006"
 }

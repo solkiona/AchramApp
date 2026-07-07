@@ -126,7 +126,7 @@ export const BiometricGate = ({ children }: { children: React.ReactNode }) => {
   } = useAuth();
 
 
-  // Biometric gate is only meaningful on Android native
+  // Biometric gate is only meaningful on Android native -> and attempted ios support
 const isBiometricSupported = isNative && isBiometricAvailable; //&& isAndroid;
 
   const [checking, setChecking] = useState(true);

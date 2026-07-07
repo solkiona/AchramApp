@@ -14,6 +14,7 @@ export interface FareBreakdown {
   id: string; // THIS IS THE NEW "fare" ID FOR THE PAYLOAD
   amount: FareAmount;
   category: FareCategory;
+   is_enabled: boolean;
 }
 
 export interface FareDestination {
@@ -34,4 +35,5 @@ export interface FareDestination {
     };
   };
   breakdown: FareBreakdown[];
+ 
 }
