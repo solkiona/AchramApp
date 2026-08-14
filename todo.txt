@@ -109,3 +109,89 @@ build 2
                     );
                   })}
 
+
+
+
+Pickup location field 
+
+<div className="relative">
+            {!isGoogleMapsLoaded ? (
+              <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border">
+                <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
+                <input
+                  type="text"
+                  placeholder="Airport pickup location (Loading...)"
+                  value={pickupLocationData.name}
+                  onChange={() => {}}
+                  className="flex-1 bg-transparent outline-none text-base text-achrams-text-secondary italic "
+                  disabled
+                />
+              </div>
+            ) : (
+              // <StandaloneSearchBox
+              //   onLoad={(ref) => (pickupSearchBoxRef.current = ref)}
+              //   onUnmount={() => (pickupSearchBoxRef.current = null)}
+              //   onPlacesChanged={handlePickupPlaceChanged}
+              // >
+              <div className=" left-0 flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border h-14 w-full">
+                <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
+                <input
+                  ref={pickupInputRef}
+                  type="text"
+                  placeholder="Select pickup location"
+                  value={
+                    showFetchingUI
+                      ? "Fetching Airports..."
+                      : pickupLocationData.name
+                  }
+                  onChange={(e) =>
+                    !showFetchingUI &&
+                    setPickupLocationData((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }))
+                  }
+                  onFocus={() => !showFetchingUI && setPickupOpen(true)}
+                  readOnly={showFetchingUI}
+                  className={`flex-1 bg-transparent outline-none text-base ${
+                    showFetchingUI
+                      ? "text-achrams-text-secondary italic"
+                      : "text-achrams-text-primary"
+                  }`}
+                />
+                <button
+                  onClick={() => !showFetchingUI && setPickupOpen(!pickupOpen)}
+                  disabled={showFetchingUI}
+                  className={`p-2 transition-colors ${
+                    showFetchingUI
+                      ? "text-achrams-text-secondary opacity-50 cursor-not-allowed"
+                      : "text-achrams-text-secondary hover:text-achrams-text-primary"
+                  }`}
+                >
+                  {showFetchingUI ? (
+                    <Loader className="w-5 h-5 animate-spin text-achrams-primary-solid" />
+                  ) : pickupOpen ? (
+                    <ChevronDown className="w-5 h-5" />
+                  ) : (
+                    <Navigation className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+              // </StandaloneSearchBox>
+            )}
+
+            {pickupOpen && !showFetchingUI && (
+              <div className="absolute top-full w-full mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 max-h-64 overflow-y-auto">
+                <button
+                  onClick={handleUseCurrentLocation}
+                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-achrams-bg-secondary text-left"
+                >
+                  <MapPin className="w-5 h-5 text-achrams-primary-solid" />
+                  {/* <span>Use my current location</span> */}
+                  <span>See available Airports</span>
+                </button>
+                {/* Optionally: Add "Or type to search" hint */}
+              </div>
+            )}
+          </div>
+

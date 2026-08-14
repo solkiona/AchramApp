@@ -97,6 +97,8 @@ export default function LoginModal({
       else {
         // NEW: Handle login failure by getting the specific error message
         const errorMessage = loginResult.message || 'Login failed. Please check your credentials.';
+
+        console.log("Login Result: " , loginResult);
         // Option 1: Set error in the modal's local state (current behavior)
         setError(errorMessage);
 

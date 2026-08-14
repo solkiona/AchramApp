@@ -368,30 +368,63 @@ export default function ACHRAMApp() {
   // }, []);
 
 
-  useEffect(() => {
+//   useEffect(() => {
+//   if (Capacitor.getPlatform() !== "ios") return;
+
+//   // ✅ FIX: Defer keyboard setup to avoid blocking the main thread during WebView launch
+//   const timer = setTimeout(async () => {
+//     try {
+//       await Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+//       await Keyboard.setScroll({ isDisabled: true });
+//     } catch (e) {
+//       console.warn('Keyboard setup failed:', e);
+//     }
+//   }, 500); // Wait 500ms for WebView to fully initialize
+
+//   const show = Keyboard.addListener("keyboardWillShow", (info) => {
+//     setKeyboardHeight(info.keyboardHeight);
+//   });
+//   const hide = Keyboard.addListener("keyboardWillHide", () => {
+//     setKeyboardHeight(0);
+//   });
+
+//   return () => {
+//     clearTimeout(timer);
+//     show.remove();
+//     hide.remove();
+//   };
+// }, []);
+
+
+useEffect(() => {
   if (Capacitor.getPlatform() !== "ios") return;
 
-  // ✅ FIX: Defer keyboard setup to avoid blocking the main thread during WebView launch
-  const timer = setTimeout(async () => {
-    try {
-      await Keyboard.setResizeMode({ mode: KeyboardResize.Body });
-      await Keyboard.setScroll({ isDisabled: true });
-    } catch (e) {
-      console.warn('Keyboard setup failed:', e);
-    }
-  }, 500); // Wait 500ms for WebView to fully initialize
+  let isMounted = true;
+  let showHandle: any = null;
+  let hideHandle: any = null;
 
-  const show = Keyboard.addListener("keyboardWillShow", (info) => {
-    setKeyboardHeight(info.keyboardHeight);
+  Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+  Keyboard.setScroll({ isDisabled: true });
+
+  // ✅ Keyboard.addListener returns Promise<PluginListenerHandle>
+  Keyboard.addListener("keyboardWillShow", (info) => {
+    if (isMounted) setKeyboardHeight(info.keyboardHeight);
+  }).then((handle) => {
+    if (isMounted) showHandle = handle;
+    else handle.remove();
   });
-  const hide = Keyboard.addListener("keyboardWillHide", () => {
-    setKeyboardHeight(0);
+
+  Keyboard.addListener("keyboardWillHide", () => {
+    if (isMounted) setKeyboardHeight(0);
+  }).then((handle) => {
+    if (isMounted) hideHandle = handle;
+    else handle.remove();
   });
 
   return () => {
-    clearTimeout(timer);
-    show.remove();
-    hide.remove();
+    isMounted = false;
+    showHandle?.remove();
+    hideHandle?.remove();
   };
 }, []);
 
@@ -2266,10 +2299,10 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
       libraries: ["places", "geometry"],
     });
 
-  if (googleMapsLoadError) {
-    console.error("Failed to load Google Maps API:", googleMapsLoadError);
-    return <div>Error loading Google Maps.</div>;
-  }
+  // if (googleMapsLoadError) {
+  //   console.error("Failed to load Google Maps API:", googleMapsLoadError);
+  //   return <div>Error loading Google Maps.</div>;
+  // }
 
   useEffect(() => {
     const initStatusBar = async () => {
@@ -2403,6 +2436,35 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
       </div>
     );
   }
+
+
+
+//   if (googleMapsLoadError) {
+//   console.error("Failed to load Google Maps API:", googleMapsLoadError);
+//   return (
+//     <div className="min-h-dvh flex items-center justify-center bg-achrams-bg-primary px-6">
+//       <div className="text-center max-w-sm">
+//         <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+//           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600">
+//             <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+//           </svg>
+//         </div>
+//         <h2 className="text-xl font-bold text-achrams-text-primary mb-2">
+//           Map Failed to Load
+//         </h2>
+//         <p className="text-achrams-text-secondary mb-6">
+//           This usually happens due to a network issue. Please check your connection and try again.
+//         </p>
+//         <button
+//           onClick={() => window.location.reload()}
+//           className="w-full py-3 bg-achrams-gradient-primary text-achrams-text-light rounded-xl font-semibold hover:opacity-90 active:scale-[0.98] transition-all"
+//         >
+//           Reload App
+//         </button>
+//       </div>
+//     </div>
+//   );
+// }
 
   let mainContent = null;
   if (screen === "booking") {

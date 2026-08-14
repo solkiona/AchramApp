@@ -5,6 +5,9 @@ import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { apiClient, setUnauthorizedHandler, setMemoryToken, signalBootComplete } from '@/lib/api';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
+import  {useApiErrorHandler} from '@/lib/errors/apiErrorHandler';
+
+
 
 const isNative = Capacitor.isNativePlatform();
 const platform = Capacitor.getPlatform();
@@ -38,6 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [isBiometricBlocked, setIsBiometricBlocked] = useState(false);
+   const { fieldErrors, generalError, handleApiError} = useApiErrorHandler();
 
   const biometric = useBiometricAuth();
 
@@ -271,7 +275,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       setIsLoading(false);
-      return { success: false, message: res.message || 'Login failed' };
+      console.log("Res: ", res);
+      const parsedErrorMessage = handleApiError(res);
+      return { success: false, message: parsedErrorMessage || generalError || res.message || 'Login failed' };
     } catch {
       setIsLoading(false);
       return { success: false, message: 'Login error' };

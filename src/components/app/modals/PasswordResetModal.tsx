@@ -67,12 +67,13 @@ export default function PasswordResetModal({
         setCountdown(60); // 60 seconds before resend allowed
       } else {
         const message = handleApiError(response);
-        showNotification(generalError || response.message || "Failed to send reset email.", "error");
+
+        showNotification(message || generalError || response.message || "Failed to send reset email.", "error");
       }
     } catch (err: any) {
       console.error("Error sending reset email:", err);
-      handleApiError(err)
-      showNotification( generalError || err.response?.data?.message || "An error occurred while sending the reset email.", "error");
+     const parsedErrorMessage =  handleApiError(err)
+      showNotification( parsedErrorMessage || generalError || err.response?.data?.message || "An error occurred while sending the reset email.", "error");
     } finally {
       setLoading(false);
     }
@@ -117,8 +118,8 @@ export default function PasswordResetModal({
       }
     } catch (err: any) {
       console.error("Error resetting password:", err);
-      handleApiError(err);
-      showNotification(generalError || err.response?.data?.message || "An error occurred while resetting the password.", "error");
+      const parsedErrorMessage = handleApiError(err);
+      showNotification(parsedErrorMessage || generalError || err.response?.data?.message || "An error occurred while resetting the password.", "error");
     } finally {
       setLoading(false);
     }
