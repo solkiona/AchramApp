@@ -18,7 +18,10 @@ export const viewport: Viewport = {
   themeColor: "#059669",
   width: "device-width",
   initialScale: 1,
-  interactiveWidget: "resizes-content",
+  maximumScale: 1,        // ← ADD: prevent pinch-zoom drift
+  userScalable: false,     // ← ADD: lock zoom
+  viewportFit: "cover",    // ← ADD: safe-area support
+  // interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

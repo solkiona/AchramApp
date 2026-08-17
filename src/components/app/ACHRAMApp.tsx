@@ -396,6 +396,38 @@ export default function ACHRAMApp() {
 // }, []);
 
 
+// useEffect(() => {
+//   if (Capacitor.getPlatform() !== "ios") return;
+
+//   let isMounted = true;
+//   let showHandle: any = null;
+//   let hideHandle: any = null;
+
+//   Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+//   Keyboard.setScroll({ isDisabled: true });
+
+//   // ✅ Keyboard.addListener returns Promise<PluginListenerHandle>
+//   Keyboard.addListener("keyboardWillShow", (info) => {
+//     if (isMounted) setKeyboardHeight(info.keyboardHeight);
+//   }).then((handle) => {
+//     if (isMounted) showHandle = handle;
+//     else handle.remove();
+//   });
+
+//   Keyboard.addListener("keyboardWillHide", () => {
+//     if (isMounted) setKeyboardHeight(0);
+//   }).then((handle) => {
+//     if (isMounted) hideHandle = handle;
+//     else handle.remove();
+//   });
+
+//   return () => {
+//     isMounted = false;
+//     showHandle?.remove();
+//     hideHandle?.remove();
+//   };
+// }, []);
+
 useEffect(() => {
   if (Capacitor.getPlatform() !== "ios") return;
 
@@ -403,19 +435,30 @@ useEffect(() => {
   let showHandle: any = null;
   let hideHandle: any = null;
 
-  Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+  // ✅ Native resize mode — set once at boot
+  Keyboard.setResizeMode({ mode: KeyboardResize.Native });
   Keyboard.setScroll({ isDisabled: true });
 
-  // ✅ Keyboard.addListener returns Promise<PluginListenerHandle>
-  Keyboard.addListener("keyboardWillShow", (info) => {
-    if (isMounted) setKeyboardHeight(info.keyboardHeight);
+  Keyboard.addListener("keyboardWillShow", (info: KeyboardInfo) => {
+    if (!isMounted) return;
+    setKeyboardHeight(info.keyboardHeight);
+    // ✅ Set CSS variable — no transforms needed
+    document.documentElement.style.setProperty(
+      "--keyboard-height",
+      `${info.keyboardHeight}px`
+    );
   }).then((handle) => {
     if (isMounted) showHandle = handle;
     else handle.remove();
   });
 
   Keyboard.addListener("keyboardWillHide", () => {
-    if (isMounted) setKeyboardHeight(0);
+    if (!isMounted) return;
+    setKeyboardHeight(0);
+    document.documentElement.style.setProperty(
+      "--keyboard-height",
+      "0px"
+    );
   }).then((handle) => {
     if (isMounted) hideHandle = handle;
     else handle.remove();
@@ -425,8 +468,12 @@ useEffect(() => {
     isMounted = false;
     showHandle?.remove();
     hideHandle?.remove();
+    // ✅ Reset on unmount
+    document.documentElement.style.setProperty("--keyboard-height", "0px");
   };
 }, []);
+
+
 
 //  const isNative = Capacitor.isNativePlatform();
 
@@ -2721,7 +2768,7 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
 
   return (
     <>
-      <div className="min-h-dvh flex items-center justify-center ">
+      <div className="app-shell min-h-dvh flex items-center justify-center ">
         <div
           className="
             min-h-screen h-dvh
@@ -2735,6 +2782,8 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
             
             overflow-y-auto
           "
+        style={{ height: 'calc(100dvh - var(--keyboard-height))' }}
+          
         >
           <IOSInstallBanner />
 
