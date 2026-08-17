@@ -212,6 +212,14 @@ export default function SignupPromptModal({
       const firstName = nameParts[0] || 'User';
       const lastName = nameParts.slice(1).join(' ') || '';
 
+      if(nameParts.length < 2){
+
+        // alert(`nameParts ${nameParts.length}`)
+        setNameError("Please enter your first name and last name");
+        return;
+      }
+
+
       const response = await apiClient.post('/auth/passenger/onboard/initiate', {
         email: email,
         phone_number: phone,

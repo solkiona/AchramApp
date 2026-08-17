@@ -2676,6 +2676,8 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
   } else if (screen === "dashboard") {
     mainContent = (
       <DashboardScreen
+        
+        onProfileClick={() => setShowProfile(true)}
         passengerData={passengerData}
         walletBalance={walletBalance}
         is2FAEnabled={is2FAEnabled}
