@@ -75,8 +75,8 @@ html, body {
   height: 100%;
 
 
-  overflow: hidden;           /* ← critical */
-  overscroll-behavior: none;  /* ← no rubber-band */
+  /* overflow: hidden;           /* ← critical */
+  /* overscroll-behavior: none;  ← no rubber-band */ 
   -webkit-text-size-adjust: 100%;
 }
 body {
@@ -88,8 +88,8 @@ body {
 
 
 
-  overflow: hidden;
-  overscroll-behavior: none;
+  /* overflow: hidden;
+  overscroll-behavior: none; */
   position: fixed;            /* ← prevents iOS body scroll */
   width: 100%;
   -webkit-overflow-scrolling: touch;
