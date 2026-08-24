@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api'; // Adjust import path as needed
 import { useApiErrorHandler } from "@/lib/errors/apiErrorHandler"
 import posthog from 'posthog-js';
+import {validateFullName} from '@/lib/validation/validateName'
 
 
 // Define the type for the full signup data, including password
@@ -82,15 +83,10 @@ export default function SignupPromptModal({
   
 
   // --- Validation Functions ---
-  const validateName = (input: string): string => {
-    if (!input.trim()) {
-      return 'Full name is required.';
-    }
-    if (input.trim().length < 2) {
-      return 'Name must be at least 2 characters long.';
-    }
-    return '';
-  };
+ const validateName = (input: string): string => {
+  const result = validateFullName(input);
+  return result.error || '';
+};
 
   const validateEmail = (input: string): string => {
     if (!input) {

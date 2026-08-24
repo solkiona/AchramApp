@@ -1,6 +1,7 @@
 // src/components/app/modals/PassengerDetailsModal.tsx
 import { X, Package, Users, Accessibility, Minus, Plus } from 'lucide-react'; // Added Wheelchair icon
 import { useState, useEffect } from 'react';
+import {validateFullName} from '@/lib/validation/validateName';
 
 
 interface PassengerDetailsModalProps {
@@ -55,6 +56,19 @@ export default function PassengerDetailsModal({
   keyboardHeight,
 }: PassengerDetailsModalProps) {
   const [showRequirements, setShowRequirements] = useState(false);
+  const [nameError, setNameError] = useState<string>('');
+
+  const handleNameBlur = () => {
+    const result = validateFullName(passengerData.name);
+    setNameError(result.error || '');
+  }
+
+  const handleNameChange: any = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassengerData({
+      ...passengerData, name: e.target.value
+    })
+    if (nameError) setNameError('');
+  }
 
   useEffect(() => {
     // Check if any of the relevant field errors exist using the passed getter function
@@ -89,9 +103,9 @@ export default function PassengerDetailsModal({
   return (
     // Fixed background: use bg-achrams-bg-primary with opacity
     // Ensure it covers the whole screen behind the modal
-    <div className=" fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50"> 
+    <div className=" fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50 "> 
       {/* The modal content */}
-      <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border"
+      <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border "
       
       style={{ paddingBottom: 'var(--keyboard-height)' }}
       
@@ -141,10 +155,18 @@ export default function PassengerDetailsModal({
             type="text"
             placeholder="Full name"
             value={passengerData.name}
-            onChange={(e) => setPassengerData({ ...passengerData, name: e.target.value })}
+            onChange={handleNameChange}
+            onBlur={handleNameBlur}
+
             // Apply ACHRAMS styling to input
             className={`w-full px-4 py-4 bg-achrams-bg-secondary rounded-xl outline-none text-achrams-text-primary border ${getBookingFieldError('guest_name') || getBookingFieldError('name') ? 'border-red-500' : 'border-achrams-border'}`}
           />
+
+          {
+            nameError && (
+              <p className="text-red-500 text-xs mt-1">{nameError}</p>
+            )
+          }
 
            {/* NEW: Display field error for name */}
               {(getBookingFieldError('guest_name') || getBookingFieldError('name')) && (
@@ -302,7 +324,7 @@ export default function PassengerDetailsModal({
           onClick={onRequestRide}
           disabled={isGuestFormIncomplete || isLoading }
           // Apply ACHRAMS gradient button styling
-          className={`w-full py-4 rounded-xl font-semibold mt-6 transition-all ${
+          className={`w-full py-4 rounded-xl font-semibold mt-6 mb-8 transition-all ${
             !isGuestFormIncomplete && !isLoading
               ? 'bg-achrams-gradient-primary text-achrams-text-light hover:opacity-90 active:scale-[0.98]' // Enabled state
               : 'bg-achrams-secondary-solid text-achrams-text-light opacity-75 cursor-not-allowed' // Disabled state

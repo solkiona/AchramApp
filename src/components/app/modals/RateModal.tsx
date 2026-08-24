@@ -198,7 +198,7 @@ export default function RateModal({
         <button
           onClick={handleSubmit}
           disabled={rating === 0 || isSubmitting} // NEW: Disable button while submitting or no rating selected
-          className="w-full bg-achrams-primary-solid text-achrams-text-light py-4 rounded-xl font-semibold disabled:bg-gray-300 flex items-center justify-center gap-2" // NEW: Add flex classes for loader
+          className="w-full bg-achrams-primary-solid text-achrams-text-light py-4 rounded-xl font-semibold disabled:bg-gray-300 flex items-center justify-center gap-2 mb-8" // NEW: Add flex classes for loader
         >
           {/* NEW: Show loader while submitting */}
           {isSubmitting ? (

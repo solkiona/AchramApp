@@ -51,10 +51,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!mounted) return;
     setUnauthorizedHandler(async () => {
+
       setUser(null);
       setToken(null);
       setIsAuthenticated(false);
       setMemoryToken(null); // Clear memory cache
+
+      if (!isNative && typeof window !== 'undefined'){
+        localStorage.removeItem('achrams_passenger_token');
+      }
+
 
       if (isNative) {
         try {
@@ -147,13 +153,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    // Web: verify via httpOnly cookie
+    // Web: verify via httpOnly cookie &  localStorage fallback
     // FIX: Web doesn't need to wait for Keychain, so signal boot complete IMMEDIATELY
     // before making the API call to prevent deadlocks.
+    if (!isNative) {
+      const storedToken = typeof window !== 'undefined' ? localStorage.getItem('achrams_passenger_token'): null;
+      if (storedToken) {
+        setMemoryToken(storedToken);
+        setToken(storedToken);
+      }
+    }
     signalBootComplete(); 
     checkAuthStatus();
   }, [mounted]);
 
+  
   const checkAuthStatus = useCallback(async () => {
     // Web doesn't need a boot lock, but just in case:
     if (!isNative) signalBootComplete();
@@ -260,6 +274,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return { success: true };
         } else {
           // Web: cookie already set by server
+
+          const webToken = res.data?.token as string | undefined;
+          if(webToken) {
+            setMemoryToken(webToken);
+            setToken(webToken);
+            if (typeof window !== 'undefined'){
+              localStorage.setItem('achrams_passenger_token', webToken);
+            }
+          }
+
           setIsAuthenticated(true);
           setIsLoading(false);
 
@@ -293,6 +317,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setToken(null);
     setIsAuthenticated(false);
     setMemoryToken(null); // Clear memory cache
+
+    if(!isNative && typeof window !== 'undefined'){
+      localStorage.removeItem('achrams_passenger_token');
+    }
 
     if (isNative) {
       try {
