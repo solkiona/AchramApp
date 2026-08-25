@@ -40,7 +40,6 @@
 :root {
   --background: #ffffff; /* Aligns with achrams-background-primary */
   --foreground: #171717;
-  --keyboard-height: 0px;
 }
 
 /* @media (prefers-color-scheme: dark) {
@@ -74,19 +73,16 @@ body {
 html, body {
   height: 100%;
 
-
   /* overflow: hidden;           /* ← critical */
   /* overscroll-behavior: none;  ← no rubber-band */ 
   -webkit-text-size-adjust: 100%;
 }
 body {
-  min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   padding: 0;
   background: var(--background);
   color: var(--foreground);
-
-  
 
   /* overflow: hidden;
   overscroll-behavior: none; */
@@ -115,23 +111,12 @@ body {
 }
 
 
-
-/* App container uses fixed height minus keyboard */
-.app-shell {
-  height: calc(100% - var(--keyboard-height));
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
 /* Prevent input zoom on focus (iOS zooms if font-size < 16px) */
 input, textarea, select {
   font-size: 16px !important;   /* ← THE #1 cause of unwanted zoom */
 }
 
-/* Modals that sit above keyboard */
-.modal-above-keyboard {
-  padding-bottom: var(--keyboard-height);
-}
+
 
 
 /* .pac-container {

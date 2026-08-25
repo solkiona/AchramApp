@@ -429,106 +429,44 @@ export default function ACHRAMApp() {
 // }, []);
 
 
-useEffect(()=>{
-
-  const platform = Capacitor.getPlatform();
-
-  if(platform === 'ios'){
-    document.documentElement.classList.add('platform-ios');
-  } else if (platform === 'android'){
-    document.documentElement.classList.add('platform-android');
-  } else {
-    document.documentElement.classList.add('platform-web');
-  }
-
-  return ()=> {
-    document.documentElement.classList.remove('platform-ios', 'platform-android', 'platform-web');
-  };
-
-}, [])
 
 
 
+
+
+
+const isNative = Capacitor.isNativePlatform();
 
 
 useEffect(() => {
-  if (Capacitor.getPlatform() !== "ios") return;
+  if (!isNative) return;
 
-  let isMounted = true;
-  let showHandle: any = null;
-  let hideHandle: any = null;
-
-  // ✅ Native resize mode — set once at boot
-  Keyboard.setResizeMode({ mode: KeyboardResize.Native });
+  // Let the WebView resize, don't also scroll
+  Keyboard.setResizeMode({ mode: KeyboardResize.Body });
   Keyboard.setScroll({ isDisabled: true });
 
-  Keyboard.addListener("keyboardWillShow", (info: KeyboardInfo) => {
-    if (!isMounted) return;
+  const show = Keyboard.addListener('keyboardDidShow', (info: KeyboardInfo) => {
     setKeyboardHeight(info.keyboardHeight);
-    // ✅ Set CSS variable — no transforms needed
-    document.documentElement.style.setProperty(
-      "--keyboard-height",
-      `${info.keyboardHeight}px`
-    );
-  }).then((handle) => {
-    if (isMounted) showHandle = handle;
-    else handle.remove();
+  });
+  
+  const hide = Keyboard.addListener('keyboardDidHide', () => {
+    setKeyboardHeight(0);
   });
 
-  Keyboard.addListener("keyboardWillHide", () => {
-    if (!isMounted) return;
-    setKeyboardHeight(0);
-    document.documentElement.style.setProperty(
-      "--keyboard-height",
-      "0px"
-    );
-  }).then((handle) => {
-    if (isMounted) hideHandle = handle;
-    else handle.remove();
-  });
+  // iOS also fires WillShow earlier, use it for smoother animation
+  let showWill: any;
+  if (Capacitor.getPlatform() === 'ios') {
+    showWill = Keyboard.addListener('keyboardWillShow', (info) => {
+      setKeyboardHeight(info.keyboardHeight);
+    });
+  }
 
   return () => {
-    isMounted = false;
-    showHandle?.remove();
-    hideHandle?.remove();
-    // ✅ Reset on unmount
-    document.documentElement.style.setProperty("--keyboard-height", "0px");
+    show.remove();
+    hide.remove();
+    showWill?.remove();
   };
-}, []);
-
-
-
-//  const isNative = Capacitor.isNativePlatform();
-
-// useEffect(() => {
-//   if (!isNative) return;
-
-//   // Let the WebView resize, don't also scroll
-//   Keyboard.setResizeMode({ mode: KeyboardResize.Body });
-//   Keyboard.setScroll({ isDisabled: true });
-
-//   const show = Keyboard.addListener('keyboardDidShow', (info: KeyboardInfo) => {
-//     setKeyboardHeight(info.keyboardHeight);
-//   });
-  
-//   const hide = Keyboard.addListener('keyboardDidHide', () => {
-//     setKeyboardHeight(0);
-//   });
-
-//   // iOS also fires WillShow earlier, use it for smoother animation
-//   let showWill: any;
-//   if (Capacitor.getPlatform() === 'ios') {
-//     showWill = Keyboard.addListener('keyboardWillShow', (info) => {
-//       setKeyboardHeight(info.keyboardHeight);
-//     });
-//   }
-
-//   return () => {
-//     show.remove();
-//     hide.remove();
-//     showWill?.remove();
-//   };
-// }, [isNative]);
+}, [isNative]);
 
 
 
@@ -2793,10 +2731,10 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
 
   return (
     <>
-      <div className="min-h-screen flex items-center justify-center ">
+      <div className="min-h-screen flex items-center justify-center">
         <div
           className="
-            min-h-screen h-dvh [.platform-android_&]:h-screen
+            min-h-screen h-dvh
             w-full max-w-[430px] mx-auto
             bg-white
             flex flex-col

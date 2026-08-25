@@ -268,10 +268,11 @@ export default function SignupPromptModal({
 
   return (
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50">
-      <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] [.platform-android_&]:max-h-[85vh] overflow-y-auto border-t border-achrams-border"
+      <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border"
       
-      style={{ paddingBottom: 'var(--keyboard-height)' }}
-      // style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      //style={{ paddingBottom: 'var(--keyboard-height)' }}
+      
+      style={{ transform: `translateY(-${keyboardHeight}px)` }}
       
       
       
