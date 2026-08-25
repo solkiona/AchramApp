@@ -2807,7 +2807,7 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
             
             overflow-y-auto
           "
-        style={{ height: 'calc(100dvh - var(--keyboard-height))' }}
+       
           
         >
           <IOSInstallBanner />
