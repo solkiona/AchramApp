@@ -169,7 +169,7 @@ export default function LoginModal({
       <div className="bg-white max-w-md mx-auto w-full rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] [.platform-android_&]:max-h-[85vh] overflow-y-auto border-t border-achrams-border"
 
 
-      style={{ paddingBottom: 'var(--keyboard-height)' }}
+      // style={{ paddingBottom: 'var(--keyboard-height)' }}
 
       // style={{ transform: `translateY(-${keyboardHeight}px)` }}
 
