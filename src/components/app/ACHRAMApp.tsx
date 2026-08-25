@@ -428,6 +428,29 @@ export default function ACHRAMApp() {
 //   };
 // }, []);
 
+
+useEffect(()=>{
+
+  const platform = Capacitor.getPlatform();
+
+  if(platform === 'ios'){
+    document.documentElement.classList.add('platform-ios');
+  } else if (platform === 'android'){
+    document.documentElement.classList.add('platform-android');
+  } else {
+    document.documentElement.classList.add('platform-web');
+  }
+
+  return ()=> {
+    document.documentElement.classList.remove('platform-ios', 'platform-android', 'platform-web');
+  };
+
+}, [])
+
+
+
+
+
 useEffect(() => {
   if (Capacitor.getPlatform() !== "ios") return;
 
@@ -2770,10 +2793,10 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
 
   return (
     <>
-      <div className="app-shell min-h-dvh flex items-center justify-center ">
+      <div className="min-h-screen flex items-center justify-center ">
         <div
           className="
-            min-h-screen h-dvh
+            min-h-screen h-dvh [.platform-android_&]:h-screen
             w-full max-w-[430px] mx-auto
             bg-white
             flex flex-col
