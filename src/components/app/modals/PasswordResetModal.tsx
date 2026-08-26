@@ -139,7 +139,7 @@ export default function PasswordResetModal({
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50">
       <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 border-t border-achrams-border"
       
-      style={{ paddingBottom: 'var(--keyboard-height)' }}
+      
       
       // style={{ transform: `translateY(-${keyboardHeight}px)` }}
 

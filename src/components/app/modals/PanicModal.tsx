@@ -146,7 +146,7 @@ export default function PanicModal({
       <div
         className="w-full max-w-md bg-white rounded-2xl shadow-lg overflow-hidden sm:rounded-3xl transform transition-all duration-300"
 
-        style={{ paddingBottom: 'var(--keyboard-height)' }}
+        // style={{ paddingBottom: 'var(--keyboard-height)' }}
 
         // style={{ transform: `translateY(-${keyboardHeight}px)` }}
 

@@ -105,9 +105,7 @@ export default function PassengerDetailsModal({
     // Ensure it covers the whole screen behind the modal
     <div className=" fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50 "> 
       {/* The modal content */}
-      <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[85vh] [.platform-android_&]:max-h-[85vh] overflow-y-auto border-t border-achrams-border "
-      
-      style={{ paddingBottom: 'var(--keyboard-height)' }}
+      <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[85vh] overflow-y-auto border-t border-achrams-border "
       
       // style={{ transform: `translateY(-${keyboardHeight}px)` }}
 

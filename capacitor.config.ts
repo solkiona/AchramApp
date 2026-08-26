@@ -31,6 +31,7 @@ const config: CapacitorConfig = {
       resize: KeyboardResize.Body,
       resizeOnFullScreen: false,
     },
+
     StatusBar: {
       overlaysWebView: false,
       style: 'DARK',

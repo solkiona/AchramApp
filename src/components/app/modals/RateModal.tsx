@@ -147,8 +147,6 @@ export default function RateModal({
     <div className="fixed bg-achrams-secondary-solid/50 inset-0 bg-opacity-50 flex items-end z-50 animate-fadeIn ">
       <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[90vh] overflow-y-auto"
 
-
-      style={{ paddingBottom: 'var(--keyboard-height)' }}
       
       // style={{ transform: `translateY(-${keyboardHeight}px)` }}
       // style={{

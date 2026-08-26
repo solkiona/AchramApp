@@ -272,7 +272,7 @@ export default function SignupPromptModal({
       
       //style={{ paddingBottom: 'var(--keyboard-height)' }}
 
-      style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      // style={{ transform: `translateY(-${keyboardHeight}px)` }}
       
       
       // style={{

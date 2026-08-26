@@ -1,7 +1,5 @@
 /* src/app/globals.css */
 @import "tailwindcss";
-/* Define ACHRAMS theme tokens using @theme */
-
 
 @utility bg-achrams-gradient-primary {
   background: linear-gradient(
@@ -22,8 +20,6 @@
 }
 
 @theme {
-
-  /* Solid Colors */
   --color-achrams-primary-solid: #059669;
   --color-achrams-secondary-solid: #0d9488;
   --color-achrams-accent: #0891b2;
@@ -36,74 +32,45 @@
   --color-achrams-border: #e5e7eb;
 }
 
-/* Your existing default theme variables can remain if needed */
 :root {
-  --background: #ffffff; /* Aligns with achrams-background-primary */
+  --background: #ffffff;
   --foreground: #171717;
 }
 
-/* @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-} */
-
-/* Your existing body styles */
-/* body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  min-height: 100dvh;
-
-}
-
-#__next,
+/*
+ * KEYBOARD FIX: Keep html/body at 100%.
+ * With KeyboardResize.Native the WebView itself shrinks,
+ * so 100% = visible area above keyboard. No tricks needed.
+ */
 html,
 body {
   height: 100%;
-  min-height: 100%;
-  
-} */
-
-
-html, body {
-  height: 100%;
-
-  /* overflow: hidden;           /* ← critical */
-  /* overscroll-behavior: none;  ← no rubber-band */ 
-  -webkit-text-size-adjust: 100%;
-}
-body {
-  min-height: 100vh;
   margin: 0;
   padding: 0;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
   background: var(--background);
   color: var(--foreground);
-
-  /* overflow: hidden;
-  overscroll-behavior: none; */
-  /*position: fixed;*/            /* ← prevents iOS body scroll */
   width: 100%;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior:none;
+  overscroll-behavior: none;
 }
+
 #__next {
   min-height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-/* 3. Mobile viewport height fix (very important on iOS/Android) */
-/* @viewport {
-  width: device-width;
-  height: device-height;
-} */
+/* Prevent iOS auto-zoom on input focus (font-size < 16px triggers zoom) */
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
 
-/* 4. Optional: respect safe-area on notched devices */
 @layer utilities {
   .pt-safe {
     padding-top: env(safe-area-inset-top);
@@ -113,58 +80,24 @@ body {
   }
 }
 
-
-/* Prevent input zoom on focus (iOS zooms if font-size < 16px) */
-input, textarea, select {
-  font-size: 16px !important;   /* ← THE #1 cause of unwanted zoom */
-}
-
-
-
-
-/* .pac-container {
-  width: var(--pickup-width) !important;
-  left: var(--pickup-left) !important;
-} */
-
 @keyframes fadeIn {
   from { opacity: 0; }
-  to { opacity: 1; }
+  to   { opacity: 1; }
 }
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes scaleIn {
   from { transform: scale(0.8); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  to   { transform: scale(1);   opacity: 1; }
 }
 @keyframes fadeInScale {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
-.animate-fadeIn {
-  animation: fadeIn 0.3s ease-out forwards;
-}
-.animate-fadeInUp {
-  animation: fadeInUp 0.4s ease-out forwards;
-}
-.animate-scaleIn {
-  animation: scaleIn 0.3s ease-out forwards;
-}
-.animate-fadeInScale {
-  animation: fadeInScale 0.3s ease-out forwards;
-}
+.animate-fadeIn      { animation: fadeIn 0.3s ease-out forwards; }
+.animate-fadeInUp    { animation: fadeInUp 0.4s ease-out forwards; }
+.animate-scaleIn     { animation: scaleIn 0.3s ease-out forwards; }
+.animate-fadeInScale { animation: fadeInScale 0.3s ease-out forwards; }

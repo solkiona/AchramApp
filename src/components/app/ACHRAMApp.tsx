@@ -458,70 +458,62 @@ export default function ACHRAMApp() {
   //   };
   // }, [isNative]);
 
-  useEffect(() => {
-    const platform = Capacitor.getPlatform();
-    if (platform === "ios") {
-      document.documentElement.classList.add("platform-ios");
-    } else if (platform === "android") {
-      document.documentElement.classList.add("platform-android");
-    } else {
-      document.documentElement.classList.add("platform-web");
-    }
-    return () => {
-      document.documentElement.classList.remove(
-        "platform-ios",
-        "platform-android",
-        "platform-web",
-      );
-    };
-  }, []);
 
-  // ✅ NEW: Robust Viewport Height Tracker (Fixes Android Keyboard/URL Bar issues)
-  useEffect(() => {
-    const platform = Capacitor.getPlatform();
 
-    const setAppHeight = () => {
-      if (platform === "android") {
-        const vv = window.visualViewport;
-        if (vv) {
-          // Set exact visible height for Android
-          document.documentElement.style.setProperty(
-            "--app-height",
-            `${vv.height}px`,
-          );
+useEffect(() => {
+  const platform = Capacitor.getPlatform();
 
-          // Calculate exact keyboard overlap for modals
-          const keyboardHeight = window.innerHeight - vv.height - vv.offsetTop;
-          document.documentElement.style.setProperty(
-            "--keyboard-height",
-            `${Math.max(0, keyboardHeight)}px`,
-          );
-        }
-      } else {
-        // iOS / Web fallback
-        document.documentElement.style.setProperty(
-          "--app-height",
-          `calc(100dvh - var(--keyboard-height, 0px))`,
-        );
+  // Only handle keyboard on native platforms
+  if (platform === "web") return;
+
+  let isMounted = true;
+  let showHandle: any = null;
+  let hideHandle: any = null;
+
+  // ✅ ONE strategy for BOTH platforms: Native resize.
+  // The WebView itself shrinks, so all CSS viewport units
+  // (vh, dvh, svh) and position:fixed automatically reflect
+  // the visible area above the keyboard. No manual math needed.
+  Keyboard.setResizeMode({ mode: KeyboardResize.Native });
+  Keyboard.setScroll({ isDisabled: true });
+
+  Keyboard.addListener("keyboardWillShow", (info: KeyboardInfo) => {
+    if (!isMounted) return;
+    setKeyboardHeight(info.keyboardHeight);
+
+    // Scroll the focused input into view after the resize settles
+    setTimeout(() => {
+      const el = document.activeElement;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT")) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
       }
-    };
+    }, 300); // 300ms lets the native resize animation finish
+  }).then((handle) => {
+    if (isMounted) showHandle = handle;
+    else handle.remove();
+  });
 
-    // Set initial height
-    setAppHeight();
+  Keyboard.addListener("keyboardWillHide", () => {
+    if (!isMounted) return;
+    setKeyboardHeight(0);
+  }).then((handle) => {
+    if (isMounted) hideHandle = handle;
+    else handle.remove();
+  });
 
-    // Android relies on visualViewport events for keyboard and URL bar changes
-    if (platform === "android") {
-      const vv = window.visualViewport;
-      if (vv) {
-        vv.addEventListener("resize", setAppHeight);
-        vv.addEventListener("scroll", setAppHeight); // Fires when URL bar hides/shows
-        return () => {
-          vv.removeEventListener("resize", setAppHeight);
-          vv.removeEventListener("scroll", setAppHeight);
-        };
-      }
-    }
-  }, []);
+  return () => {
+    isMounted = false;
+    showHandle?.remove();
+    hideHandle?.remove();
+  };
+}, []);
+
+
+  
+
+
+
+
 
   useEffect(() => {
     const shouldRequestLocation = () => {
@@ -2383,23 +2375,10 @@ export default function ACHRAMApp() {
     initStatusBar();
   }, []);
 
-  useEffect(() => {
-    const showHandler = Keyboard.addListener("keyboardWillShow", () => {
-      // Small delay to allow the resize to happen first
-      setTimeout(() => {
-        if (document.activeElement) {
-          document.activeElement.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-        }
-      }, 100);
-    });
 
-    return () => {
-      showHandler.remove();
-    };
-  }, []);
+
+
+
 
   const [showGpsError, setShowGpsError] = useState(false);
 
@@ -2788,14 +2767,13 @@ export default function ACHRAMApp() {
 
   return (
     <>
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div
           className="
-          min-h-screen w-full max-w-[430px] mx-auto
+          h-dvh w-full max-w-[430px] mx-auto
           bg-white flex flex-col text-sm antialiased relative
           [font-feature-settings:'ss01'] overflow-y-auto
         "
-          style={{ height: "var(--app-height, 100dvh)" }}
         >
           <IOSInstallBanner />
 
