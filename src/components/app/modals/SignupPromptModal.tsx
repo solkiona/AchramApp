@@ -271,9 +271,8 @@ export default function SignupPromptModal({
       <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border"
       
       //style={{ paddingBottom: 'var(--keyboard-height)' }}
-      
+
       style={{ transform: `translateY(-${keyboardHeight}px)` }}
-      
       
       
       // style={{

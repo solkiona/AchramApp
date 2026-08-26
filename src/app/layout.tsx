@@ -21,7 +21,7 @@ export const viewport: Viewport = {
   maximumScale: 1,        // ← ADD: prevent pinch-zoom drift
   userScalable: false,     // ← ADD: lock zoom
   viewportFit: "cover",    // ← ADD: safe-area support
-  // interactiveWidget: "resizes-content",
+  interactiveWidget: "resizes-content",cd ..
 };
 
 export default function RootLayout({
