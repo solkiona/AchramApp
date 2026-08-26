@@ -367,108 +367,161 @@ export default function ACHRAMApp() {
   //   };
   // }, []);
 
+  //   useEffect(() => {
+  //   if (Capacitor.getPlatform() !== "ios") return;
 
-//   useEffect(() => {
-//   if (Capacitor.getPlatform() !== "ios") return;
+  //   // ✅ FIX: Defer keyboard setup to avoid blocking the main thread during WebView launch
+  //   const timer = setTimeout(async () => {
+  //     try {
+  //       await Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+  //       await Keyboard.setScroll({ isDisabled: true });
+  //     } catch (e) {
+  //       console.warn('Keyboard setup failed:', e);
+  //     }
+  //   }, 500); // Wait 500ms for WebView to fully initialize
 
-//   // ✅ FIX: Defer keyboard setup to avoid blocking the main thread during WebView launch
-//   const timer = setTimeout(async () => {
-//     try {
-//       await Keyboard.setResizeMode({ mode: KeyboardResize.Body });
-//       await Keyboard.setScroll({ isDisabled: true });
-//     } catch (e) {
-//       console.warn('Keyboard setup failed:', e);
-//     }
-//   }, 500); // Wait 500ms for WebView to fully initialize
+  //   const show = Keyboard.addListener("keyboardWillShow", (info) => {
+  //     setKeyboardHeight(info.keyboardHeight);
+  //   });
+  //   const hide = Keyboard.addListener("keyboardWillHide", () => {
+  //     setKeyboardHeight(0);
+  //   });
 
-//   const show = Keyboard.addListener("keyboardWillShow", (info) => {
-//     setKeyboardHeight(info.keyboardHeight);
-//   });
-//   const hide = Keyboard.addListener("keyboardWillHide", () => {
-//     setKeyboardHeight(0);
-//   });
+  //   return () => {
+  //     clearTimeout(timer);
+  //     show.remove();
+  //     hide.remove();
+  //   };
+  // }, []);
 
-//   return () => {
-//     clearTimeout(timer);
-//     show.remove();
-//     hide.remove();
-//   };
-// }, []);
+  // useEffect(() => {
+  //   if (Capacitor.getPlatform() !== "ios") return;
 
+  //   let isMounted = true;
+  //   let showHandle: any = null;
+  //   let hideHandle: any = null;
 
-// useEffect(() => {
-//   if (Capacitor.getPlatform() !== "ios") return;
+  //   Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+  //   Keyboard.setScroll({ isDisabled: true });
 
-//   let isMounted = true;
-//   let showHandle: any = null;
-//   let hideHandle: any = null;
+  //   // ✅ Keyboard.addListener returns Promise<PluginListenerHandle>
+  //   Keyboard.addListener("keyboardWillShow", (info) => {
+  //     if (isMounted) setKeyboardHeight(info.keyboardHeight);
+  //   }).then((handle) => {
+  //     if (isMounted) showHandle = handle;
+  //     else handle.remove();
+  //   });
 
-//   Keyboard.setResizeMode({ mode: KeyboardResize.Body });
-//   Keyboard.setScroll({ isDisabled: true });
+  //   Keyboard.addListener("keyboardWillHide", () => {
+  //     if (isMounted) setKeyboardHeight(0);
+  //   }).then((handle) => {
+  //     if (isMounted) hideHandle = handle;
+  //     else handle.remove();
+  //   });
 
-//   // ✅ Keyboard.addListener returns Promise<PluginListenerHandle>
-//   Keyboard.addListener("keyboardWillShow", (info) => {
-//     if (isMounted) setKeyboardHeight(info.keyboardHeight);
-//   }).then((handle) => {
-//     if (isMounted) showHandle = handle;
-//     else handle.remove();
-//   });
+  //   return () => {
+  //     isMounted = false;
+  //     showHandle?.remove();
+  //     hideHandle?.remove();
+  //   };
+  // }, []);
 
-//   Keyboard.addListener("keyboardWillHide", () => {
-//     if (isMounted) setKeyboardHeight(0);
-//   }).then((handle) => {
-//     if (isMounted) hideHandle = handle;
-//     else handle.remove();
-//   });
+  // const isNative = Capacitor.isNativePlatform();
 
-//   return () => {
-//     isMounted = false;
-//     showHandle?.remove();
-//     hideHandle?.remove();
-//   };
-// }, []);
+  // useEffect(() => {
+  //   if (!isNative) return;
 
+  //   // Let the WebView resize, don't also scroll
+  //   Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+  //   Keyboard.setScroll({ isDisabled: true });
 
+  //   const show = Keyboard.addListener('keyboardDidShow', (info: KeyboardInfo) => {
+  //     setKeyboardHeight(info.keyboardHeight);
+  //   });
 
+  //   const hide = Keyboard.addListener('keyboardDidHide', () => {
+  //     setKeyboardHeight(0);
+  //   });
 
+  //   // iOS also fires WillShow earlier, use it for smoother animation
+  //   let showWill: any;
+  //   if (Capacitor.getPlatform() === 'ios') {
+  //     showWill = Keyboard.addListener('keyboardWillShow', (info) => {
+  //       setKeyboardHeight(info.keyboardHeight);
+  //     });
+  //   }
 
+  //   return () => {
+  //     show.remove();
+  //     hide.remove();
+  //     showWill?.remove();
+  //   };
+  // }, [isNative]);
 
+  useEffect(() => {
+    const platform = Capacitor.getPlatform();
+    if (platform === "ios") {
+      document.documentElement.classList.add("platform-ios");
+    } else if (platform === "android") {
+      document.documentElement.classList.add("platform-android");
+    } else {
+      document.documentElement.classList.add("platform-web");
+    }
+    return () => {
+      document.documentElement.classList.remove(
+        "platform-ios",
+        "platform-android",
+        "platform-web",
+      );
+    };
+  }, []);
 
+  // ✅ NEW: Robust Viewport Height Tracker (Fixes Android Keyboard/URL Bar issues)
+  useEffect(() => {
+    const platform = Capacitor.getPlatform();
 
-const isNative = Capacitor.isNativePlatform();
+    const setAppHeight = () => {
+      if (platform === "android") {
+        const vv = window.visualViewport;
+        if (vv) {
+          // Set exact visible height for Android
+          document.documentElement.style.setProperty(
+            "--app-height",
+            `${vv.height}px`,
+          );
 
+          // Calculate exact keyboard overlap for modals
+          const keyboardHeight = window.innerHeight - vv.height - vv.offsetTop;
+          document.documentElement.style.setProperty(
+            "--keyboard-height",
+            `${Math.max(0, keyboardHeight)}px`,
+          );
+        }
+      } else {
+        // iOS / Web fallback
+        document.documentElement.style.setProperty(
+          "--app-height",
+          `calc(100dvh - var(--keyboard-height, 0px))`,
+        );
+      }
+    };
 
-useEffect(() => {
-  if (!isNative) return;
+    // Set initial height
+    setAppHeight();
 
-  // Let the WebView resize, don't also scroll
-  Keyboard.setResizeMode({ mode: KeyboardResize.Body });
-  Keyboard.setScroll({ isDisabled: true });
-
-  const show = Keyboard.addListener('keyboardDidShow', (info: KeyboardInfo) => {
-    setKeyboardHeight(info.keyboardHeight);
-  });
-  
-  const hide = Keyboard.addListener('keyboardDidHide', () => {
-    setKeyboardHeight(0);
-  });
-
-  // iOS also fires WillShow earlier, use it for smoother animation
-  let showWill: any;
-  if (Capacitor.getPlatform() === 'ios') {
-    showWill = Keyboard.addListener('keyboardWillShow', (info) => {
-      setKeyboardHeight(info.keyboardHeight);
-    });
-  }
-
-  return () => {
-    show.remove();
-    hide.remove();
-    showWill?.remove();
-  };
-}, [isNative]);
-
-
+    // Android relies on visualViewport events for keyboard and URL bar changes
+    if (platform === "android") {
+      const vv = window.visualViewport;
+      if (vv) {
+        vv.addEventListener("resize", setAppHeight);
+        vv.addEventListener("scroll", setAppHeight); // Fires when URL bar hides/shows
+        return () => {
+          vv.removeEventListener("resize", setAppHeight);
+          vv.removeEventListener("scroll", setAppHeight);
+        };
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const shouldRequestLocation = () => {
@@ -605,61 +658,69 @@ useEffect(() => {
     elderly: false,
   });
 
+  const [airportFares, setAirportFares] = useState<FareDestination[]>([]);
+  const [selectedDestinationFareId, setSelectedDestinationFareId] = useState<
+    string | null
+  >(null);
+  const [isFetchingFares, setIsFetchingFares] = useState(false);
 
-const [airportFares, setAirportFares] = useState<FareDestination[]>([]);
-const [selectedDestinationFareId, setSelectedDestinationFareId] = useState<string | null>(null);
-const [isFetchingFares, setIsFetchingFares] = useState(false);
+  const fetchAirportFares = useCallback(
+    async (airportCodename: string) => {
+      if (!airportCodename) return;
+      setIsFetchingFares(true);
+      try {
+        const response = await apiClient.get(
+          `/fares/lookup?airport=${encodeURIComponent(airportCodename)}`,
+        );
+        if (response.status === "success" && Array.isArray(response.data)) {
+          setAirportFares(response.data);
+        } else {
+          setAirportFares([]);
+          showNotification(
+            "Destinations are not available at this time.",
+            "error",
+          );
+        }
+      } catch (err) {
+        console.error("Failed to fetch airport fares:", err);
+        setAirportFares([]);
+        showNotification(
+          "Unable to load destinations. Check your connection.",
+          "error",
+        );
+      } finally {
+        setIsFetchingFares(false);
+      }
+    },
+    [showNotification],
+  );
 
-
-const fetchAirportFares = useCallback(async (airportCodename: string) => {
-  if (!airportCodename) return;
-  setIsFetchingFares(true);
-  try {
-    const response = await apiClient.get(`/fares/lookup?airport=${encodeURIComponent(airportCodename)}`);
-    if (response.status === "success" && Array.isArray(response.data)) {
-      setAirportFares(response.data);
+  useEffect(() => {
+    if (pickupCodename) {
+      fetchAirportFares(pickupCodename);
+      setDestination("");
+      setDestinationCoords(null);
+      setSelectedDestinationFareId(null);
+      setFareEstimate(null);
+      setSelectedCategory(null);
     } else {
       setAirportFares([]);
-      showNotification("Destinations are not available at this time.", "error");
     }
-  } catch (err) {
-    console.error("Failed to fetch airport fares:", err);
-    setAirportFares([]);
-    showNotification("Unable to load destinations. Check your connection.", "error");
-  } finally {
-    setIsFetchingFares(false);
-  }
-}, [showNotification]);
+  }, [pickupCodename, fetchAirportFares]);
 
+  const getFilteredDestinations = useCallback(
+    (searchQuery: string): FareDestination[] => {
+      if (!searchQuery || searchQuery.length < 2) return [];
 
-useEffect(() => {
-  if (pickupCodename) {
-    fetchAirportFares(pickupCodename);
-    setDestination(""); 
-    setDestinationCoords(null);
-    setSelectedDestinationFareId(null);
-    setFareEstimate(null);
-    setSelectedCategory(null);
-  } else {
-    setAirportFares([]);
-  }
-}, [pickupCodename, fetchAirportFares]);
-
-
-
-const getFilteredDestinations = useCallback((searchQuery: string): FareDestination[] => {
-  if (!searchQuery || searchQuery.length < 2) return [];
-  
-  const query = searchQuery.toLowerCase();
-  return airportFares.filter(dest => 
-    dest.name.toLowerCase().includes(query) || 
-    dest.search_text.toLowerCase().includes(query)
+      const query = searchQuery.toLowerCase();
+      return airportFares.filter(
+        (dest) =>
+          dest.name.toLowerCase().includes(query) ||
+          dest.search_text.toLowerCase().includes(query),
+      );
+    },
+    [airportFares],
   );
-}, [airportFares]);
-
-
-
-
 
   const { handleRequestRide } = useBooking({
     tripHistory,
@@ -1246,21 +1307,21 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
   // };
 
   const handleCategorySelect = (category: any) => {
-  const categoryValue = category?.categoryValue;
-  // const fareId = category?.id; // <--- THIS IS THE BREAKDOWN ID
- 
-  const price = category?.estimatedPrice;
+    const categoryValue = category?.categoryValue;
+    // const fareId = category?.id; // <--- THIS IS THE BREAKDOWN ID
 
-  if (!categoryValue) {
-    showNotification("Invalid vehicle category selected", "error");
-    return;
-  }
+    const price = category?.estimatedPrice;
 
-  setSelectedCategory(categoryValue);
-  // setSelectedDestinationFareId(fareId); // <--- STORE THE FARE ID
-  setFareEstimate(typeof price === "number" ? price : null);
-  setShowVehicleCategories(false);
-};
+    if (!categoryValue) {
+      showNotification("Invalid vehicle category selected", "error");
+      return;
+    }
+
+    setSelectedCategory(categoryValue);
+    // setSelectedDestinationFareId(fareId); // <--- STORE THE FARE ID
+    setFareEstimate(typeof price === "number" ? price : null);
+    setShowVehicleCategories(false);
+  };
 
   const handleBackToCategories = () => {
     setSelectedCategory(null);
@@ -2445,34 +2506,32 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
     );
   }
 
-
-
-//   if (googleMapsLoadError) {
-//   console.error("Failed to load Google Maps API:", googleMapsLoadError);
-//   return (
-//     <div className="min-h-dvh flex items-center justify-center bg-achrams-bg-primary px-6">
-//       <div className="text-center max-w-sm">
-//         <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-//           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600">
-//             <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
-//           </svg>
-//         </div>
-//         <h2 className="text-xl font-bold text-achrams-text-primary mb-2">
-//           Map Failed to Load
-//         </h2>
-//         <p className="text-achrams-text-secondary mb-6">
-//           This usually happens due to a network issue. Please check your connection and try again.
-//         </p>
-//         <button
-//           onClick={() => window.location.reload()}
-//           className="w-full py-3 bg-achrams-gradient-primary text-achrams-text-light rounded-xl font-semibold hover:opacity-90 active:scale-[0.98] transition-all"
-//         >
-//           Reload App
-//         </button>
-//       </div>
-//     </div>
-//   );
-// }
+  //   if (googleMapsLoadError) {
+  //   console.error("Failed to load Google Maps API:", googleMapsLoadError);
+  //   return (
+  //     <div className="min-h-dvh flex items-center justify-center bg-achrams-bg-primary px-6">
+  //       <div className="text-center max-w-sm">
+  //         <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+  //           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600">
+  //             <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+  //           </svg>
+  //         </div>
+  //         <h2 className="text-xl font-bold text-achrams-text-primary mb-2">
+  //           Map Failed to Load
+  //         </h2>
+  //         <p className="text-achrams-text-secondary mb-6">
+  //           This usually happens due to a network issue. Please check your connection and try again.
+  //         </p>
+  //         <button
+  //           onClick={() => window.location.reload()}
+  //           className="w-full py-3 bg-achrams-gradient-primary text-achrams-text-light rounded-xl font-semibold hover:opacity-90 active:scale-[0.98] transition-all"
+  //         >
+  //           Reload App
+  //         </button>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   let mainContent = null;
   if (screen === "booking") {
@@ -2534,7 +2593,6 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
         passengerLiveLocation={passengerLiveLocation} // NEW
         onRefreshLocation={handleRefreshLocation} // NEW
         airportFares={airportFares}
-
         isFetchingFares={isFetchingFares}
         getFilteredDestinations={getFilteredDestinations}
         selectedDestinationFareId={selectedDestinationFareId}
@@ -2637,7 +2695,6 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
   } else if (screen === "dashboard") {
     mainContent = (
       <DashboardScreen
-        
         onProfileClick={() => setShowProfile(true)}
         passengerData={passengerData}
         walletBalance={walletBalance}
@@ -2734,19 +2791,11 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
       <div className="min-h-screen flex items-center justify-center">
         <div
           className="
-            min-h-screen h-dvh
-            w-full max-w-[430px] mx-auto
-            bg-white
-            flex flex-col
-            text-sm
-            antialiased
-            relative
-            [font-feature-settings:'ss01']
-            
-            overflow-y-auto
-          "
-       
-          
+          min-h-screen w-full max-w-[430px] mx-auto
+          bg-white flex flex-col text-sm antialiased relative
+          [font-feature-settings:'ss01'] overflow-y-auto
+        "
+          style={{ height: "var(--app-height, 100dvh)" }}
         >
           <IOSInstallBanner />
 
