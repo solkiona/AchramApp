@@ -16,7 +16,7 @@ const config: CapacitorConfig = {
   },
 
   android: {
-    adjustMarginsForEdgeToEdge: 'disable',
+    adjustMarginsForEdgeToEdge: 'auto',
   },
   
   plugins: {
@@ -28,7 +28,7 @@ const config: CapacitorConfig = {
 
     },
     Keyboard: {
-      resize: KeyboardResize.Body,
+      resize: KeyboardResize.Native,
       resizeOnFullScreen: false,
     },
 
