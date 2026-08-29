@@ -44,7 +44,8 @@
  */
 html,
 body {
-  height: 100%;
+  height: 100dvh; /* Works on Android 16+ */
+  height: calc(var(--vh, 1vh) * 100); /* Fallback for Android 10 */
   margin: 0;
   padding: 0;
   -webkit-text-size-adjust: 100%;
@@ -58,6 +59,9 @@ body {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: none;
 }
+
+
+
 
 #__next {
   min-height: 100%;

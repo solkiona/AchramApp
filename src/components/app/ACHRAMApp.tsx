@@ -862,6 +862,28 @@ export default function ACHRAMApp() {
     }
   }, [isAuthenticated, accountData]);
 
+
+  useEffect(() => {
+    // Function to calculate and set the viewport height
+    const updateViewportHeight = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+
+    // Run it immediately on mount
+    updateViewportHeight();
+
+    // Add event listeners for when the screen resizes (like when keyboard opens)
+    window.addEventListener('resize', updateViewportHeight);
+    window.addEventListener('orientationchange', updateViewportHeight);
+
+    // Cleanup function to remove listeners when component unmounts
+    return () => {
+      window.removeEventListener('resize', updateViewportHeight);
+      window.removeEventListener('orientationchange', updateViewportHeight);
+    };
+  }, []); // Empty array means it only runs once on mount
+
   // When guestId is set (after booking starts)
   useEffect(() => {
     if (guestId && passengerData.email) {
