@@ -42,34 +42,6 @@
   --foreground: #171717;
 }
 
-/* @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-} */
-
-/* Your existing body styles */
-/* body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  min-height: 100dvh;
-
-}
-
-#__next,
-html,
-body {
-  height: 100%;
-  min-height: 100%;
-  
-} */
-
-
 html, body {
   height: 100%;
 }
@@ -84,11 +56,6 @@ body {
   min-height: 100%;
 }
 
-/* 3. Mobile viewport height fix (very important on iOS/Android) */
-/* @viewport {
-  width: device-width;
-  height: device-height;
-} */
 
 /* 4. Optional: respect safe-area on notched devices */
 @layer utilities {

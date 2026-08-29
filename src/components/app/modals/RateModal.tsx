@@ -146,7 +146,9 @@ export default function RateModal({
   return (
     <div className="fixed bg-achrams-secondary-solid/50 inset-0 bg-opacity-50 flex items-end z-50 animate-fadeIn ">
       <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[90vh] overflow-y-auto"
-      style={{ transform: `translateY(-${keyboardHeight}px)` }}
+
+      
+      // style={{ transform: `translateY(-${keyboardHeight}px)` }}
       // style={{
       //   maxHeight: keyboardHeight ? `calc(85dvh - ${keyboardHeight}px)` : '85dvh',
       //   paddingBottom: keyboardHeight ? '16px' : undefined
@@ -194,7 +196,7 @@ export default function RateModal({
         <button
           onClick={handleSubmit}
           disabled={rating === 0 || isSubmitting} // NEW: Disable button while submitting or no rating selected
-          className="w-full bg-achrams-primary-solid text-achrams-text-light py-4 rounded-xl font-semibold disabled:bg-gray-300 flex items-center justify-center gap-2" // NEW: Add flex classes for loader
+          className="w-full bg-achrams-primary-solid text-achrams-text-light py-4 rounded-xl font-semibold disabled:bg-gray-300 flex items-center justify-center gap-2 mb-8" // NEW: Add flex classes for loader
         >
           {/* NEW: Show loader while submitting */}
           {isSubmitting ? (

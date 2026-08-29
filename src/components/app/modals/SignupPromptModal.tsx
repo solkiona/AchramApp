@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api'; // Adjust import path as needed
 import { useApiErrorHandler } from "@/lib/errors/apiErrorHandler"
 import posthog from 'posthog-js';
+import {validateFullName} from '@/lib/validation/validateName'
 
 
 // Define the type for the full signup data, including password
@@ -82,15 +83,10 @@ export default function SignupPromptModal({
   
 
   // --- Validation Functions ---
-  const validateName = (input: string): string => {
-    if (!input.trim()) {
-      return 'Full name is required.';
-    }
-    if (input.trim().length < 2) {
-      return 'Name must be at least 2 characters long.';
-    }
-    return '';
-  };
+ const validateName = (input: string): string => {
+  const result = validateFullName(input);
+  return result.error || '';
+};
 
   const validateEmail = (input: string): string => {
     if (!input) {
@@ -212,6 +208,14 @@ export default function SignupPromptModal({
       const firstName = nameParts[0] || 'User';
       const lastName = nameParts.slice(1).join(' ') || '';
 
+      if(nameParts.length < 2){
+
+        // alert(`nameParts ${nameParts.length}`)
+        setNameError("Please enter your first name and last name");
+        return;
+      }
+
+
       const response = await apiClient.post('/auth/passenger/onboard/initiate', {
         email: email,
         phone_number: phone,
@@ -265,7 +269,12 @@ export default function SignupPromptModal({
   return (
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 bg-opacity-70 flex items-end z-50">
       <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border"
-      style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      
+      //style={{ paddingBottom: 'var(--keyboard-height)' }}
+
+      // style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      
+      
       // style={{
       //   maxHeight: keyboardHeight ? `calc(85dvh - ${keyboardHeight}px)` : '85dvh',
       //   paddingBottom: keyboardHeight ? '16px' : undefined

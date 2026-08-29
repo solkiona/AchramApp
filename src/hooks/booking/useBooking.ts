@@ -5,6 +5,8 @@ import { formatPhoneNumber } from "@/lib/booking/formatPhone";
 import { findNearestAirport, KNOWN_AIRPORTS } from "@/lib/airports";
 import posthog from "posthog-js";
 import { VehicleCategory } from "@/types/booking";
+import {validateFullName} from '@/lib/validation/validateName'
+
 
 type UseBookingProps = {
   tripHistory: any[];
@@ -105,7 +107,9 @@ export const useBooking = ({
         console.log("Using existing tripData from sessionStorage:", tripData);
       }
     }
+
     if (!tripData) {
+      
       if (bookAsGuest || !isAuthenticated) {
         if (
           !passengerData.name ||
@@ -115,6 +119,17 @@ export const useBooking = ({
           showNotification("Please fill all passenger details.", "error");
           return;
         }
+
+
+
+      const nameCheck = validateFullName(passengerData.name);
+      console.log("Passenger Data: ", passengerData.name);
+      if(!nameCheck.valid){
+        showNotification(nameCheck.error || "Please enter a valid name.", "error");
+        return;
+      }
+
+
       }
       // if (!pickupCoords || !destinationCoords) {
       //   showNotification(
@@ -124,10 +139,11 @@ export const useBooking = ({
       //   return;
       // }
 
+      
+
        if (!selectedDestinationFareId) {
       showNotification("Please select a valid destination and vehicle category.", "error");
-      return;
-    }
+      return;}
 
 
       // let airportId: string | null = null;

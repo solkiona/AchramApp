@@ -7,7 +7,7 @@ export default function ACHRAMFooter() {
       <p>
         Designed, Built and Powered by{' '}
         <Link
-          href="https://www.exceliantech.com" // Use the full URL for external links
+          href="https://www.exceliangroup.com.ng" // Use the full URL for external links
           target="_blank" // Open in a new tab for external links
           rel="noopener noreferrer" // Security best practice for target="_blank"
           className="text-achrams-primary-solid hover:text-achrams-primary-dark transition-colors underline"
