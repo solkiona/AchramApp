@@ -458,62 +458,58 @@ export default function ACHRAMApp() {
   //   };
   // }, [isNative]);
 
+  useEffect(() => {
+    const platform = Capacitor.getPlatform();
 
+    // Only handle keyboard on native platforms
+    if (platform === "web") return;
 
-useEffect(() => {
-  const platform = Capacitor.getPlatform();
+    let isMounted = true;
+    let showHandle: any = null;
+    let hideHandle: any = null;
 
-  // Only handle keyboard on native platforms
-  if (platform === "web") return;
+    // ✅ ONE strategy for BOTH platforms: Native resize.
+    // The WebView itself shrinks, so all CSS viewport units
+    // (vh, dvh, svh) and position:fixed automatically reflect
+    // the visible area above the keyboard. No manual math needed.
+    Keyboard.setResizeMode({ mode: KeyboardResize.Native });
+    Keyboard.setScroll({ isDisabled: true });
 
-  let isMounted = true;
-  let showHandle: any = null;
-  let hideHandle: any = null;
+    Keyboard.addListener("keyboardWillShow", (info: KeyboardInfo) => {
+      if (!isMounted) return;
+      setKeyboardHeight(info.keyboardHeight);
 
-  // ✅ ONE strategy for BOTH platforms: Native resize.
-  // The WebView itself shrinks, so all CSS viewport units
-  // (vh, dvh, svh) and position:fixed automatically reflect
-  // the visible area above the keyboard. No manual math needed.
-  Keyboard.setResizeMode({ mode: KeyboardResize.Native });
-  Keyboard.setScroll({ isDisabled: true });
+      // Scroll the focused input into view after the resize settles
+      setTimeout(() => {
+        const el = document.activeElement;
+        if (
+          el &&
+          (el.tagName === "INPUT" ||
+            el.tagName === "TEXTAREA" ||
+            el.tagName === "SELECT")
+        ) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 300); // 300ms lets the native resize animation finish
+    }).then((handle) => {
+      if (isMounted) showHandle = handle;
+      else handle.remove();
+    });
 
-  Keyboard.addListener("keyboardWillShow", (info: KeyboardInfo) => {
-    if (!isMounted) return;
-    setKeyboardHeight(info.keyboardHeight);
+    Keyboard.addListener("keyboardWillHide", () => {
+      if (!isMounted) return;
+      setKeyboardHeight(0);
+    }).then((handle) => {
+      if (isMounted) hideHandle = handle;
+      else handle.remove();
+    });
 
-    // Scroll the focused input into view after the resize settles
-    setTimeout(() => {
-      const el = document.activeElement;
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT")) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    }, 300); // 300ms lets the native resize animation finish
-  }).then((handle) => {
-    if (isMounted) showHandle = handle;
-    else handle.remove();
-  });
-
-  Keyboard.addListener("keyboardWillHide", () => {
-    if (!isMounted) return;
-    setKeyboardHeight(0);
-  }).then((handle) => {
-    if (isMounted) hideHandle = handle;
-    else handle.remove();
-  });
-
-  return () => {
-    isMounted = false;
-    showHandle?.remove();
-    hideHandle?.remove();
-  };
-}, []);
-
-
-  
-
-
-
-
+    return () => {
+      isMounted = false;
+      showHandle?.remove();
+      hideHandle?.remove();
+    };
+  }, []);
 
   useEffect(() => {
     const shouldRequestLocation = () => {
@@ -2375,11 +2371,6 @@ useEffect(() => {
     initStatusBar();
   }, []);
 
-
-
-
-
-
   const [showGpsError, setShowGpsError] = useState(false);
 
   useEffect(() => {
@@ -2770,7 +2761,7 @@ useEffect(() => {
       <div className="min-h-dvh flex items-center justify-center">
         <div
           className="
-          h-dvh w-full max-w-[430px] mx-auto
+          min-h-screen h-dvh w-full max-w-[430px] mx-auto
           bg-white flex flex-col text-sm antialiased relative
           [font-feature-settings:'ss01'] overflow-y-auto
         "
