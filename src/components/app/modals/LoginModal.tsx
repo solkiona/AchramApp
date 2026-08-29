@@ -171,7 +171,7 @@ export default function LoginModal({
 
       // style={{ paddingBottom: 'var(--keyboard-height)' }}
 
-      // style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      style={{ transform: `translateY(-${keyboardHeight}px)` }}
 
 
 

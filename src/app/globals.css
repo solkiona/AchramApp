@@ -61,8 +61,6 @@ body {
 
 #__next {
   min-height: 100%;
-  display: flex;
-  flex-direction: column;
 }
 
 /* Prevent iOS auto-zoom on input focus (font-size < 16px triggers zoom) */

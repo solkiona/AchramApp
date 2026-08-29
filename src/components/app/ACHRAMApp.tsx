@@ -472,7 +472,7 @@ export default function ACHRAMApp() {
     // The WebView itself shrinks, so all CSS viewport units
     // (vh, dvh, svh) and position:fixed automatically reflect
     // the visible area above the keyboard. No manual math needed.
-    Keyboard.setResizeMode({ mode: KeyboardResize.Native });
+    Keyboard.setResizeMode({ mode: KeyboardResize.Body });
     Keyboard.setScroll({ isDisabled: true });
 
     Keyboard.addListener("keyboardWillShow", (info: KeyboardInfo) => {
