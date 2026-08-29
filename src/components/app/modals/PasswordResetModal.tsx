@@ -67,13 +67,12 @@ export default function PasswordResetModal({
         setCountdown(60); // 60 seconds before resend allowed
       } else {
         const message = handleApiError(response);
-
-        showNotification(message || generalError || response.message || "Failed to send reset email.", "error");
+        showNotification(generalError || response.message || "Failed to send reset email.", "error");
       }
     } catch (err: any) {
       console.error("Error sending reset email:", err);
-     const parsedErrorMessage =  handleApiError(err)
-      showNotification( parsedErrorMessage || generalError || err.response?.data?.message || "An error occurred while sending the reset email.", "error");
+      handleApiError(err)
+      showNotification( generalError || err.response?.data?.message || "An error occurred while sending the reset email.", "error");
     } finally {
       setLoading(false);
     }
@@ -118,8 +117,8 @@ export default function PasswordResetModal({
       }
     } catch (err: any) {
       console.error("Error resetting password:", err);
-      const parsedErrorMessage = handleApiError(err);
-      showNotification(parsedErrorMessage || generalError || err.response?.data?.message || "An error occurred while resetting the password.", "error");
+      handleApiError(err);
+      showNotification(generalError || err.response?.data?.message || "An error occurred while resetting the password.", "error");
     } finally {
       setLoading(false);
     }
@@ -139,11 +138,7 @@ export default function PasswordResetModal({
     <div className="fixed inset-0 bg-achrams-secondary-solid/50 flex items-end z-50">
       <div className="bg-white w-full max-w-md mx-auto rounded-t-3xl p-6 border-t border-achrams-border"
       
-      
-      
-      // style={{ transform: `translateY(-${keyboardHeight}px)` }}
-
-
+      style={{ transform: `translateY(-${keyboardHeight}px)` }}
       // style={{
       //   maxHeight: keyboardHeight ? `calc(85dvh - ${keyboardHeight}px)` : '85dvh',
       //   paddingBottom: keyboardHeight ? '16px' : undefined

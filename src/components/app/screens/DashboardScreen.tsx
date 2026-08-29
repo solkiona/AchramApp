@@ -42,7 +42,6 @@ interface DashboardProps {
     destination: string;
   } | null;
   onShowProfile: () => void;
-  onProfileClick: () => void;
   onShowTripHistory: () => void;
   onShowWallet: () => void; // Handler for wallet button
   onShowSettings: () => void;
@@ -65,7 +64,6 @@ interface DashboardProps {
 }
 export default function DashboardScreen({
   onBookNewTrip,
-  onProfileClick,
   passengerData,
   // walletBallance,
   activeTrip,
@@ -165,11 +163,7 @@ export default function DashboardScreen({
         <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white px-6 py-5 shadow-lg">
           <div className="flex items-center justify-between">
             <ACHRAMSHeader title="" />
-            
-            
-            <button 
-            onClick={onProfileClick}
-            className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-sm font-bold shadow-lg border-2 border-white/30 hover:bg-white/30 transition-all">
+            <button className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-sm font-bold shadow-lg border-2 border-white/30 hover:bg-white/30 transition-all">
               {profilePhoto ? (
                 // If using Next.js Image
                 <Image

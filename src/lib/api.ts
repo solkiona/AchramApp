@@ -51,23 +51,11 @@ const buildHeaders = (
 
   // 1. Passed token > 2. Memory Token. 
   // WE NO LONGER READ FROM SECURE STORAGE HERE!
-  // const effectiveToken = token ?? memoryToken;
-  let effectiveToken = token ?? memoryToken;
+  const effectiveToken = token ?? memoryToken;
   
-  //added just to fix the cross-site origin issue
-
-  if (!effectiveToken && !isNative && typeof window !== 'undefined'){
-    effectiveToken = localStorage.getItem('achrams_passenger_token');
-  }
-
-   // if (effectiveToken && (!isAuthRequest || isNative)) {
-  //   headers['Authorization'] = `Bearer ${effectiveToken}`;
-  // }
-
-  if(effectiveToken) {
+  if (effectiveToken && (!isAuthRequest || isNative)) {
     headers['Authorization'] = `Bearer ${effectiveToken}`;
   }
-  
   if (isGuest && guestId) headers['X-Guest-Id'] = guestId;
   return headers;
 };

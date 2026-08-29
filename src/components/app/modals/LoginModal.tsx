@@ -97,8 +97,6 @@ export default function LoginModal({
       else {
         // NEW: Handle login failure by getting the specific error message
         const errorMessage = loginResult.message || 'Login failed. Please check your credentials.';
-
-        console.log("Login Result: " , loginResult);
         // Option 1: Set error in the modal's local state (current behavior)
         setError(errorMessage);
 
@@ -167,14 +165,7 @@ export default function LoginModal({
     
     >
       <div className="bg-white max-w-md mx-auto w-full rounded-t-3xl p-6 animate-slideUp max-h-[85dvh] overflow-y-auto border-t border-achrams-border"
-
-
-      // style={{ paddingBottom: 'var(--keyboard-height)' }}
-
-      // style={{ transform: `translateY(-${keyboardHeight}px)` }}
-
-
-
+      style={{ transform: `translateY(-${keyboardHeight}px)` }}
       // style={{
       //   maxHeight: keyboardHeight ? `calc(85dvh - ${keyboardHeight}px)` : '85dvh',
       //   paddingBottom: keyboardHeight ? '16px' : undefined

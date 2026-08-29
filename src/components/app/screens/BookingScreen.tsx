@@ -367,103 +367,103 @@ export default function BookingScreen({
 
 
 
-  // const handlePlaceChanged = useCallback(() => {
-  //   if (isGoogleMapsLoaded && searchBoxRef.current) {
-  //     const places = searchBoxRef.current.getPlaces();
-  //     if (places && places.length > 0) {
-  //       const place = places[0];
-  //       if (place.geometry && place.geometry.location) {
-  //         const lat = place.geometry.location.lat();
-  //         const lng = place.geometry.location.lng();
+  const handlePlaceChanged = useCallback(() => {
+    if (isGoogleMapsLoaded && searchBoxRef.current) {
+      const places = searchBoxRef.current.getPlaces();
+      if (places && places.length > 0) {
+        const place = places[0];
+        if (place.geometry && place.geometry.location) {
+          const lat = place.geometry.location.lat();
+          const lng = place.geometry.location.lng();
 
-  //         // Show full address in UI for user certainty
-  //         const fullAddress = place.formatted_address || place.name || "";
+          // Show full address in UI for user certainty
+          const fullAddress = place.formatted_address || place.name || "";
 
-  //         //Extract fare zone for backend API (LGA → locality → sublocality)
-  //         const fareZone = getFareZone(place);
+          //Extract fare zone for backend API (LGA → locality → sublocality)
+          const fareZone = getFareZone(place);
 
-  //         setDestinationLocationData({
-  //           name: fullAddress, // Display full address
-  //           coords: [lng, lat],
-  //         });
-  //         setDestOpen(false);
+          setDestinationLocationData({
+            name: fullAddress, // Display full address
+            coords: [lng, lat],
+          });
+          setDestOpen(false);
 
-  //         onDestinationSelected(
-  //           fullAddress,
-  //           [lng, lat],
-  //           fareZone || fullAddress,
-  //         );
-  //         //  alert(fareZone)
-  //       } else {
-  //         console.error("Place selected but no geometry.location found.");
-  //       }
-  //     }
-  //   }
-  // }, [isGoogleMapsLoaded, onDestinationSelected]);
+          onDestinationSelected(
+            fullAddress,
+            [lng, lat],
+            fareZone || fullAddress,
+          );
+          //  alert(fareZone)
+        } else {
+          console.error("Place selected but no geometry.location found.");
+        }
+      }
+    }
+  }, [isGoogleMapsLoaded, onDestinationSelected]);
 
-  // const handlePickupPlaceChanged = useCallback(() => {
-  //   if (isGoogleMapsLoaded && pickupSearchBoxRef.current) {
-  //     const places = pickupSearchBoxRef.current.getPlaces();
-  //     if (places && places.length > 0) {
-  //       const place = places[0];
-  //       if (place.geometry?.location) {
-  //         const lat = place.geometry.location.lat();
-  //         const lng = place.geometry.location.lng();
-  //         const coords: [number, number] = [lng, lat];
+  const handlePickupPlaceChanged = useCallback(() => {
+    if (isGoogleMapsLoaded && pickupSearchBoxRef.current) {
+      const places = pickupSearchBoxRef.current.getPlaces();
+      if (places && places.length > 0) {
+        const place = places[0];
+        if (place.geometry?.location) {
+          const lat = place.geometry.location.lat();
+          const lng = place.geometry.location.lng();
+          const coords: [number, number] = [lng, lat];
 
-  //         // Close dropdown
-  //         setPickupOpen(false);
+          // Close dropdown
+          setPickupOpen(false);
 
-  //         // Trigger airport lookup using these coords
-  //         (async () => {
-  //           setIsFetchingLocation(true);
-  //           try {
-  //             const airports = await findNearestAirport(
-  //               lng,
-  //               lat,
-  //               isAuthenticated,
-  //               token ?? undefined,
-  //             );
-  //             if (airports && airports.length > 0) {
-  //               if (airports.length === 1) {
-  //                 setPickupLocationData({
-  //                   name: airports[0].name,
-  //                   coords,
-  //                   id: airports[0].id,
-  //                   codename: airports[0].codename,
-  //                 });
-  //                 setAirportId(pickupLocationData.id)
-  //               } else {
-  //                 setAirportsToSelect(airports);
-  //                 setShowAirportSelectionModal(true);
-  //                 // Store coords for later use in modal selection
-  //                 geolocationCoordsRef.current = coords;
-  //               }
-  //             } else {
-  //               setShowOutsideServiceModal(true);
-  //             }
-  //           } catch (err) {
-  //             console.error(
-  //               "Failed to fetch airports for pickup location:",
-  //               err,
-  //             );
-  //             showNotification(
-  //               "Failed to fetch airports for pickup location. Please try again",
-  //               "error",
-  //             );
-  //             // 👇 Notify user — see Step 4 for implementation
-  //             onShowLogin(false); // Placeholder — you’ll replace this with real notification
-  //             // Example: showNotification("Failed to find nearby airport. Please try again.", "error");
-  //           } finally {
-  //             setIsFetchingLocation(false);
-  //           }
-  //         })();
-  //       } else {
-  //         console.warn("Selected pickup place has no geometry.");
-  //       }
-  //     }
-  //   }
-  // }, [isGoogleMapsLoaded]);
+          // Trigger airport lookup using these coords
+          (async () => {
+            setIsFetchingLocation(true);
+            try {
+              const airports = await findNearestAirport(
+                lng,
+                lat,
+                isAuthenticated,
+                token ?? undefined,
+              );
+              if (airports && airports.length > 0) {
+                if (airports.length === 1) {
+                  setPickupLocationData({
+                    name: airports[0].name,
+                    coords,
+                    id: airports[0].id,
+                    codename: airports[0].codename,
+                  });
+                  setAirportId(pickupLocationData.id)
+                } else {
+                  setAirportsToSelect(airports);
+                  setShowAirportSelectionModal(true);
+                  // Store coords for later use in modal selection
+                  geolocationCoordsRef.current = coords;
+                }
+              } else {
+                setShowOutsideServiceModal(true);
+              }
+            } catch (err) {
+              console.error(
+                "Failed to fetch airports for pickup location:",
+                err,
+              );
+              showNotification(
+                "Failed to fetch airports for pickup location. Please try again",
+                "error",
+              );
+              // 👇 Notify user — see Step 4 for implementation
+              onShowLogin(false); // Placeholder — you’ll replace this with real notification
+              // Example: showNotification("Failed to find nearby airport. Please try again.", "error");
+            } finally {
+              setIsFetchingLocation(false);
+            }
+          })();
+        } else {
+          console.warn("Selected pickup place has no geometry.");
+        }
+      }
+    }
+  }, [isGoogleMapsLoaded]);
 
   const handleClearDestination = useCallback(() => {
     setDestinationLocationData({ name: "", coords: null });
@@ -736,66 +736,83 @@ const getEnabledPriceRange = (breakdown: any[]): string => {
 
         <div className="space-y-4">
           {/* Pickup */}
-          
-          {/**/}
-
           <div className="relative">
-            <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border h-14 w-full">
-              <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
-              <input
-                ref={pickupInputRef}
-                type="text"
-                placeholder="Select pickup location"
-                value={
-                  showFetchingUI
-                    ? "Fetching Airports..."
-                    : pickupLocationData.name
-                }
-                onChange={(e) =>
-                  !showFetchingUI &&
-                  setPickupLocationData((prev) => ({
-                    ...prev,
-                    name: e.target.value,
-                  }))
-                }
-                onFocus={() => !showFetchingUI && setPickupOpen(true)}
-                readOnly={showFetchingUI}
-                className={`flex-1 bg-transparent outline-none text-base ${
-                  showFetchingUI
-                    ? "text-achrams-text-secondary italic"
-                    : "text-achrams-text-primary"
-                }`}
-              />
-              <button
-                onClick={() =>
-                  !showFetchingUI && setPickupOpen(!pickupOpen)
-                }
-                disabled={showFetchingUI}
-                className={`p-2 transition-colors ${
-                  showFetchingUI
-                    ? "text-achrams-text-secondary opacity-50 cursor-not-allowed"
-                    : "text-achrams-text-secondary hover:text-achrams-text-primary"
-                }`}
-              >
-                {showFetchingUI ? (
-                  <Loader className="w-5 h-5 animate-spin text-achrams-primary-solid" />
-                ) : pickupOpen ? (
-                  <ChevronDown className="w-5 h-5" />
-                ) : (
-                  <Navigation className="w-5 h-5" />
-                )}
-              </button>
-            </div>
+            {!isGoogleMapsLoaded ? (
+              <div className="flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border">
+                <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
+                <input
+                  type="text"
+                  placeholder="Airport pickup location (Loading...)"
+                  value={pickupLocationData.name}
+                  onChange={() => {}}
+                  className="flex-1 bg-transparent outline-none text-base text-achrams-text-secondary italic "
+                  disabled
+                />
+              </div>
+            ) : (
+              // <StandaloneSearchBox
+              //   onLoad={(ref) => (pickupSearchBoxRef.current = ref)}
+              //   onUnmount={() => (pickupSearchBoxRef.current = null)}
+              //   onPlacesChanged={handlePickupPlaceChanged}
+              // >
+              <div className=" left-0 flex items-center gap-3 bg-achrams-bg-secondary rounded-xl px-4 py-4 border border-achrams-border h-14 w-full">
+                <div className="w-2 h-2 bg-achrams-primary-solid rounded-full" />
+                <input
+                  ref={pickupInputRef}
+                  type="text"
+                  placeholder="Select pickup location"
+                  value={
+                    showFetchingUI
+                      ? "Fetching Airports..."
+                      : pickupLocationData.name
+                  }
+                  onChange={(e) =>
+                    !showFetchingUI &&
+                    setPickupLocationData((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }))
+                  }
+                  onFocus={() => !showFetchingUI && setPickupOpen(true)}
+                  readOnly={showFetchingUI}
+                  className={`flex-1 bg-transparent outline-none text-base ${
+                    showFetchingUI
+                      ? "text-achrams-text-secondary italic"
+                      : "text-achrams-text-primary"
+                  }`}
+                />
+                <button
+                  onClick={() => !showFetchingUI && setPickupOpen(!pickupOpen)}
+                  disabled={showFetchingUI}
+                  className={`p-2 transition-colors ${
+                    showFetchingUI
+                      ? "text-achrams-text-secondary opacity-50 cursor-not-allowed"
+                      : "text-achrams-text-secondary hover:text-achrams-text-primary"
+                  }`}
+                >
+                  {showFetchingUI ? (
+                    <Loader className="w-5 h-5 animate-spin text-achrams-primary-solid" />
+                  ) : pickupOpen ? (
+                    <ChevronDown className="w-5 h-5" />
+                  ) : (
+                    <Navigation className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+              // </StandaloneSearchBox>
+            )}
 
-            {pickupOpen && !showFetchingUI && (
+            {pickupOpen && !showFetchingUI && isGoogleMapsLoaded && (
               <div className="absolute top-full w-full mt-1 bg-white rounded-xl shadow-lg border border-achrams-border z-50 max-h-64 overflow-y-auto">
                 <button
                   onClick={handleUseCurrentLocation}
                   className="w-full px-4 py-3 flex items-center gap-3 hover:bg-achrams-bg-secondary text-left"
                 >
                   <MapPin className="w-5 h-5 text-achrams-primary-solid" />
+                  {/* <span>Use my current location</span> */}
                   <span>See available Airports</span>
                 </button>
+                {/* Optionally: Add "Or type to search" hint */}
               </div>
             )}
           </div>

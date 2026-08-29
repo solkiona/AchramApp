@@ -1,0 +1,3757 @@
+"use client";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import BookingScreen from "@/components/app/screens/BookingScreen";
+import AssigningScreen from "@/components/app/screens/AssigningScreen";
+import DriverAssignedScreen from "@/components/app/screens/DriverAssignedScreen";
+import TripProgressScreen from "@/components/app/screens/TripProgressScreen";
+import TripCompleteScreen from "@/components/app/screens/TripCompleteScreen";
+import TripHistoryScreen from "@/components/app/screens/TripHistoryScreen";
+import TripDetailsScreen from "@/components/app/screens/TripDetailsScreen";
+import WalletScreen from "@/components/app/screens/WalletScreen";
+import SettingsScreen from "@/components/app/screens/SettingsScreen";
+import DashboardScreen from "@/components/app/screens/DashboardScreen";
+import dynamic from "next/dynamic";
+const DirectionsModal = dynamic(
+  () => import("@/components/app/modals/DirectionsModal"),
+  { ssr: false }
+);
+import PassengerDetailsModal from "@/components/app/modals/PassengerDetailsModal";
+import PanicModal from "@/components/app/modals/PanicModal";
+import SignupPromptModal from "@/components/app/modals/SignupPromptModal";
+import OTPModal from "@/components/app/modals/OTPModal";
+import ProfileModal from "@/components/app/modals/ProfileModal";
+import CancelModal from "@/components/app/modals/CancelModal";
+import RateModal from "@/components/app/modals/RateModal";
+import MessageWindowModal from "@/components/app/modals/MessageWindowModal";
+import TripRequestStatusModal from "@/components/app/modals/TripRequestStatusModal";
+import DriverVerificationModal from "@/components/app/modals/DriverVerificationModal";
+import LoginModal from "@/components/app/modals/LoginModal";
+import Enable2FAModal from "@/components/app/modals/Enable2FAModal";
+import Disable2FAModal from "@/components/app/modals/Disable2FAModal";
+import UpdateProfileModal from "@/components/app/modals/UpdateProfileModal";
+import Image from "next/image";
+import { apiClient } from "@/lib/api";
+import TripUpdateNotification from "@/components/app/ui/TripUpdateNotification";
+import BottomNavBar from "@/components/app/ui/BottomNavBar";
+import { findNearestAirport, KNOWN_AIRPORTS } from "@/lib/airports";
+import ReconnectingWebSocket from "reconnecting-websocket";
+import { useJsApiLoader } from "@react-google-maps/api";
+import TripHistoryModal from "@/components/app/modals/TripHistoryModal";
+import TripDetailsModal from "@/components/app/modals/TripDetailModal";
+import LoginOTPModal from "@/components/app/modals/LoginOTPModal";
+import PasswordResetModal from "@/components/app/modals/PasswordResetModal";
+import AccountDeletionModal from "@/components/app/modals/AccountDeletionModal";
+import {useApiErrorHandler} from "@/lib/errors/apiErrorHandler"
+import router from "next/router";
+
+
+type TripStatusValue =
+  | "searching"
+  | "driver_assigned"
+  | "accepted"
+  | "active"
+  | "completed"
+  | "cancelled"
+  | "driver not found";
+
+type TripStatus = {
+  label: string;
+  value: TripStatusValue;
+};
+
+type WebSocketMessage = {
+  event: "trip:assigned" | "trip:status:update" | string;
+  data: any;
+  message_id: string;
+};
+
+type ScreenState =
+  | "booking"
+  | "assigning"
+  | "driver-assigned"
+  | "trip-progress"
+  | "trip-complete"
+  | "dashboard"
+  | "signup-prompt"
+  | "login-modal"
+  | "profile"
+  | "settings";
+
+type Requirements = {
+  luggage: boolean;
+  wheelchair: boolean;
+  elderly: boolean;
+};
+
+type PassengerData = {
+  name: string;
+  phone: string;
+  email: string;
+};
+
+interface PersistedState {
+  screen: ScreenState | null;
+  pickup: string;
+  destination: string;
+  fareEstimate: number | null;
+  driver: any | null;
+  tripProgress: number;
+  pickupCoords: [number, number] | null;
+  destinationCoords: [number, number] | null;
+  verificationCode: string | null;
+  activeTripId: string | null;
+  guestId: string | null;
+  bookAsGuest: boolean;
+}
+
+const saveAppState = (state: PersistedState) => {
+  if (typeof window !== "undefined" && window.sessionStorage) {
+    try {
+      sessionStorage.setItem("achrams_app_state", JSON.stringify(state));
+      console.log("App state saved to sessionStorage", state);
+    } catch (e) {
+      console.error("Failed to save app state to sessionStorage", e);
+    }
+  }
+};
+
+const loadAppState = (): PersistedState | null => {
+  if (typeof window !== "undefined" && window.sessionStorage) {
+    try {
+      const savedStateStr = sessionStorage.getItem("achrams_app_state");
+      if (savedStateStr) {
+        const savedState = JSON.parse(savedStateStr) as PersistedState;
+        console.log("App state loaded from sessionStorage", savedState);
+        return savedState;
+      }
+    } catch (e) {
+      console.error("Failed to load app state from sessionStorage", e);
+    }
+  }
+  return null;
+};
+
+export default function ACHRAMApp() {
+  const { token, isAuthenticated, isLoading: isAuthLoading , checkAuthStatus} = useAuth();
+  
+  const {
+    generalError: bookingGeneralError,
+    fieldErrors: bookingFieldErrors,
+    handleApiError: handleBookingApiError,
+    clearErrors: clearBookingErrors,
+  } = useApiErrorHandler();
+
+  const getBookingFieldError = (fieldName: string): string | undefined => {
+    return bookingFieldErrors[fieldName]?.[0];
+  }
+
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const [screen, setScreen] = useState<ScreenState | null>(null);
+  const [accountData, setAccountData] = useState<any>(null);
+  const [pickup, setPickup] = useState<string>("");
+  const [destination, setDestination] = useState<string>("");
+  const [fareEstimate, setFareEstimate] = useState<number | null>(null);
+  const [fareIsFlatRate, setFareIsFlatRate] = useState<boolean | null>(null);
+  const [driver, setDriver] = useState<any>(null);
+  const [tripProgress, setTripProgress] = useState<number>(0);
+  const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(
+    null
+  );
+  const [driverLocation, setDriverLocation] = useState<[number, number] | null>(
+    null
+  );
+  const [pickupCodename, setPickupCodename] = useState<string | undefined>(
+    undefined
+  );
+  const [destinationCoords, setDestinationCoords] = useState<
+    [number, number] | null
+  >(null);
+  const [routePath, setRoutePath] = useState<google.maps.LatLngLiteral[]>([]);
+  const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
+
+  const [verificationCode, setVerificationCode] = useState<string | null>(null);
+  const [guestId, setGuestId] = useState<string | null>(null);
+  const [activeTripId, setActiveTripId] = useState<string | null>(null);
+  const [webSocketConnection, setWebSocketConnection] =
+    useState<ReconnectingWebSocket | null>(null);
+  const [webSocketStatus, setWebSocketStatus] = useState<
+    "connecting" | "open" | "closed" | "reconnecting"
+  >("closed");
+  const [pollingIntervalId, setPollingIntervalId] =
+    useState<NodeJS.Timeout | null>(null);
+  const [bookAsGuest, setBookAsGuest] = useState(false);
+  const activeTripIdRef = useRef(activeTripId);
+  const activeGuestIdRef = useRef(guestId);
+  const screenRef = useRef(screen);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // const pollingIntervalIdRef = useRef(pollingIntervalId);
+  const [tripHistory, setTripHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    activeTripIdRef.current = activeTripId;
+  }, [activeTripId]);
+
+  useEffect(() => {
+    screenRef.current = screen;
+  }, [screen]);
+
+  useEffect(() => {
+    pollingIntervalRef.current = pollingIntervalId;
+  }, [pollingIntervalId]);
+
+  const screenPaddingClass = isAuthenticated ? "pb-24" : "pb-20";
+
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [is2FAEnabled, setIs2FAEnabled] = useState<boolean>(false);
+  const [showPassengerDetails, setShowPassengerDetails] = useState(false);
+  const [showDirections, setShowDirections] = useState(false);
+  const [showPanic, setShowPanic] = useState(false);
+  const [showSignup, setShowSignup] = useState(false);
+  const [showOTP, setShowOTP] = useState(false);
+  const [otpCountdown, setOtpCountdown] = useState(0);
+  const [signupDataForOtp, setSignupDataForOtp] =
+    useState<PassengerData | null>(null);
+  const [signupPasswordForOtp, setSignupPasswordForOtp] = useState<string>("");
+  const [initialOtpCountdown, setInitialOtpCountdown] = useState<number>(0);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showCancel, setShowCancel] = useState(false);
+  const [showRate, setShowRate] = useState(false);
+  const [showMessage, setShowMessage] = useState(false);
+  const [showTripHistory, setShowTripHistory] = useState(false);
+  const [showTripDetails, setShowTripDetails] = useState(false);
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  const [showWallet, setShowWallet] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showEnable2FA, setShowEnable2FA] = useState(false);
+  const [showDisable2FA, setShowDisable2FA] = useState(false);
+  const [showUpdateProfile, setShowUpdateProfile] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [tripRequestStatus, setTripRequestStatus] = useState<
+    "loading" | "accepted" | "no-driver" | "error" | null
+  >(null);
+  const [tripRequestError, setTripRequestError] = useState<string | null>(null);
+  const [showDriverVerification, setShowDriverVerification] = useState(false);
+  const [resetBookingKey, setResetBookingKey] = useState(0);
+  const [currentNotification, setCurrentNotification] = useState<{
+    message: string;
+    type: "info" | "success" | "warning" | "error";
+  } | null>(null);
+  const [pickupId, setPickupId] = useState<string | null>(null);
+
+  const [passengerLiveLocation, setPassengerLiveLocation] = useState<
+    [number, number] | null
+  >(null);
+
+
+  const [weatherData, setWeatherData] = useState<{
+  temp: number;
+  condition: string; // e.g., 'sunny', 'cloudy', 'rainy'
+  location: string;  // e.g., 'Lagos, Nigeria'
+  humidity?: number;
+  windSpeed?: number;
+} | null>(null);
+
+const [weatherLoading, setWeatherLoading] = useState(false);
+const [weatherError, setWeatherError] = useState<string | null>(null);
+
+
+
+  const [airportPickupArea, setAirportPickupArea] = useState<any>(null);
+
+  const [previousScreen, setPreviousScreen] = useState<ScreenState | null>(
+    null
+  );
+
+  const [show2FAOtpModal, setShow2FAOtpModal] = useState(false);
+  const [pendingLoginCreds, setPendingLoginCreds] = useState<{email: string; password: string} | null>(null)
+
+  // NEW: Add a flag to indicate we are navigating to dashboard with an active trip
+  const [isNavigatingToDashboard, setIsNavigatingToDashboard] = useState(false);
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+  const [showAccountDeletionModal, setShowAccountDeletionModal] = useState(false);
+
+  // New state for initialization status
+  const [initComplete, setInitComplete] = useState(false);
+
+  // Refs for current state
+  const currentAuthStatusRef = useRef(isAuthenticated);
+  const currentTokenRef = useRef(token);
+
+  useEffect(() => {
+    currentAuthStatusRef.current = isAuthenticated;
+    currentTokenRef.current = token;
+  }, [isAuthenticated, token]);
+
+  const preserveBookingContext = () => {
+    console.log("Clearing trip data but preserving booking context for retry");
+    console.log(
+      "Inside preserve booking context, I am setting guest Id to null"
+    );
+
+    setActiveTripId(null);
+    setGuestId(null);
+    setDriver(null);
+    setVerificationCode(null);
+    setTripProgress(0);
+    setFareEstimate(null);
+    setDestination("");
+
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      const currentState = loadAppState();
+      sessionStorage.removeItem("tripData");
+
+      if (currentState) {
+        saveAppState({
+          ...currentState,
+          activeTripId: null,
+          guestId: null,
+          driver: null,
+          verificationCode: null,
+          tripProgress: 0,
+          screen: "booking", // ✅ Go back to booking screen
+        });
+      }
+    }
+
+    setScreen("booking"); // ✅ Show booking screen
+  };
+
+  useEffect(() => {
+    if (screen !== "driver-assigned" && screen !== "trip-progress" && screen !== 'dashboard') return;
+
+    let watchId: number;
+
+    // const startWatchingLocation = () => {
+    //   if (navigator.geolocation) {
+    //     watchId = navigator.geolocation.watchPosition(
+    //       (position) => {
+    //         const { longitude, latitude } = position.coords;
+    //         setPassengerLiveLocation([latitude, longitude]);
+    //         console.log("Passenger location updated:", [longitude, latitude]);
+    //       },
+    //       (error) => {
+    //         console.error("Error watching passenger location:", error);
+    //       },
+    //       {
+    //         enableHighAccuracy: true,
+    //         maximumAge: 5000,
+    //         timeout: 10000,
+    //       }
+    //     );
+    //   }
+    // };
+
+    const startWatchingLocation = async () => {
+  if (!navigator.geolocation) return;
+
+  try {
+    // Step 1: Get one accurate position first (waits for good GPS lock)
+    const initialPosition = await new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        maximumAge: 5000,
+        timeout: 20000, // Give GPS time to warm up
+      });
+    });
+
+    const { longitude, latitude } = initialPosition.coords;
+    setPassengerLiveLocation([latitude, longitude]);
+    console.log("Initial accurate location:", [longitude, latitude]);
+
+    // Step 2: Now start watching with tighter settings
+    watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const { longitude, latitude, accuracy } = position.coords;
+        
+        if (accuracy <= 50) {
+          setPassengerLiveLocation([latitude, longitude]);
+          console.log("Updated location:", [longitude, latitude]);
+        }
+      },
+      (error) => {
+        console.error("Error watching location:", error);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 15000,
+      }
+    );
+  } catch (error) {
+    console.error("Failed to get initial location:", error);
+  }
+};
+
+    startWatchingLocation();
+
+    return () => {
+      if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [screen]);
+
+  const activeTripForDashboard = useMemo(() => {
+    //if(activeTripId && driver){...}
+    if (activeTripId) {
+      return {
+        id: activeTripId,
+        status:
+          previousScreen === "trip-progress"
+            ? "In Progress"
+            : previousScreen === "driver-assigned"
+            ? "Driver Assigned"
+            : previousScreen === "assigning"
+            ? "Assigning"
+            : previousScreen === "trip-complete" 
+            ? "Completed"
+            : "Unknown",
+        driver: driver,
+        destination: destination,
+      };
+    }
+
+    return null;
+  }, [activeTripId, driver, screen, destination]);
+
+  const initializeAppState = useCallback(async () => {
+    if (!hasHydrated || isAuthLoading) {
+      console.log(
+        "initializeAppState: Waiting for hydration or auth loading to complete."
+      );
+      return;
+    }
+
+    console.log("Initializing app state after hydration and auth check...");
+
+    // Load persisted state (includes screen, trip data, guestId, activeTripId, bookAsGuest flag)
+    const savedState = loadAppState();
+
+    // Load persisted trip data (pickup, destination, passenger details, requirements)
+    const savedTripDataStr = sessionStorage.getItem("tripData");
+    let savedTripData = null;
+    if (savedTripDataStr) {
+      try {
+        savedTripData = JSON.parse(savedTripDataStr);
+        console.log("Restored tripData from sessionStorage:", savedTripData);
+      } catch (e) {
+        console.error("Failed to parse tripData from sessionStorage:", e);
+        // Optionally clear corrupted data
+        sessionStorage.removeItem("tripData");
+      }
+    }
+
+    // --- Restore State from savedTripData (if available) ---
+    if (savedTripData) {
+      setPickup(savedTripData.pickup_address || "");
+      setDestination(savedTripData.destination_address || "");
+      setFareEstimate(parseFloat(savedTripData.amount?.amount) || null);
+      setPickupCoords(savedTripData.pickup_location || null);
+      setDestinationCoords(savedTripData.destination_location || null);
+      setRequirements({
+        luggage: savedTripData.has_extra_luggage || false,
+        wheelchair: savedTripData.has_wheel_chair_access || false,
+        elderly: savedTripData.has_extra_leg_room || false,
+      });
+      // Only restore passenger data if it's present in the saved data (relevant for guest/booking-as-guest)
+      if (
+        savedTripData.guest_name ||
+        savedTripData.guest_email ||
+        savedTripData.guest_phone
+      ) {
+        setPassengerData({
+          name: savedTripData.guest_name || passengerData.name, // Fallback to existing state
+          phone: savedTripData.guest_phone || passengerData.phone,
+          email: savedTripData.guest_email || passengerData.email,
+        });
+      }
+    }
+
+    // --- Determine Booking Mode and Restore Session ---
+    if (savedState) {
+      // Restore the booking mode flag from the saved state
+      setBookAsGuest(savedState.bookAsGuest || false);
+
+      const isTransitRoute = typeof window !== 'undefined' && /^\/trips\/transit\/[a-zA-Z0-9_-]+$/.test(window.location.pathname);
+
+      // Scenario 1: Authenticated User with Active Trip
+      if (isAuthenticated) {
+        console.log(
+          "User is authenticated, checking for stored active trip ID..."
+        );
+        if (savedState.bookAsGuest || savedState.activeTripId) {
+          console.log(
+            "Found stored active trip ID for authenticated user:",
+            savedState.activeTripId
+          );
+          setActiveTripId(savedState.activeTripId);
+
+          setDriver(savedState.driver);
+          console.log("Driver object", driver);
+
+          try {
+            // Determine the correct API call based on the saved booking mode (bookAsGuest flag)
+            let response;
+            if (savedState.bookAsGuest) {
+              console.log(
+                "Initializing as authenticated user who booked as guest. Fetching trip via guest endpoint with guestId:",
+                savedState.guestId
+              );
+
+              setGuestId(savedState.guestId || null);
+
+              // Ensure guest ID is cleared for authenticated users (unless they booked as guest)
+              if (!savedState.guestId) {
+                throw new Error(
+                  "bookAsGuest is true but guestId is missing from saved state."
+                );
+              }
+              // Use guest endpoint with guestId, but isGuest=true flag
+              response = await apiClient.get(
+                `/trips/${savedState.guestId}`, // Use guestId to identify the trip session
+                undefined, // token (not directly used for guest calls, cookie handles auth if needed, but guestId takes precedence here)
+                true, // isGuest = true (CRITICAL: Uses X-Guest-Id header)
+                savedState.guestId // guestId (CRITICAL: Passed as the guest identifier)
+              );
+            } else {
+              setGuestId(null);
+
+              console.log(
+                "Initializing as authenticated user who booked normally. Fetching trip via auth endpoint with tripId:",
+                savedState.activeTripId
+              );
+              // Use authenticated endpoint with tripId, isAuthRequest=true flag
+              response = await apiClient.get(
+                `/trips/${savedState.activeTripId}`, // Use the specific tripId
+                undefined, // token (not directly needed, cookie handles auth)
+                false, // isGuest = false
+                undefined, // guestId (not needed for auth)
+                true // isAuthRequest = true (CRITICAL: enables cookie)
+              );
+            }
+
+            if (response.status === "success" && response.data) {
+              const trip = response.data;
+              console.log(
+                "Fetched trip status for user (booked as guest?",
+                !!savedState.bookAsGuest,
+                "):",
+                trip
+              );
+
+              if(savedState.bookAsGuest){
+                if (!window.location.pathname.startsWith('/trips/transit/')) {
+                  window.history.replaceState(null, '', `/trips/transit/${trip?.guest.id}`);
+                  console.log('Updated URL to deep link:', `/trips/transit/${trip?.guest?.id}`);
+                }
+              }
+
+              if (trip?.map_data?.airport?.pickup_area) {
+                setAirportPickupArea(trip.map_data.airport.pickup_area);
+              }
+
+              // Set up trip state based on fetched data (common for both modes)
+              setDriver(trip.driver || null);
+              setPickup(trip.pickup_address || "");
+
+              setActiveTripId(trip.id)
+
+              console.log(
+                "Setting Pickup address: ",
+                pickup,
+                destinationCoords,
+                verificationCode,
+                trip.pickup_address
+              );
+              setDestination(trip.destination_address || "");
+              setFareEstimate(
+                trip.amount?.amount ? parseFloat(trip.amount.amount) : null
+              );
+              setPickupCoords(
+                trip.map_data.pickup_location.geometry.coordinates || null
+              );
+              console.log("Pickup coords", pickupCoords);
+              setDestinationCoords(
+                trip.map_data.destination_location.geometry.coordinates || null
+              );
+              setVerificationCode(trip.verification_code || null);
+              setTripProgress(trip.progress || 0);
+
+              // Determine screen based on fetched trip status (common logic)
+
+              if (
+                savedState.bookAsGuest &&
+                savedState.guestId &&
+                savedState.activeTripId
+              ) {
+                console.log(
+                  "Resuming WebSocket for authenticated user who booked as guest."
+                );
+                startWebSocketConnection(
+                  savedState.guestId,
+                  savedState.activeTripId
+                ); // Use guest connection logic
+              } else if (savedState.activeTripId) {
+                // For normal auth booking
+                console.log(
+                  "Resuming WebSocket for authenticated user who booked normally."
+                );
+                startWebSocketConnectionForAuthUser(savedState.activeTripId); // Use auth connection logic
+              }
+
+              if (["searching"].includes(trip.status.value)) {
+                setScreen("assigning");
+                // Start WebSocket based on the booking mode stored in savedState
+              } else if (trip.status.value === "accepted") {
+                console.log(
+                  "Resuming WebSocket for authenticated user who booked normally."
+                );
+                // startWebSocketConnectionForAuthUser(savedState.activeTripId);
+                setScreen("driver-assigned");
+              } else if (trip.status.value === "driver not found") {
+                console.log(
+                  "Setting screen to assigning due to driver not found."
+                );
+                setScreen("assigning"); // Or maybe "booking"? Depends on UX
+                stopWebSocketConnection();
+                stopPollingTripStatus();
+                setTripRequestStatus("no-driver");
+                setTripRequestError(`No drivers available for your trip.`);
+              } else if (trip.status.value === "active") {
+                // console.log("Resuming WebSocket for authenticated user who booked normally.");
+                // startWebSocketConnectionForAuthUser(savedState.activeTripId);
+                setScreen("trip-progress");
+              } else if (trip.status.value === "completed") {
+                setScreen("trip-complete");
+              } else if (trip.status.value === "cancelled") {
+                console.log(
+                  "Stored trip was cancelled, clearing ID and going to dashboard."
+                );
+
+                setActiveTripId(null);
+                preserveBookingContext();
+
+                if (typeof window !== "undefined" && window.sessionStorage) {
+                  // Clear trip-specific data
+                  sessionStorage.removeItem("tripData");
+                  // Optionally clear general app state if trip completion means session end
+                  // saveAppState({ ...savedState, activeTripId: null, guestId: null, screen: "dashboard" });
+                }
+                setScreen("dashboard");
+              } else {
+                console.warn(
+                  "Unexpected trip status for user (booked as guest?",
+                  !!savedState.bookAsGuest,
+                  "):",
+                  trip.status
+                );
+                setScreen("dashboard"); // Default fallback
+              }
+            } else {
+              console.error(
+                "Error or trip not found when fetching user's trip (booked as guest?",
+                !!savedState.bookAsGuest,
+                "):",
+                response
+              );
+              // Clear the stored trip ID as it's no longer valid
+              setActiveTripId(null);
+              sessionStorage.removeItem("tripData");
+              setScreen("dashboard");
+            }
+          } catch (error) {
+            console.error(
+              "Error fetching user's trip status (booked as guest?",
+              !!savedState.bookAsGuest,
+              "):",
+              error
+            );
+            setActiveTripId(null);
+            sessionStorage.removeItem("tripData");
+            setScreen("dashboard");
+          }
+        } else {
+          // No stored active trip ID for authenticated user, go to dashboard
+          console.log(
+            "No stored active trip ID for authenticated user, going to dashboard..."
+          );
+          setScreen("dashboard");
+        }
+      } else {
+        // Scenario 2 & 3: Guest User 
+        console.log(
+          "User is not authenticated OR was booking as guest, restoring guest session..."
+        );
+        console.log("Guest ID from session:", savedState.guestId);
+
+        // Check if the guest has an active trip in progress using guestId endpoint
+        if (isTransitRoute && savedState.guestId) {
+          console.log(
+            "Attempting to verify guest trip status for guest ID:",
+            savedState.guestId
+          );
+          setDriver(savedState.driver);
+
+          try {
+            
+            const response = await apiClient.get(
+              `/trips/${savedState.guestId}`, // Use guestId for guest status check
+              undefined, // token (not needed for guest flow)
+              true, // isGuest = true (CRITICAL: Uses X-Guest-Id header)
+              savedState.guestId // guestId (CRITICAL: Passed as the guest identifier)
+            );
+
+            if (response.status === "success" && response.data) {
+              const trip = response.data;
+              console.log(
+                "Guest trip status fetch was successful: ",
+                response.data
+              );
+
+              // Update activeTripId from the fetched trip data (in case it changed or was set during booking)
+
+              if (trip?.map_data?.airport?.pickup_area) {
+                setAirportPickupArea(trip.map_data.airport.pickup_area);
+              }
+
+              setActiveTripId(trip.id);
+              // Ensure guestId is set from the saved state
+              setGuestId(savedState.guestId);
+
+              // Set up trip state based on fetched data (common for guest modes)
+              setDriver(trip.driver || null);
+              setPickup(trip.pickup_address || "");
+              setDestination(trip.destination_address || "");
+              setFareEstimate(
+                trip.amount?.amount ? parseFloat(trip.amount.amount) : null
+              );
+              console.log(
+                "setting pickupcoords from refresh request",
+                trip.pickup_location
+              );
+              setPickupCoords(
+                trip.map_data.pickup_location.geometry.coordinates || null
+              );
+              console.log("Pickup coords", pickupCoords);
+              setDestinationCoords(
+                trip.map_data.destination_location.geometry.coordinates || null
+              );
+              setVerificationCode(trip.verification_code || null);
+              setTripProgress(trip.progress || 0);
+
+              // Determine screen based on fetched trip status (common logic for guest modes)
+              if (trip.status.value === "searching") {
+                setScreen("assigning");
+                startWebSocketConnection(savedState.guestId, trip.id); // Start guest WebSocket
+              } else if (trip.status.value === "driver not found") {
+                console.log(
+                  "Setting screen to assigning due to driver not found."
+                );
+                setScreen("assigning"); // Or maybe "booking"? Depends on UX
+                stopWebSocketConnection();
+                stopPollingTripStatus();
+                setTripRequestStatus("no-driver");
+                setTripRequestError(`No drivers available for your trip.`);
+                // Consider preserving booking context if needed
+                // preserveBookingContext();
+              } else if (
+                ["accepted", "driver_assigned"].includes(trip.status.value)
+              ) {
+                setScreen("driver-assigned");
+                startWebSocketConnection(savedState.guestId, trip.id); // Start guest WebSocket
+              } else if (trip.status.value === "active") {
+                setScreen("trip-progress");
+                startWebSocketConnection(savedState.guestId, trip.id); // Start guest WebSocket
+              } else if (trip.status.value === "completed") {
+                setScreen("trip-complete");
+                // Optional: preserveBookingContext(); // If relevant after completion
+              } else if (trip.status.value === "cancelled") {
+                // Clear storage and go back to booking
+                preserveBookingContext(); // This function should clear trip IDs and guest ID
+              } else {
+                // Unknown status, go to dashboard
+                console.log(
+                  "Setting screen to dashboard due to unknown trip status."
+                );
+                setScreen("dashboard");
+              }
+            } else {
+              // Trip not found or error for guest
+              console.log(
+                "Trip not found or error for guest ID, going to booking. Response:",
+                response
+              );
+              setScreen("booking");
+              preserveBookingContext(); // Clear trip IDs and guest ID
+            }
+          } catch (error) {
+            console.error("Error verifying guest trip status:", error);
+            setScreen("booking");
+            preserveBookingContext(); // Clear trip IDs and guest ID
+          }
+        } else {
+          // NOT on deep link → clear any accidental guest state
+          console.log("Not on deep link — clearing guest trip state if present.");
+          if (savedState.guestId || savedState.activeTripId) {
+            // Keep booking context (pickup/dest) but clear trip IDs
+            saveAppState({
+              ...savedState,
+              guestId: null,
+              activeTripId: null,
+              driver: null,
+              verificationCode: null,
+              tripProgress: 0,
+              screen: "booking",
+            });
+            // Also update local state
+            setGuestId(null);
+            setActiveTripId(null);
+            setDriver(null);
+            setVerificationCode(null);
+            setTripProgress(0);
+          }
+          setScreen("booking");
+        }
+      }
+    } else {
+      // Scenario 4: No saved state at all
+      // No saved state, go to booking or dashboard based on auth status
+      console.log("No saved state found.");
+      if (isAuthenticated) {
+        console.log("user is authenticated, so let us take him to dashboard");
+        setScreen("dashboard");
+      } else {
+        console.log('setting screen to booking from initialize app state else condition')
+        setScreen("booking");
+      }
+      // Reset bookAsGuest flag if there's no saved state indicating it was set
+      setBookAsGuest(false);
+    }
+
+    // Mark initialization as complete
+    setInitComplete(true);
+  }, [hasHydrated, isAuthLoading, isAuthenticated, token]); // Dependency array
+
+  // Initialize app state after hydration AND auth loading is complete
+  useEffect(() => {
+    // This effect now runs when hydration or auth loading state changes
+    // It will call initializeAppState which checks both flags internally
+    initializeAppState();
+  }, [initializeAppState]); // Depend only on the function itself
+
+  // Hydration effect
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setHasHydrated(true);
+    }
+  }, []);
+
+  // Fetch user profile when authenticated
+  useEffect(() => {
+    if (hasHydrated && isAuthenticated) {
+      const fetchAccountData = async () => {
+        try {
+          console.log("Fetching account data from /auth/passenger/me...");
+          // Use your existing apiClient, ensuring it's configured for authenticated requests
+          const response = await apiClient.get(
+            "/auth/passenger/me",
+            undefined,
+            false,
+            undefined,
+            true
+          );
+
+          console.log("Account data API response:", response); // Debug log
+
+          if (response.status === "success" && response.data) {
+            setAccountData(response.data); // Store the entire data object
+
+            // Derive and set the wallet balance and 2FA status from the response
+            const balanceAmount =
+              response.data.profile?.wallet?.balance?.amount ?? 0;
+            setWalletBalance(balanceAmount);
+
+            const is2FAEnabled = response.data.is_2fa_enabled ?? false;
+            setIs2FAEnabled(is2FAEnabled);
+
+            console.log("Account data fetched and state updated:", {
+              balance: balanceAmount,
+              is2FA: is2FAEnabled,
+              // name: response.data.name
+            });
+          } else {
+            console.error(
+              "API response for account data was not successful:",
+              response
+            );
+            // Optionally set default values or handle error state
+            setWalletBalance(0);
+            setIs2FAEnabled(false);
+            setCurrentNotification({
+              message: response.message || "Failed to load profile data.",
+              type: "error",
+            });
+            // Potentially logout or navigate to an error state
+          }
+        } catch (err) {
+          console.error("Failed to fetch user account data:", err);
+          // Handle error, maybe show notification, potentially logout
+          setWalletBalance(0);
+          setIs2FAEnabled(false);
+          setCurrentNotification({
+            message:
+              "Failed to load profile data. Please check your connection.",
+            type: "error",
+          });
+          // Optionally logout or navigate to an error state
+          // Example: preserveBookingContext(); window.location.href = "/auth/login";
+        }
+      };
+
+      fetchAccountData();
+    } else if (hasHydrated && !isAuthenticated) {
+      // If user is no longer authenticated, clear the account data
+      console.log("User is not authenticated, clearing account data.");
+      setAccountData(null);
+      setWalletBalance(0);
+      setIs2FAEnabled(false);
+    }
+  }, [hasHydrated, isAuthenticated]);
+
+  // Handle trip completion
+  useEffect(() => {
+    if (screen === "trip-complete") {
+      if (isAuthenticated) {
+        // Authenticated user completes trip
+        console.log("user is authenticated no need to prompt signup");
+      } else {
+        const timer = setTimeout(() => {
+          setShowSignup(true);
+        }, 1500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [screen]);
+
+  const [passengerData, setPassengerData] = useState<PassengerData>({
+    name: "",
+    phone: "",
+    email: "",
+  });
+
+  const [requirements, setRequirements] = useState<Requirements>({
+    luggage: false,
+    wheelchair: false,
+    elderly: false,
+  });
+
+  const showNotification = useCallback(
+    (
+    message: string,
+    type: "info" | "success" | "warning" | "error"
+  ) => {
+    setCurrentNotification({ message, type });
+    setTimeout(() => {
+      setCurrentNotification(null);
+    }, 5000);
+  }
+    ,[]
+  )
+  
+  console.log("Page.tsx is being rendered Now")
+
+  const [driverDistance, setDriverDistance] = useState<string | null>(null);
+  const [driverDuration, setDriverDuration] = useState<string | null>(null);
+  const [isDriverAtPickupArea, setIsDriverAtPickupArea] =
+    useState<boolean>(false);
+  const directionsServiceRef = useRef<google.maps.DirectionsService | null>(
+    null
+  );
+
+  const driverDurationRef = useRef<number | null>(null);
+  const driverDistanceRef = useRef<number | null>(null);
+  // NEW: Ref to track if driver has arrived (to show notification only once)
+  const isDriverAtPickupAreaRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    // Only run if screen is driver-assigned, driver location is available, and pickup is known
+    if (
+      screen !== "driver-assigned" ||
+      !driver?.location ||
+      !pickupCoords ||
+      !window.google?.maps
+    ) {
+      // Reset state if conditions are not met
+      setDriverDistance(null);
+      setDriverDuration(null);
+      setIsDriverAtPickupArea(false);
+      return;
+    }
+
+    const [driverLng, driverLat] = driver.location; // [lng, lat] from WebSocket
+    const [pickupLng, pickupLat] = pickupCoords; // [lng, lat] from state
+
+    // Check if driver is within the pickup area polygon
+    if (airportPickupArea?.geometry?.coordinates) {
+      const polygonCoords = airportPickupArea.geometry.coordinates[0]; // Assuming simple polygon
+      const polygon = new google.maps.Polygon({
+        paths: polygonCoords.map((coord: number[]) => ({
+          lat: coord[1],
+          lng: coord[0],
+        })),
+      });
+      const driverLatLng = new google.maps.LatLng(driverLat, driverLng); // [lat, lng] for Google Maps
+      const isInside = google.maps.geometry.poly.containsLocation(
+        driverLatLng,
+        polygon
+      );
+      setIsDriverAtPickupArea(isInside);
+
+      if (isInside) {
+        // Driver is inside the polygon, show arrival notification once
+        // Use a ref to ensure notification is only shown once per arrival
+        if (!isDriverAtPickupAreaRef.current) {
+          // Assume isDriverAtPickupAreaRef is a ref tracking the previous state
+          showNotification("Driver has arrived at the pickup area!", "success");
+          isDriverAtPickupAreaRef.current = true; // Update the ref
+          // Potentially transition screen or stop further distance checks
+          // setScreen("trip-progress"); // Uncomment if auto-transition is desired upon arrival
+        }
+        return; // Stop further processing if arrived
+      } else {
+        isDriverAtPickupAreaRef.current = false; // Reset ref if driver leaves
+      }
+    }
+
+    // Calculate directions if not arrived yet
+    if (!isDriverAtPickupArea) {
+      if (!directionsServiceRef.current) {
+        directionsServiceRef.current = new google.maps.DirectionsService();
+      }
+
+      const request: google.maps.DirectionsRequest = {
+        origin: new google.maps.LatLng(driverLat, driverLng), // Driver's current location [lat, lng]
+        destination: new google.maps.LatLng(pickupLat, pickupLng), // Pickup location [lat, lng]
+        travelMode: google.maps.TravelMode.DRIVING,
+      };
+
+      directionsServiceRef.current.route(request, (result, status) => {
+        if (
+          status === google.maps.DirectionsStatus.OK &&
+          result &&
+          result.routes.length > 0
+        ) {
+          const route = result.routes[0];
+          const leg = route.legs[0]; // Assuming single leg
+
+          const newDistance = leg.distance?.text || "Unknown";
+          const newDuration = leg.duration?.text || "Unknown";
+
+          // NEW: Throttle/Debounce notifications based on significant changes
+          // Example: Only notify if duration changes by more than 1 minute or distance by more than 0.5km
+          const durationThreshold = 60; // 1 minute in seconds
+          const distanceThreshold = 500; // 0.5 km in meters
+
+          const durationValue = leg.duration?.value || 0;
+          const distanceValue = leg.distance?.value || 0;
+
+          // Compare with previous values if they exist
+          if (
+            driverDurationRef.current !== null &&
+            driverDistanceRef.current !== null
+          ) {
+            const prevDurationValue = driverDurationRef.current; // Assume this is stored in seconds
+            const prevDistanceValue = driverDistanceRef.current; // Assume this is stored in meters
+
+            const durationChange = Math.abs(durationValue - prevDurationValue);
+            const distanceChange = Math.abs(distanceValue - prevDistanceValue);
+
+            if (
+              durationChange >= durationThreshold ||
+              distanceChange >= distanceThreshold
+            ) {
+              // Determine notification type based on remaining time/distance
+              let notificationType: "info" | "success" | "warning" | "error" =
+                "info";
+              let message = `Driver is ${newDistance} away, ETA ${newDuration}`;
+
+              if (durationValue < 120) {
+                // Less than 2 mins
+                notificationType = "success";
+                message = "Driver is very close!";
+              } else if (durationValue < 300) {
+                // Less than 5 mins
+                notificationType = "info";
+                message = `Driver is ${newDistance} away, ETA ${newDuration}`;
+              } else if (durationValue > 600) {
+                // More than 10 mins
+                notificationType = "warning";
+                message = `Driver is ${newDistance} away, ETA ${newDuration}. This is longer than usual.`;
+              }
+
+              showNotification(message, notificationType);
+            }
+          } else {
+            // Initial update or no previous data, always show
+            let notificationType: "info" | "success" | "warning" | "error" =
+              "info";
+            let message = `Driver is ${newDistance} away, ETA ${newDuration}`;
+            if (durationValue < 120) {
+              notificationType = "success";
+              message = "Driver is very close!";
+            }
+            showNotification(message, notificationType);
+          }
+
+          // Update state and refs with new values
+          setDriverDistance(newDistance);
+          setDriverDuration(newDuration);
+          driverDurationRef.current = durationValue; // Store value for comparison
+          driverDistanceRef.current = distanceValue; // Store value for comparison
+        } else {
+          console.warn("Directions request failed:", status, result);
+          setDriverDistance("Unknown");
+          setDriverDuration("Unknown");
+          // Optionally show an error notification
+          // showNotification("Could not calculate distance to pickup.", "error");
+        }
+      });
+    }
+  }, [
+    screen,
+    driver?.location,
+    pickupCoords,
+    airportPickupArea,
+    isDriverAtPickupArea,
+  ]); // Dependency array
+
+  // Save app state whenever it changes (only after hydration)
+  useEffect(() => {
+    if (hasHydrated && screen !== null) {
+      const screenToSave =
+        isNavigatingToDashboard && previousScreen ? previousScreen : screen;
+
+      const stateToSave: PersistedState = {
+        screen: screenToSave,
+        pickup,
+        destination,
+        fareEstimate,
+        driver,
+        tripProgress,
+        pickupCoords,
+        destinationCoords,
+        verificationCode,
+        activeTripId,
+        guestId,
+        bookAsGuest,
+      };
+
+      console.log("Saving app state with screen:", screenToSave); // Debug log
+
+      saveAppState(stateToSave);
+
+      if (isNavigatingToDashboard) {
+        setIsNavigatingToDashboard(false);
+      }
+    }
+  }, [
+    screen,
+    pickup,
+    destination,
+    fareEstimate,
+    driver,
+    tripProgress,
+    pickupCoords,
+    destinationCoords,
+    verificationCode,
+    activeTripId,
+    guestId,
+    bookAsGuest,
+    hasHydrated,
+    isNavigatingToDashboard, // Depend on the navigation flag
+    previousScreen, // Depend on the previous screen
+  ]);
+
+  const handleRegistrationSuccess = (email: string) => {
+    console.log("setting screen to dashboard six");
+    setScreen("dashboard");
+    setShowSignup(false);
+  };
+
+  const handleLoginSuccess = () => {
+    console.log(
+      "login successful, Authcontext should update. Screen will update via useEffect"
+    );
+    showNotification("Welcome Back!", "success");
+    setShowLogin(false);
+  };
+
+  const handleLogoutSuccess = () => {
+    console.log(
+      "Logout successful, Authcontext should update. Screen will update via useEffect"
+    );
+    showNotification("You have been logged out.", "info");
+
+    preserveBookingContext();
+  };
+
+  const handle2FAEnabled = () => {
+    setIs2FAEnabled(true);
+    setShowEnable2FA(false);
+    showNotification(
+      "Two-factor authentication enabled successfully!",
+      "success"
+    );
+  };
+
+  const handle2FADisabled = () => {
+    setIs2FAEnabled(false);
+    setShowDisable2FA(false);
+    showNotification("Two-factor authentication disabled.", "info");
+  };
+
+  const handleProfileUpdated = (updatedData: any) => {
+    setPassengerData(updatedData);
+    setShowUpdateProfile(false);
+    showNotification("Profile updated successfully!", "success");
+  };
+
+  const handleProceed = () => {
+    if (fareEstimate && pickup && destination) {
+      setShowPassengerDetails(true);
+    }
+  };
+
+  const formatPhoneNumber = (input: string): string => {
+    const digitsOnly = input.replace(/\D/g, "");
+    if (digitsOnly.startsWith("0")) {
+      return `+234${digitsOnly.slice(1)}`;
+    }
+    if (digitsOnly.startsWith("234")) {
+      return `+${digitsOnly}`;
+    }
+    if (digitsOnly.startsWith("+")) {
+      return digitsOnly;
+    }
+    if (digitsOnly.length === 11) {
+      return `+234${digitsOnly.slice(1)}`;
+    }
+    return digitsOnly;
+  };
+
+  const [bookTripRetry, setBookTripRetry]  = useState(false);
+
+  const handleRequestRide = async () => {
+    // Check if tripData exists in sessionStorage
+
+    
+
+    let tripData: any = null;
+
+    if (typeof window !== "undefined" && window.sessionStorage && tripRequestStatus === "no-driver")
+       {
+      const savedTripData = sessionStorage.getItem("tripData");
+      if (savedTripData) {
+        tripData = JSON.parse(savedTripData);
+        console.log("Using existing tripData from sessionStorage:", tripData);
+      }
+    }
+
+    // If tripData exists, skip validation and use it directly
+    if (!tripData) {
+      // Validate passenger details
+      if (bookAsGuest || !isAuthenticated) {
+        if (
+          !passengerData.name ||
+          !passengerData.phone ||
+          !passengerData.email
+        ) {
+          showNotification("Please fill all passenger details.", "error");
+          return;
+        }
+      }
+
+      // Validate pickup and destination locations
+      if (!pickupCoords || !destinationCoords) {
+        showNotification(
+          "Pickup and destination locations are required.",
+          "error"
+        );
+        return;
+      }
+
+      // Build tripData if it doesn't exist in sessionStorage
+      let airportId: string | null = null;
+      if (pickup.startsWith("Use my current location")) {
+        const nearestAirports = await findNearestAirport(
+          pickupCoords[0],
+          pickupCoords[1]
+        );
+        if (!nearestAirports || !nearestAirports.length) {
+          setTripRequestStatus("error");
+          setTripRequestError(
+            "You're outside our service area. Booking not available from this location."
+          );
+          return;
+        }
+        const selectedAirport = nearestAirports.find(
+          (apt) => apt.name === pickup
+        );
+        if (!selectedAirport) {
+          console.error(
+            "Selected pickup name does not match any fetched airport:",
+            pickup,
+            nearestAirports
+          );
+          setTripRequestStatus("error");
+          setTripRequestError(
+            "Could not confirm selected pickup location. Please try again."
+          );
+          return;
+        }
+        airportId = selectedAirport.id;
+      } else if (pickup in KNOWN_AIRPORTS) {
+        airportId = KNOWN_AIRPORTS[pickup];
+      } else {
+        const nearestAirports = await findNearestAirport(
+          pickupCoords[0],
+          pickupCoords[1]
+        );
+        if (!nearestAirports || !nearestAirports.length) {
+          setTripRequestStatus("error");
+          setTripRequestError(
+            "Pickup location is not near a supported airport."
+          );
+          return;
+        }
+        const selectedAirport = nearestAirports.find(
+          (apt) => apt.name === pickup
+        );
+        if (selectedAirport) {
+          airportId = selectedAirport.id;
+        } else {
+          console.warn(
+            "Typed pickup name did not match any fetched airport name, using first result.",
+            pickup,
+            nearestAirports
+          );
+          airportId = nearestAirports[0].id;
+        }
+      }
+
+      if (!airportId) {
+        console.error("Airport ID not available for booking.");
+        showNotification(
+          "Failed to confirm pickup location. Please try again.",
+          "error"
+        );
+        return;
+      }
+
+      tripData = {
+        amount: {
+          amount: fareEstimate?.toString() || "0",
+          currency: "NGN",
+        },
+        airport: airportId,
+        ...(bookAsGuest || !isAuthenticated
+          ? {
+              guest_name: passengerData.name,
+              guest_email: passengerData.email,
+              guest_phone: formatPhoneNumber(passengerData.phone),
+            }
+          : {}),
+
+        has_extra_leg_room: requirements.elderly,
+        has_extra_luggage: requirements.luggage,
+        has_wheel_chair_access: requirements.wheelchair,
+        pickup_address: pickup,
+        pickup_location: pickupCoords,
+        destination_address: destination,
+        destination_location: destinationCoords,
+      };
+
+      console.log("Request Data:", tripData);
+
+      // Persist tripData to sessionStorage
+      if (typeof window !== "undefined" && window.sessionStorage) {
+        sessionStorage.setItem("tripData", JSON.stringify(tripData));
+        console.log("Trip data saved to sessionStorage:", tripData);
+      }
+    }
+
+    // Proceed with the ride request
+    // setShowPassengerDetails(false);
+    clearBookingErrors();
+    setTripRequestStatus("loading");
+    setTripRequestError(null);
+
+    try {
+      let response;
+      if (!bookAsGuest && isAuthenticated) {
+        console.log("Booking as an authenticated user");
+        response = await apiClient.post(
+          "/trips",
+          tripData,
+          undefined,
+          undefined,
+          true
+        );
+      } else {
+        // Guest user - use guest booking endpoint
+        response = await apiClient.post("/trips/guest-booking", tripData);
+      }
+
+      console.log("Raw API Response:", response);
+
+      if (response.status === "success" && response.data) {
+
+        
+        
+        const trip = response.data;
+        setShowPassengerDetails(false);
+        const extractedGuestId = trip.guest?.id;
+        if(extractedGuestId){
+          setGuestId(extractedGuestId);
+        }
+        if (bookAsGuest || !isAuthenticated && extractedGuestId) {
+          // Guest user
+          // if (!extractedGuestId) {
+          //   console.error(
+          //     "Guest ID not found in booking response, cannot start WebSocket."
+          //   );
+          //   setTripRequestStatus("error");
+          //   setTripRequestError(
+          //     "Failed to get guest session. Booking cancelled."
+          //   );
+          //   return;
+          // }
+
+          if (bookTripRetry || !window.location.pathname.startsWith('/trips/transit/')) {
+            window.history.replaceState(null, '', `/trips/transit/${extractedGuestId}`);
+            console.log('Updated URL to deep link:', `/trips/transit/${extractedGuestId}`);
+          }
+
+          console.log("Trip data received:", trip);
+          console.log("Guest ID received:", extractedGuestId);
+
+          if (trip?.map_data?.airport?.pickup_area) {
+            setAirportPickupArea(trip.map_data.airport.pickup_area);
+          }
+
+          setVerificationCode(trip.verification_code || "");
+          setActiveTripId(trip.id);
+          setGuestId(extractedGuestId);
+
+          if (trip.status.value === "searching") {
+            setTripRequestStatus(null);
+            setScreen("assigning");
+            startWebSocketConnection(extractedGuestId, trip.id);
+          } else if (trip.status.value === "driver_assigned" && trip.driver) {
+            setDriver(trip.driver);
+            setTripRequestStatus(null);
+            setScreen("driver-assigned");
+          } else {
+            console.warn("Unexpected trip status after booking:", trip.status);
+            setTripRequestStatus("error");
+            setTripRequestError(
+              `Unexpected booking state: ${trip.status.label}`
+            );
+          }
+        } else {
+          // Authenticated user
+          console.log("Trip data received:", trip);
+
+          setVerificationCode(trip.verification_code || "");
+          setActiveTripId(trip.id);
+
+          if (trip.status.value === "searching") {
+            setTripRequestStatus(null);
+            setScreen("assigning");
+            startWebSocketConnectionForAuthUser(trip.id);
+          } else if (trip.status.value === "driver_assigned" && trip.driver) {
+            setDriver(trip.driver);
+            setTripRequestStatus(null);
+            setScreen("driver-assigned");
+          } else {
+            console.warn("Unexpected trip status after booking:", trip.status);
+            setTripRequestStatus("error");
+            setTripRequestError(
+              `Unexpected booking state: ${trip.status.label}`
+            );
+          }
+        }
+      } else {
+        console.error(
+          "API responded with non-success status or missing data:",
+          response
+        );
+        handleBookingApiError(response);
+
+        if(response?.details?.destination_location){
+          setTripRequestStatus("error")
+          setTripRequestError(response?.details?.destination_location?.[0])
+          // throw new Error(
+          //   `${ response?.details?.destination_location?.destination_location?.[0] || "Failed to book your trip. Server responded unexpectedly."} `
+          // );
+        }
+        }
+    } catch (err: any) {
+      console.error("Booking error:", err);
+
+      handleBookingApiError(err);
+      // setTripRequestStatus("error");
+      // setTripRequestError(
+      // `${ err || "Failed to book your trip. Please check your connection and try again"}`
+      const hasFieldErrors = Object.keys(bookingFieldErrors).length > 0
+  
+
+      if(bookingGeneralError){
+        console.log("general booking error occured")
+        setTripRequestStatus("error");
+        setTripRequestError(bookingGeneralError);
+        if(!hasFieldErrors){
+          setShowPassengerDetails(false);
+        }
+      } 
+      // );
+    } finally{
+
+    }
+  };
+
+  const { isLoaded: isGoogleMapsLoaded, loadError: googleMapsLoadError } =
+    useJsApiLoader({
+      id: "google-map-script",
+      googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+      libraries: ["places", "geometry"],
+    });
+
+  if (googleMapsLoadError) {
+    console.error("Failed to load Google Maps API:", googleMapsLoadError);
+    return <div>Error loading Google Maps.</div>;
+  }
+
+  const handleShowLocationModal = () => {
+    setShowLocationModal(true);
+  };
+
+  const handleLocationModalClose = () => {
+    setShowLocationModal(false);
+  };
+
+  const handleGrantLocationAccess = () => {
+    console.log(
+      "location access granted button clicked in modal. The BookingScreen will handle the requestPermission call"
+    );
+  };
+
+  // WebSocket connection for authenticated users
+  const startWebSocketConnectionForAuthUser = (tripId: string) => {
+    if (webSocketConnection) {
+      console.log("Closing existing WebSocket connection.");
+      webSocketConnection.close();
+    }
+
+    const wsUrl = `wss://api.achrams.com.ng/ws/v1/app?trip_id=${tripId}`;
+    console.log(
+      `Attempting to connect to WebSocket for authenticated user: ${wsUrl}`
+    );
+
+    const rws = new ReconnectingWebSocket(wsUrl, [], {
+      connectionTimeout: 10000,
+      maxRetries: 10,
+      maxReconnectionDelay: 10000,
+    });
+
+    rws.onopen = () => {
+      console.log("WebSocket connection opened for authenticated user.");
+      setWebSocketStatus("open");
+      stopPollingTripStatus();
+    };
+
+    rws.onmessage = (event) => {
+      try {
+        const messageData: WebSocketMessage = JSON.parse(event.data);
+        console.log("Received WebSocket message in page.tsx:", messageData);
+        const { event: eventType, data: tripData, message_id: incomingMessageId } = messageData;
+
+        if (incomingMessageId){
+          const ackMessage = JSON.stringify(
+            {
+              event: "ack",
+              data: {
+                message_id: incomingMessageId
+              }
+            }
+          );
+          console.log("sending ACK for message_id", incomingMessageId);
+          rws.send(ackMessage);
+        }
+
+        if (tripData?.map_data?.airport?.pickup_area) {
+          setAirportPickupArea(tripData.map_data.airport.pickup_area);
+        }
+
+        if (
+          eventType === "trip:assigned" ||
+          eventType === "trip:status:update"
+        ) {
+          if (tripData.status.value === "driver not found") {
+            console.log(
+              "Driver not found via WebSocket (page.tsx), updating UI."
+            );
+            stopWebSocketConnection();
+            stopPollingTripStatus();
+            setTripRequestStatus("no-driver");
+            setTripRequestError(`No drivers available for your trip.`);
+            return;
+          }
+          if (
+            (tripData.status.value === "accepted" ||
+              tripData.status.value === "driver_assigned") &&
+            tripData.driver
+          ) {
+            console.log(
+              `${tripData.status.label} via WebSocket (page.tsx), updating UI with driver.`
+            );
+            setDriver(tripData.driver);
+            console.log("Active Trip Id: ", activeTripId);
+            setScreen("driver-assigned");
+            stopPollingTripStatus();
+            console.log("stopPollingTripStatus was just called");
+          } else if (tripData.status.value === "active") {
+            console.log(
+              `Trip started (status: ${tripData.status.label}) via WebSocket (page.tsx), transitioning to trip-progress.`
+            );
+            setScreen("trip-progress");
+          } else if (
+            tripData.status.value === "cancelled" ||
+            tripData.status.value === "completed"
+          ) {
+            console.log(
+              `Trip ${tripData.id} is now ${tripData.status.value} via WebSocket (page.tsx).`
+            );
+            stopWebSocketConnection();
+            stopPollingTripStatus();
+            setTripProgress(0);
+            setVerificationCode(null);
+            if (tripData.status.value === "completed") {
+              setScreen("trip-complete");
+              showNotification("Trip completed successfully", "info");
+              // preserveBookingContext()
+            } else if (tripData.status.value === "cancelled") {
+              showNotification("Trip was cancelled successfully", "info");
+              setScreen("booking");
+              setDriver(null);
+              preserveBookingContext();
+            }
+          } else {
+            console.log(
+              `Received trip status update via WebSocket (page.tsx): ${tripData.status.value}`
+            );
+          }
+        }
+        if (eventType === "trip:location:driver") {
+          const coords = tripData?.map_data?.location?.coordinates; // [lng, lat]
+          if (Array.isArray(coords) && coords.length === 2) {
+            setDriverLocation(coords);
+            setDriver((prevDriver: any) => {
+              if (!prevDriver) return null;
+              return {
+                ...prevDriver,
+                location: coords,
+              };
+            });
+            console.log("Driver location updated via WebSocket:", coords);
+          } else {
+            console.warn("Invalid driver location data received:", coords);
+          }
+          return;
+        } else {
+          console.log(
+            `Received other WebSocket event (page.tsx): ${eventType}`
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Error parsing WebSocket message in page.tsx:",
+          error,
+          event.data
+        );
+      }
+    };
+
+    rws.onclose = (event) => {
+      console.log("WebSocket connection closed:", event.code, event.reason);
+      const currentTripId = activeTripIdRef.current;
+      const currentScreen = screenRef.current;
+      const currentPollingId = pollingIntervalRef.current;
+
+      setWebSocketStatus("closed");
+
+      if (
+        currentTripId &&
+        ![
+          "driver-assigned",
+          "completed",
+          "cancelled",
+          "driver not found",
+        ].includes(currentScreen) &&
+        !currentPollingId
+      ) {
+        console.log(
+          `WebSocket closed unexpectedly while screen is '${currentScreen}', starting polling for trip ${currentTripId} as fallback.`
+        );
+        startPollingTripStatus(currentTripId, guestId);
+      } else {
+        console.log(
+          `WebSocket closed, but not starting polling. Trip ID: ${currentTripId}, Screen: ${currentScreen}, Polling Active: ${!!currentPollingId}`
+        );
+        if (
+          [
+            "driver-assigned",
+            "completed",
+            "cancelled",
+            "driver not found",
+          ].includes(currentScreen)
+        ) {
+          console.log(
+            "Screen indicates final state or driver-assigned (post-cancellation), ensuring polling is stopped."
+          );
+          stopPollingTripStatus();
+        }
+      }
+    };
+
+    rws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
+
+    setWebSocketConnection(rws);
+    setWebSocketStatus("connecting");
+  };
+
+  // WebSocket connection for guests
+  const startWebSocketConnection = (guestId: string, tripId: string) => {
+    if (webSocketConnection) {
+      console.log("Closing existing WebSocket connection.");
+      webSocketConnection.close();
+    }
+
+    const wsUrl = `wss://api.achrams.com.ng/ws/v1/app?guest_id=${guestId}`;
+    console.log(`Attempting to connect to WebSocket for guest: ${wsUrl}`);
+
+    const rws = new ReconnectingWebSocket(wsUrl, [], {
+      connectionTimeout: 10000,
+      maxRetries: 10,
+      maxReconnectionDelay: 10000,
+    });
+
+    rws.onopen = () => {
+      console.log("WebSocket connection opened for guest.");
+      setWebSocketStatus("open");
+      stopPollingTripStatus();
+    };
+
+    rws.onmessage = (event) => {
+      try {
+        const messageData: WebSocketMessage = JSON.parse(event.data);
+        console.log("Received WebSocket message in page.tsx:", messageData);
+        const { event: eventType, data: tripData, message_id: incomingMessageId } = messageData;
+
+        if (incomingMessageId){
+          const ackMessage = JSON.stringify(
+            {
+              event: "ack",
+              data: {
+                message_id: incomingMessageId
+              }
+            }
+          );
+          console.log("sending ACK for message_id", incomingMessageId);
+          rws.send(ackMessage);
+        }
+
+        if (tripData?.map_data?.airport?.pickup_area) {
+          setAirportPickupArea(tripData.map_data.airport.pickup_area);
+        }
+
+        if (
+          eventType === "trip:assigned" ||
+          eventType === "trip:status:update"
+        ) {
+          if (tripData.status.value === "driver not found") {
+            console.log(
+              "Driver not found via WebSocket (page.tsx), updating UI."
+            );
+            stopWebSocketConnection();
+            stopPollingTripStatus();
+            setTripRequestStatus("no-driver");
+            setTripRequestError(`No drivers available for your trip.`);
+            return;
+          }
+          if (
+            (tripData.status.value === "accepted" ||
+              tripData.status.value === "driver_assigned") &&
+            tripData.driver
+          ) {
+            console.log(
+              `${tripData.status.label} via WebSocket (page.tsx), updating UI with driver.`
+            );
+            setDriver(tripData.driver);
+            console.log("Active Trip Id: ", activeTripId);
+            setScreen("driver-assigned");
+            stopPollingTripStatus();
+            console.log("stopPollingTripStatus was just called");
+          } else if (tripData.status.value === "active") {
+            console.log(
+              `Trip started (status: ${tripData.status.label}) via WebSocket (page.tsx), transitioning to trip-progress.`
+            );
+            setScreen("trip-progress");
+          } else if (
+            tripData.status.value === "cancelled" ||
+            tripData.status.value === "completed"
+          ) {
+            console.log(
+              `Trip ${tripData.id} is now ${tripData.status.value} via WebSocket (page.tsx).`
+            );
+            stopWebSocketConnection();
+            stopPollingTripStatus();
+
+            setTripProgress(0);
+            setVerificationCode(null);
+            if (tripData.status.value === "completed") {
+              setScreen("trip-complete");
+              showNotification("Trip completed successfully", "info");
+              // setGuestId(null)
+              // setActiveTripId(null)
+            } else if (tripData.status.value === "cancelled") {
+              showNotification("Trip was cancelled successfully", "info");
+              setDriver(null);
+              setScreen("booking");
+              preserveBookingContext();
+            }
+          } else {
+            console.log(
+              `Received trip status update via WebSocket (page.tsx): ${tripData.status.value}`
+            );
+          }
+        }
+        if (eventType === "trip:location:driver") {
+          const coords = tripData?.map_data?.location?.coordinates; // [lng, lat]
+          if (Array.isArray(coords) && coords.length === 2) {
+
+            setDriverLocation(coords);
+            setDriver((prevDriver: any) => {
+              if (!prevDriver) return null;
+              return {
+                ...prevDriver,
+                location: coords,
+              };
+            });
+            console.log("Driver location updated via WebSocket:", coords);
+          } else {
+            console.warn("Invalid driver location data received:", coords);
+          }
+          return;
+        } else {
+          console.log(
+            `Received other WebSocket event (page.tsx): ${eventType}`
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Error parsing WebSocket message in page.tsx:",
+          error,
+          event.data
+        );
+      }
+    };
+
+    rws.onclose = (event) => {
+      console.log("WebSocket connection closed:", event.code, event.reason);
+      const currentTripId = activeTripIdRef.current;
+      const currentGuestId = activeGuestIdRef.current;
+      const currentScreen = screenRef.current;
+      const currentPollingId = pollingIntervalRef.current;
+
+      setWebSocketStatus("closed");
+
+      if (
+        currentTripId &&
+        ![
+          "driver-assigned",
+          "completed",
+          "cancelled",
+          "driver not found",
+        ].includes(currentScreen) &&
+        !currentPollingId
+      ) {
+        console.log(
+          `WebSocket closed unexpectedly while screen is '${currentScreen}', starting polling for trip ${currentTripId} as fallback.`
+        );
+        startPollingTripStatus(currentTripId, guestId);
+      } else {
+        console.log(
+          `WebSocket closed, but not starting polling. Trip ID: ${currentTripId}, Screen: ${currentScreen}, Polling Active: ${!!currentPollingId}`
+        );
+        if (
+          [
+            "driver-assigned",
+            "completed",
+            "cancelled",
+            "driver not found",
+          ].includes(currentScreen)
+        ) {
+          console.log(
+            "Screen indicates final state or driver-assigned (post-cancellation), ensuring polling is stopped."
+          );
+          stopPollingTripStatus();
+        }
+      }
+    };
+
+    rws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
+
+    setWebSocketConnection(rws);
+    setWebSocketStatus("connecting");
+  };
+
+  const stopWebSocketConnection = () => {
+    if (webSocketConnection) {
+      stopPollingTripStatus();
+      console.log("Manually stopping WebSocket connection.");
+      webSocketConnection.close();
+      setWebSocketConnection(null);
+      setWebSocketStatus("closed");
+    }
+  };
+
+  const fetchTripStatus = async (tripId: string, guestId: string) => {
+    if (!tripId) {
+      console.warn("fetchTripStatus called without a tripId");
+      return;
+    }
+
+    try {
+      console.log(`Polling trip status for ID: ${tripId}`);
+
+      let response;
+      if (!bookAsGuest && isAuthenticated) {
+        // Authenticated user - use trip endpoint
+        response = await apiClient.get(
+          `/trips/${tripId}`,
+          undefined,
+          false,
+          undefined,
+          true
+        );
+      } else {
+        // Guest user - use guest trip endpoint with guestId
+        if (!guestId) {
+          console.warn("fetchTripStatus called without guestId for guest user");
+          stopPollingTripStatus();
+          return;
+        }
+
+        console.log("Guest Id in polling function", guestId);
+        response = await apiClient.get(
+          `/trips/${guestId}`,
+          undefined,
+          true,
+          guestId
+        );
+      }
+
+      if (response.status === "success" && response.data) {
+        const trip = response.data;
+        console.log(
+          `Polled trip status: ${trip.status.value}, has driver: !!${trip.driver}`
+        );
+
+        if (trip?.map_data?.airport?.pickup_area) {
+          setAirportPickupArea(trip.map_data.airport.pickup_area);
+        }
+
+        setDriver(trip.driver || null);
+        setPickup(trip.pickup_address || "");
+
+        console.log(
+          "Setting Pickup address: ",
+          pickup,
+          destinationCoords,
+          verificationCode,
+          trip.pickup_address
+        );
+        setDestination(trip.destination_address || "");
+        setFareEstimate(
+          trip.amount?.amount ? parseFloat(trip.amount.amount) : null
+        );
+        setPickupCoords(
+          trip.map_data.pickup_location.geometry.coordinates || null
+        );
+        console.log("Pickup coords", pickupCoords);
+        setDestinationCoords(
+          trip.map_data.destination_location.geometry.coordinates || null
+        );
+        setVerificationCode(trip.verification_code || null);
+        setTripProgress(trip.progress || 0);
+
+        const terminalStates = ["driver not found", "cancelled", "completed"];
+
+        if (terminalStates.includes(trip.status.value)) {
+          console.log(
+            `🛑 Terminal state reached: ${trip.status.value}. STOPPING POLLING.`
+          );
+          stopPollingTripStatus();
+          stopWebSocketConnection();
+
+          if (trip.status.value === "driver not found") {
+            setTripRequestStatus("no-driver");
+            setTripRequestError("No drivers available for your trip.");
+          } else if (trip.status.value === "completed") {
+            showNotification("Trip Completed", "success");
+            setScreen("trip-complete");
+          } else if (trip.status.value === "cancelled") {
+            preserveBookingContext();
+            showNotification("Trip was cancelled", "info");
+            setScreen("booking");
+          }
+
+          return; // CRITICAL: Exit immediately
+        }
+
+        // DRIVER ASSIGNED - Stop polling
+        if (
+          (trip.status.value === "accepted" ||
+            trip.status.value === "driver_assigned") &&
+          trip.driver
+        ) {
+          console.log("✅ Driver assigned via polling. STOPPING POLLING.");
+          stopPollingTripStatus();
+          //stopWebSocketConnection();
+          // setDriver(trip.driver);
+          setScreen("driver-assigned");
+          return; // ⚠️ CRITICAL: Exit immediately
+        }
+
+        // ✅ ACTIVE TRIP - Update screen but continue polling
+        if (trip.status.value === "active") {
+          console.log("🚗 Trip is active, updating screen");
+          setScreen("trip-progress");
+          // Don't return - continue polling
+        }
+
+        // ✅ For "searching" state, just log and continue
+        console.log(`⏳ Trip still searching. Continuing to poll.`);
+      } else {
+        console.error("❌ Polling API error:", response);
+      }
+    } catch (err) {
+      console.error("❌ Error polling trip status:", err);
+    }
+  };
+
+  const startPollingTripStatus = (tripId: string, guestId: string) => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+
+    console.log(
+      `Starting polling for trip ${tripId} every 20 seconds (fallback).`
+    );
+
+    const interval = setInterval(() => {
+      fetchTripStatus(tripId, guestId);
+    }, 20000);
+
+    pollingIntervalRef.current = interval;
+    setPollingIntervalId(interval);
+  };
+
+  const stopPollingTripStatus = () => {
+    if (pollingIntervalRef.current) {
+      console.log(
+        `Stopping trip status polling. with interval ID: ${pollingIntervalRef.current}`
+      );
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+      setPollingIntervalId(null);
+    } else {
+      console.log(
+        "stopPollingTripStatus called but no active polling interval found"
+      );
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      console.log("Cleaning up WebSocket and polling intervals on unmount.");
+      stopWebSocketConnection();
+      stopPollingTripStatus();
+    };
+  }, []);
+
+  const handleTripStart = () => {
+    setScreen("trip-progress");
+  };
+
+  const handleRateSubmit = () => {
+    setScreen("trip-complete");
+  };
+
+  const handleTripComplete = () => {
+    setScreen("trip-complete");
+  };
+
+  const cancelTrip = async (reason: string) => {
+    console.log("Active Trip Id: ", activeTripId);
+    if (!activeTripId) {
+      console.error(
+        "Cannot cancel trip: activeTripId is missing (is null, undefined, or empty string)."
+      );
+      console.log("Current activeTripId state:", activeTripId);
+      console.log("Current screen state:", screen);
+      console.log("Current tripRequestStatus:", tripRequestStatus);
+      showNotification("Unable to cancel trip. No active trip found.", "error");
+      setShowCancel(false);
+      return;
+    }
+
+    const locationToUse = pickupCoords;
+    const addressToUse = pickup;
+
+    if (!locationToUse || !addressToUse) {
+      console.error(
+        "Cannot cancel trip: Missing pickup coordinates or address for cancellation payload."
+      );
+      console.log("Current pickupCoords state:", pickupCoords);
+      console.log("Current pickup state:", pickup);
+      showNotification(
+        "Unable to cancel trip. Missing location data.",
+        "error"
+      );
+      setShowCancel(false);
+      return;
+    }
+
+    try {
+      const cancelRequestBody = {
+        reason: reason,
+        location: [locationToUse[0], locationToUse[1]],
+        address: addressToUse,
+      };
+
+      console.log(
+        "Cancelling trip with ID:",
+        activeTripId,
+        "and payload:",
+        cancelRequestBody
+      );
+
+      let response;
+      if (!bookAsGuest && isAuthenticated) {
+        // Authenticated user - use trip cancel endpoint
+        response = await apiClient.post(
+          `/trips/${activeTripId}/cancel`,
+          cancelRequestBody,
+          undefined,
+          undefined,
+          true
+        );
+      } else {
+        // Guest user - use guest cancel endpoint with guestId
+        if (!guestId) {
+          console.error("Cannot cancel trip: guestId is missing.");
+          console.log("Current guestId state:", guestId);
+          showNotification("Unable to cancel trip. Session expired.", "error");
+          setShowCancel(false);
+          return;
+        }
+
+        console.log("Guest Id: ", guestId);
+        response = await apiClient.post(
+          `/trips/${guestId}/cancel`,
+          cancelRequestBody,
+          undefined,
+          guestId
+        );
+      }
+
+      if (response.status === "success" && response.data) {
+        console.log("Trip cancelled successfully:", response.data);
+        showNotification("Trip cancelled successfully.", "success");
+        stopWebSocketConnection();
+        stopPollingTripStatus();
+        setDriver(null);
+        setActiveTripId(null);
+        if (!isAuthenticated) {
+          // Only clear guestId for guest users
+          setGuestId(null);
+        }
+        setPickup("");
+        setDestination("");
+        setFareEstimate(null);
+        setTripProgress(0);
+        setPickupCoords(null);
+        setDestinationCoords(null);
+        setVerificationCode(null);
+        setDriverLocation(null);
+        setScreen("booking");
+      } else {
+        console.error(
+          "Trip cancellation API responded with non-success status or missing data:",
+          response
+        );
+        let errorMessage =
+          "Failed to cancel your trip. Server responded unexpectedly.";
+        if (response.message) {
+          errorMessage = response.message;
+          if (response.details) {
+            const fieldErrors = [];
+            for (const [field, messages] of Object.entries(response.details)) {
+              if (Array.isArray(messages)) {
+                fieldErrors.push(`${field}: ${messages.join(", ")}`);
+              }
+            }
+            if (fieldErrors.length > 0) {
+              errorMessage += ` Details: ${fieldErrors.join("; ")}`;
+            }
+          }
+        }
+        showNotification(errorMessage, "error");
+      }
+    } catch (err: any) {
+      console.error("Error cancelling trip:", err);
+      let errorMessage =
+        "Failed to cancel your trip. Please check your connection and try again.";
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else {
+        console.error("Unexpected error type caught:", typeof err, err);
+        errorMessage = "An unexpected error occurred during cancellation.";
+      }
+      showNotification(errorMessage, "error");
+    } finally {
+      setShowCancel(false);
+    }
+  };
+
+  const handleSignupInitiateSuccess = (
+    data: { name: string; email: string; phone: string; password: string },
+    countdown: number
+  ) => {
+    const { name, email, phone, password } = data;
+    const signupData = { name, email, phone };
+    setSignupDataForOtp(signupData);
+    setPassengerData({ name, phone, email });
+    console.log("setting passenger data:", { name, email, phone });
+    setSignupPasswordForOtp(password);
+    setInitialOtpCountdown(countdown);
+    setShowSignup(false); // Close signup modal
+    setShowOTP(true);
+  };
+
+  const handleResendOtp = async (data: {
+    name: string;
+    phone: string;
+    email: string;
+    password: string;
+  }): Promise<number> => {
+    console.log("Resending OTP for email:", data.email);
+    try {
+      const nameParts = data.name.trim().split(/\s+/);
+      const firstName = nameParts[0] || "User";
+      const lastName = nameParts.slice(1).join(" ") || "";
+      const response = await apiClient.post(
+        "/auth/passenger/onboard/initiate",
+        {
+          email: data.email,
+          phone_number: data.phone, // Use the phone from the stored signup data
+          first_name: firstName, // Use the parsed name from the stored signup data
+          last_name: lastName,
+          password: data.password, // Use the password stored during signup
+        }
+      );
+      console.log("Resend OTP Response:", response);
+      if (response.status === "success" && response.data?.countdown) {
+        // Return the new countdown received from the API
+        console.log("New OTP sent, new countdown:", response.data.countdown);
+        showNotification("New OTP sent, new countdown", "info");
+        return response.data.countdown;
+      } else {
+        // Handle potential API error responses that still have status 200
+        const errorMessage =
+          response.message || "Failed to resend OTP. Please try again.";
+        throw new Error(errorMessage);
+      }
+    } catch (err: any) {
+      console.error("Resend OTP Error:", err);
+      let errorMessage = "An unexpected error occurred while resending OTP.";
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      // Re-throw the error so the OTPModal can catch it and display it
+      throw new Error(errorMessage);
+    }
+  };
+
+  const handleCancelConfirmed = (
+    reason: string,
+    location?: [number, number],
+    address?: string
+  ) => {
+    cancelTrip(reason);
+  };
+
+  const syncTripStatusInBackground = useCallback(
+    async (tripId: string, wasBookedAsGuest: boolean) => {
+      console.log(
+        "Background sync: Fetching current status for trip ID:",
+        tripId
+      );
+
+      try {
+        let response;
+        const isCurrentlyAuthenticated = isAuthenticated && !bookAsGuest;
+        const isCurrentlyGuest = !isAuthenticated || bookAsGuest;
+
+        // Determine the correct API call based on the booking context (from saved state)
+        // and the *current* authentication state.
+        // If the user logged out, we might not be able to sync anymore.
+        if (isCurrentlyAuthenticated && !wasBookedAsGuest) {
+          console.log(
+            "Background sync: Fetching status via authenticated endpoint."
+          );
+          response = await apiClient.get(
+            `/trips/${tripId}`,
+            undefined,
+            false,
+            undefined,
+            true
+          );
+        } else if (isCurrentlyGuest && guestId && wasBookedAsGuest) {
+          console.log(
+            "Background sync: Fetching status via guest endpoint with guestId:",
+            guestId
+          );
+          response = await apiClient.get(
+            `/trips/${guestId}`,
+            undefined,
+            true,
+            guestId
+          );
+        } else {
+          console.error(
+            "Background sync: Cannot sync status. Authentication context mismatch or missing guestId."
+          );
+          return; // Exit if context is wrong
+        }
+
+        if (response.status === "success" && response.data) {
+          const trip = response.data;
+          console.log(
+            "Background sync: Fetched current trip status:",
+            trip.status.value
+          );
+
+          // Update state based on the *fetched* status, but only if it represents a change
+          // or a final state that requires action (like cancellation/completion).
+
+          // Update driver details if they are now available or changed
+          if (
+            trip.driver &&
+            JSON.stringify(trip.driver) !== JSON.stringify(driver)
+          ) {
+            setDriver(trip.driver);
+          }
+
+          // Update progress if it's an active trip
+          if (
+            trip.status.value === "active" &&
+            trip.progress !== tripProgress
+          ) {
+            setTripProgress(trip.progress || 0);
+          }
+
+          // Update verification code if assigned
+          if (
+            trip.verification_code &&
+            trip.verification_code !== verificationCode
+          ) {
+            setVerificationCode(trip.verification_code);
+          }
+
+          // Check for final or significant status changes that might require navigation
+          // even if the user just resumed. This handles the case where status changed
+          // *while* they were on the dashboard.
+          if (trip.status.value === "completed") {
+            console.log("Background sync: Trip is now completed.");
+            setScreen("trip-complete"); // Navigate to completion screen if status changed
+            // Driver and other state should already be handled by the previous setDriver call
+            stopWebSocketConnection(); // Ensure connection is stopped for completed trip
+            stopPollingTripStatus();
+          } else if (trip.status.value === "cancelled") {
+            console.log("Background sync: Trip was cancelled.");
+            showNotification("Trip was cancelled.", "info");
+            setScreen("booking");
+            preserveBookingContext(); // Clear trip-specific state
+            stopWebSocketConnection();
+            stopPollingTripStatus();
+          } else if (trip.status.value === "driver not found") {
+            console.log("Background sync: Driver not found.");
+            setTripRequestStatus("no-driver");
+            setTripRequestError("No drivers available for your trip.");
+            // Potentially go back to assigning or booking, depending on UX
+            // For now, let's assume the user sees this on the resumed screen or WebSocket handles it
+          }
+          // Note: Statuses like "searching", "driver_assigned", "active" usually just mean
+          // the resumed screen is still correct, and the WebSocket (if restarted) will handle updates.
+        } else {
+          console.error(
+            "Background sync: API call succeeded but response data/status was unexpected:",
+            response
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Background sync: Error fetching current trip status:",
+          error
+        );
+        // An error here doesn't necessarily mean the resumed screen is wrong,
+        // just that we couldn't confirm the status. The WebSocket connection might still be active
+        // and receive updates, or the user might need to refresh if the state seems stale.
+        // We don't navigate away from the resumed screen due to a background sync failure.
+      }
+    },
+    [
+      isAuthenticated,
+      bookAsGuest,
+      guestId,
+      driver,
+      tripProgress,
+      verificationCode,
+      setDriver,
+      setTripProgress,
+      setVerificationCode,
+      setScreen,
+      setTripRequestStatus,
+      setTripRequestError,
+      showNotification,
+      preserveBookingContext,
+      stopWebSocketConnection,
+      stopPollingTripStatus,
+    ]
+  );
+
+
+  
+
+
+  const handleResumeActiveTrip = useCallback(() => {
+    console.log("Attempting to resume active trip with ID:", activeTripId);
+
+    if (!activeTripId) {
+      console.warn("No active trip ID found to resume.");
+      setScreen("booking");
+      return;
+    }
+
+    // Load the *persisted* state from sessionStorage
+    const savedState = loadAppState();
+
+    if (!savedState || savedState.activeTripId !== activeTripId) {
+      console.warn(
+        "No valid persisted state found for the active trip ID, or trip ID mismatch."
+      );
+      setScreen("booking");
+      return;
+    }
+
+    console.log("Found persisted state, saved screen was:", savedState.screen);
+
+    // Determine the screen to resume to based on the *persisted* screen state
+    const savedScreen = previousScreen;
+
+    if (
+      ["assigning", "driver-assigned", "trip-progress"].includes(savedScreen)
+    ) {
+      setScreen(savedScreen);
+
+      // Restore relevant state from the saved state if available
+      setDriver(savedState.driver || null);
+      setTripProgress(savedState.tripProgress || 0);
+      setVerificationCode(savedState.verificationCode || "");
+
+      // Determine authentication context for WebSocket
+      const isCurrentlyAuthenticated = isAuthenticated && !bookAsGuest;
+      const isCurrentlyGuest = !isAuthenticated || bookAsGuest;
+
+      // Attempt to restart WebSocket based on the *saved* screen context
+      if (
+        isCurrentlyAuthenticated &&
+        ["assigning", "driver-assigned", "trip-progress"].includes(savedScreen)
+      ) {
+        console.log(
+          "Resuming WebSocket for authenticated user based on saved screen."
+        );
+        startWebSocketConnectionForAuthUser(activeTripId);
+      } else if (
+        isCurrentlyGuest &&
+        guestId &&
+        ["assigning", "driver-assigned", "trip-progress"].includes(savedScreen)
+      ) {
+        console.log("Resuming WebSocket for guest user based on saved screen.");
+        startWebSocketConnection(guestId, activeTripId);
+      }
+
+      // Initiate background sync to ensure state is fresh
+      syncTripStatusInBackground(activeTripId, savedState.bookAsGuest);
+    } else if (savedScreen === "trip-complete") {
+      setScreen("trip-complete");
+      setDriver(savedState.driver || null);
+      // No need to restart WebSocket for completed trip.
+    } else {
+      console.warn(
+        "Persisted screen state is inconsistent with activeTripId, going to booking."
+      );
+      setScreen("booking");
+    }
+  }, [
+    activeTripId,
+    isAuthenticated,
+    bookAsGuest,
+    guestId,
+    setScreen,
+    setDriver,
+    setTripProgress,
+    setVerificationCode,
+    startWebSocketConnectionForAuthUser,
+    startWebSocketConnection,
+    syncTripStatusInBackground,
+    previousScreen
+  ]);
+
+
+  const fetchTripHistory = useCallback(async () => {
+  if (!isAuthenticated || bookAsGuest) {
+    // Only fetch history for authenticated users who booked normally
+    return;
+  }
+
+  try {
+    console.log("Fetching trip history for dashboard...");
+    // Example API call - adjust endpoint and parameters as needed
+    // Use the same query parameters as TripHistoryScreen for consistency
+    // Fetch the first page with a reasonable limit
+    const pageNum = 1;
+    const limit = 10; // Or another suitable number for the dashboard
+    const queryParams = `?page=${pageNum}&page_size=${limit}`;
+    const response = await apiClient.get(`/trips${queryParams}`, undefined, false, undefined, true); // isAuthRequest=true
+
+    console.log("Trip history API response for dashboard:", response);
+
+    if (response.count > 0) { // Check if count > 0, indicating success and data
+      const paginationData = response; // The response object itself is the pagination object
+      const history = paginationData.results || []; // Trips are in the 'results' field
+      console.log("Fetched trip history for dashboard:", history);
+      setTripHistory(history);
+    } else {
+      console.log("No trips found in history or count is 0.");
+      setTripHistory([]); // Set to empty array if no trips
+    }
+  } catch (error) {
+    console.error("Error fetching trip history for dashboard:", error);
+    setTripHistory([]); // Clear history on error
+  }
+}, [isAuthenticated, bookAsGuest, apiClient]);
+
+
+
+// NEW: useEffect to fetch trip history when user becomes authenticated
+useEffect(() => {
+  if (isAuthenticated && !bookAsGuest) {
+    // Optionally add a small delay or debounce if this triggers too frequently
+    fetchTripHistory();
+  } else {
+    // Clear history if user logs out or is a guest
+    setTripHistory([]);
+  }
+}, [isAuthenticated, bookAsGuest, fetchTripHistory]);
+
+// NEW: Determine recentTripData based on activeTripId and tripHistory
+// This uses useMemo to calculate the value efficiently only when dependencies change
+const recentTripData = useMemo(() => {
+  if (activeTripId && !bookAsGuest) {
+    // If there's a current active trip in session state, the 'recent' one shown on dashboard
+    // should be the *second most recent* trip from history.
+    // This assumes tripHistory is sorted with most recent first.
+    console.log("Current session has an active trip. Looking for second most recent in history.");
+    return tripHistory.length > 1 ? tripHistory[1] : null;
+  } else {
+    // If there's no current active trip in session state
+    console.log("Current session has no active trip. Checking history for resumable or fallback trip.");
+    const terminalStatuses = ['completed', 'cancelled']; // Define terminal statuses
+    if(bookAsGuest){
+      
+      return tripHistory.length > 1 ? tripHistory[0] : null;
+    }
+    // First, try to find the *most recent* trip that is NOT terminal (resumable)
+    const resumableTrip = tripHistory.find(trip => !terminalStatuses.includes(trip.status.value));
+    if (resumableTrip) {
+        console.log("Found a potentially active/resumable trip in history:", resumableTrip);
+        return resumableTrip; // Return the first non-terminal trip found
+    }
+
+    // If no resumable trip was found, fall back to the *most recent* trip (index 0), regardless of status
+    if (tripHistory.length > 0) {
+        console.log("No non-terminal trips found. Falling back to the most recent trip (might be terminal):", tripHistory[0]);
+        return tripHistory[0]; // Return the most recent trip (e.g., completed/cancelled)
+    }
+
+    // If there's no active trip and the history list is empty, return null
+    console.log("No active trip and no history found. recentTripData will be null.");
+    return null;
+
+  }
+}, [activeTripId, bookAsGuest, tripHistory]);
+
+
+const verify2FAAfterLogin = async (email: string, password: string, otp: string) => {
+    console.log("page.tsx: Attempting 2FA verification for login with email:", email);
+    try {
+        const response = await apiClient.post('/auth/passenger/2fa/verify', {
+            email,
+            password,
+            otp,
+        }, undefined, undefined, true); // isAuthRequest=true
+
+        console.log("2FA Verification Response:", response);
+
+        if (response.status === "success" && response.data && response.data.token) {
+            console.log("2FA Verification successful. Token received.");
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await checkAuthStatus();
+            return { success: true };
+        } else {
+            console.error("2FA Verification failed:", response);
+            return { success: false, message: response.message || "2FA verification failed." };
+        }
+    } catch (err: any) {
+        console.error("Error during 2FA verification API call:", err);
+        let errorMessage = "An error occurred during 2FA verification.";
+        if (err.response?.data?.message) {
+            errorMessage = err.response.data.message;
+        } else if (err.message) {
+            errorMessage = err.message;
+        }
+        return { success: false, message: errorMessage };
+    }
+};
+
+// NEW: Function to handle OTP submission in the 2FA modal
+const handle2FAOtpSubmit = async (otpCode: string) => {
+    if (!pendingLoginCreds) {
+        console.error("page.tsx: No pending login credentials found for 2FA verification.");
+        showNotification("Session expired. Please try logging in again.", "error");
+        setShow2FAOtpModal(false);
+        return;
+    }
+
+    console.log("page.tsx: Submitting OTP for 2FA verification...");
+    const { email, password } = pendingLoginCreds;
+    const result = await verify2FAAfterLogin(email, password, otpCode);
+
+    if (result.success) {
+        console.log("page.tsx: 2FA verification successful. User is now fully authenticated.");
+        showNotification("Login successful!", "success");
+        setShow2FAOtpModal(false);
+        setPendingLoginCreds(null); // Clear stored credentials
+    } else {
+        console.error("page.tsx: 2FA verification failed:", result.message);
+        showNotification(result.message || "2FA verification failed. Please try again.", "error");
+    }
+};
+
+// NEW: Handler for when LoginModal reports 2FA is required
+const handleRequires2FA = useCallback((email: string, password: string) => {
+    console.log("page.tsx: Received 2FA requirement from LoginModal for email:", email);
+    // Store the credentials received from the login modal
+    setPendingLoginCreds({ email, password });
+    // Close the login modal
+    setShowLogin(false);
+    // Open the 2FA OTP modal
+    setShow2FAOtpModal(true);
+}, [setShowLogin, setShow2FAOtpModal, setPendingLoginCreds]);
+
+
+
+const updateAccountData = useCallback((newAccountData: any) => {
+  console.log("Updating account data state after API call:", newAccountData);
+  setAccountData(newAccountData); 
+}, [setAccountData]); 
+
+// NEW: Function to handle resuming a trip by ID (as discussed previously)
+const handleResumeTripById = useCallback(async (tripIdToResume: string) => {
+  console.log("Attempting to resume trip by ID from dashboard:", tripIdToResume);
+
+  if (!tripIdToResume) {
+    console.warn("No trip ID provided to resume.");
+    setScreen("booking");
+    return;
+  }
+
+  try {
+    // Determine auth context
+    const isCurrentlyAuthenticated = isAuthenticated && !bookAsGuest;
+    const isCurrentlyGuest = !isAuthenticated || bookAsGuest;
+
+    let response;
+    if (isCurrentlyAuthenticated) {
+      console.log("Resuming trip via authenticated endpoint with tripId:", tripIdToResume);
+      response = await apiClient.get(`/trips/${tripIdToResume}`, undefined, false, undefined, true); // isAuthRequest=true
+      console.log(response)
+    } else if (isCurrentlyGuest && guestId) {
+      console.log("Resuming trip via guest endpoint with guestId:", guestId);
+      response = await apiClient.get(`/trips/${tripIdToResume}?guest_id=${guestId}`, undefined, true, guestId); // isGuest=true
+    } else {
+      console.error("Cannot resume trip: No valid auth context (token or guestId) for the provided trip ID.");
+      setScreen("booking");
+      return;
+    }
+
+    if (response.status === "success" && response.data) {
+      const trip = response.data;
+      console.log("Fetched trip details for resume from dashboard:", trip);
+
+      // Update relevant state based on the fetched trip
+      setActiveTripId(trip.id);
+      setDriver(trip.driver || null);
+      setTripProgress(trip.progress || 0);
+      setVerificationCode(trip.verification_code || "");
+      setPickup(trip.pickup_address || "");
+      setDestination(trip.destination_address || "");
+      // Update coordinates if available in the response
+      setFareEstimate(
+                trip.amount?.amount ? parseFloat(trip.amount.amount) : null
+              );
+
+      setPickupCoords(
+          trip.map_data.pickup_location.geometry.coordinates || null
+        );
+        console.log("Pickup coords", pickupCoords);
+        setDestinationCoords(
+          trip.map_data.destination_location.geometry.coordinates || null
+        );
+      if (trip?.map_data?.airport?.pickup_area) {
+        setAirportPickupArea(trip.map_data.airport.pickup_area);
+      }
+
+      // Determine the correct screen based on the *fetched* status
+      if (trip.status.value === "searching") {
+        setScreen("assigning");
+        if (isCurrentlyAuthenticated) {
+          startWebSocketConnectionForAuthUser(trip.id);
+        } else if (isCurrentlyGuest && guestId) {
+          startWebSocketConnection(guestId, trip.id);
+        }
+      } else if (trip.status.value === "accepted") {
+        setScreen("driver-assigned");
+        setDriver(trip.driver);
+        setVerificationCode(trip.verification_code);
+        if (isCurrentlyAuthenticated) {
+          startWebSocketConnectionForAuthUser(trip.id);
+        } else if (isCurrentlyGuest && guestId) {
+          startWebSocketConnection(guestId, trip.id);
+        }
+      } else if (trip.status.value === "active") {
+        setScreen("trip-progress");
+        setDriver(trip.driver);
+        setTripProgress(trip.progress || 0);
+        if (isCurrentlyAuthenticated) {
+          startWebSocketConnectionForAuthUser(trip.id);
+        } else if (isCurrentlyGuest && guestId) {
+          startWebSocketConnection(guestId, trip.id);
+        }
+      } else if (trip.status.value === "completed") {
+        setScreen("trip-complete");
+        setDriver(trip.driver);
+        stopWebSocketConnection();
+        stopPollingTripStatus();
+      } else if (trip.status.value === "cancelled") {
+        console.log("Trip was cancelled, clearing ID and going to dashboard.");
+        setActiveTripId(null);
+        preserveBookingContext(); // Clear trip-specific state
+        stopWebSocketConnection();
+        stopPollingTripStatus();
+        setScreen("dashboard");
+      } else {
+        console.warn("Unexpected trip status on resume by ID from dashboard:", trip.status.value);
+        setScreen("booking");
+        stopWebSocketConnection();
+        stopPollingTripStatus();
+      }
+
+      // Save the updated state to sessionStorage
+      const stateToSave: PersistedState = {
+        screen: screen, // The screen set above
+        pickup,
+        destination,
+        fareEstimate,
+        driver,
+        tripProgress,
+        pickupCoords,
+        destinationCoords,
+        verificationCode,
+        activeTripId: trip.id, // Update active trip ID
+        guestId, // Keep guest ID if applicable
+        bookAsGuest,
+        // ... other state that needs persistence ...
+      };
+      saveAppState(stateToSave);
+
+    } else {
+      console.error("Failed to fetch trip details for resume from dashboard:", response);
+      setScreen("booking");
+      // Optionally clear activeTripId if it was set incorrectly before the call
+      if (activeTripId === tripIdToResume) {
+        setActiveTripId(null);
+      }
+    }
+  } catch (error) {
+    console.error("Error resuming trip by ID from dashboard:", error);
+    setScreen("booking");
+    // Optionally clear activeTripId if it was set incorrectly before the call
+    if (activeTripId === tripIdToResume) {
+      setActiveTripId(null);
+    }
+  }
+}, [
+  isAuthenticated,
+  bookAsGuest,
+  guestId,
+  startWebSocketConnectionForAuthUser,
+  startWebSocketConnection,
+  stopWebSocketConnection,
+  stopPollingTripStatus,
+  setScreen,
+  setActiveTripId,
+  setDriver,
+  setTripProgress,
+  setVerificationCode,
+  setPickup,
+  setDestination,
+  setAirportPickupArea,
+  pickup,
+  destination,
+  fareEstimate,
+  driver,
+  tripProgress,
+  verificationCode,
+  preserveBookingContext,
+  activeTripId,
+  screen,
+  destinationCoords,
+  pickupCoords,
+]);
+
+
+
+  const handleHomeClick = useCallback(() => {
+    if(screen === 'dashboard') return;
+
+    if (activeTripId) {
+      // If there's an active trip, we want to navigate to dashboard
+      // but save the *current* screen state first.
+      console.log(
+        "Navigating to dashboard with active trip. Current screen:",
+        screen
+      );
+      setPreviousScreen(screen); // Store the current screen
+      setIsNavigatingToDashboard(true); // Set the flag
+      setScreen("dashboard"); // Now change the screen state
+      // The useEffect above will see the flag and save the 'previousScreen' instead of 'dashboard'
+    } else {
+      // If no active trip, navigate to the booking screen
+      console.log(
+        "Navigating to booking (no active trip). Current screen:",
+        screen
+      );
+      setScreen("dashboard");
+      // The useEffect will save 'booking' as expected
+    }
+  }, [activeTripId, screen]);
+
+  const handleLogout = async () => {
+              // Optional: Preserve booking context details (pickup, destination) if desired for guest re-entry
+              // preserveBookingContext(); // Uncomment if you want to keep booking fields filled
+
+              try {
+                console.log("Initiating logout API call...");
+                // Make the API call to the logout endpoint
+                // Ensure the URL is correct (no trailing spaces)
+                const response = await apiClient.post(
+                  "/auth/logout", // Corrected URL
+                  {},
+                  undefined,
+                  undefined,
+                  true // isAuthRequest: Ensures the auth cookie is sent with the request
+                );
+
+                console.log("Logout API response:", response); // Debug log
+
+                if (response.status === "success") {
+                  console.log(
+                    "Logout successful on server, cookie should be cleared."
+                  );
+                  window.location.href = "/";
+                } else {
+                  console.error(
+                    "Logout API responded with non-success status:",
+                    response
+                  );
+                  showNotification(
+                    response.message || "Logout failed. Please try again.",
+                    "error"
+                  );
+                }
+              } catch (err) {
+                console.error(
+                  "An error occurred during the logout API call:",
+                  err
+                );
+                showNotification(
+                  "An error occurred while logging out. Please check your connection.",
+                  "error"
+                );
+              }
+            }
+
+   const handleAccountDeletionSuccess = () => {
+    console.log("Account deletion confirmed. Loggin out user");
+    handleLogout();
+    setShowAccountDeletionModal(false);
+
+  }
+
+
+ const [resolvedLocationName, setResolvedLocationName] = useState<string | null>(null);
+
+// ... (other functions) ...
+
+// NEW: Function to reverse geocode coordinates using Google Geocoding API
+const reverseGeocodeLocation = useCallback(async (lat: number, lng: number): Promise<string | null> => {
+  try {
+    const GEOCODE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY; // Use the same key
+    if (!GEOCODE_API_KEY) {
+      throw new Error("Geocoding API key is not configured.");
+    }
+
+    // Google Geocoding API URL for reverse geocoding
+    const GEOCODE_API_URL = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GEOCODE_API_KEY}`;
+
+    const response = await fetch(GEOCODE_API_URL);
+    if (!response.ok) {
+      throw new Error(`Geocoding API request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log("Reverse geocode response:", data);
+
+    if (data.status === 'OK' && data.results && data.results.length > 0) {
+      // Extract relevant components
+      const result = data.results[0];
+      const addressComponents = result.address_components;
+
+      let locality = '';
+      let administrativeArea = '';
+      let country = '';
+
+      if (addressComponents) {
+        for (let component of addressComponents) {
+          const types = component.types;
+          if (types.includes('locality') && types.includes('political')) {
+            locality = component.long_name;
+          } else if (types.includes('administrative_area_level_1') && types.includes('political')) {
+            administrativeArea = component.short_name; // Use short name (e.g., 'NG-LA') or long_name ('Lagos State')
+          } else if (types.includes('country') && types.includes('political')) {
+            country = component.short_name; // Use short name (e.g., 'NG') or long_name ('Nigeria')
+          }
+        }
+      }
+
+      // Construct the location name
+      let locationName = '';
+      if (locality) locationName = locality;
+      if (administrativeArea) locationName = locationName ? `${locationName}, ${administrativeArea}` : administrativeArea;
+      if (country) locationName = locationName ? `${locationName}, ${country}` : country;
+
+      if (locationName) {
+        return locationName;
+      } else {
+        // Fallback to formatted address if specific components aren't found
+        return result.formatted_address || null;
+      }
+    } else {
+      console.warn("Geocoding API returned no results for coordinates:", lat, lng);
+      return null;
+    }
+  } catch (error) {
+    console.error("Error reverse geocoding location:", error);
+    return null;
+  }
+}, []); // No dependencies if API key is stable
+
+
+const weatherFetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+const hasInitialWeatherFetch = useRef(false); // Track if we've fetched once
+
+
+
+const fetchWeatherData = useCallback(async (lat: number, lng: number) => {
+  if (!lat || !lng) {
+    console.warn("Cannot fetch weather: coordinates missing.");
+    setWeatherData(null);
+    setWeatherError("Location not available for weather.");
+    setResolvedLocationName(null);
+    return;
+  }
+
+  setWeatherLoading(true);
+  setWeatherError(null);
+  console.log("Fetching weather data for:", lat, lng);
+
+  try {
+
+    const locationName = await reverseGeocodeLocation(lat, lng);
+    if(!locationName){
+      console.warn("Could not determine location name for coordinates:", lat, lng);
+        setWeatherData(null);
+        setWeatherError("Could not determine location name.");
+        setResolvedLocationName(null);
+        setWeatherLoading(false); // Stop loading
+        return;
+    }
+
+
+    const WEATHER_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+    if (!WEATHER_API_KEY) {
+      throw new Error("Weather API key is not configured.");
+    }
+
+    // const WEATHER_API_URL = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${WEATHER_API_KEY}&units=metric`;
+    const WEATHER_API_URL =
+  `https://weather.googleapis.com/v1/currentConditions:lookup` +
+  `?location.latitude=${lat}` +
+  `&location.longitude=${lng}` +
+  `&key=${WEATHER_API_KEY}`;
+    
+    const response = await fetch(WEATHER_API_URL,
+      {
+        method: "GET",
+        headers:{Accept: "application/json"} 
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Weather API failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log(data)
+  
+
+    // const parsedWeather = {
+    //   temp: Math.round(data.main.temp),
+    //   condition: data.weather[0].main.toLowerCase(),
+    //   location: `${data.name}, ${data.sys.country}`,
+    //   humidity: data.main.humidity,
+    //   windSpeed: data.wind.speed,
+    // };
+
+    const parsedWeather = {
+      temp: Math.round(data.temperature?.degrees) || 0,
+      condition: data.weatherCondition?.description?.text?.toLowerCase() || data.weatherCondition?.type?.toLowerCase() || 'unknown',
+      location: locationName,
+      humidity: data.relativeHumidity || undefined,
+      windSpeed: data.wind?.speed?.value ? (data.wind.speed.value / 3.6).toFixed(2) : undefined,
+    };
+
+    setWeatherData(parsedWeather);
+    hasInitialWeatherFetch.current = true; // Mark as fetched
+    console.log("Weather data set:", parsedWeather);
+
+  } catch (error) {
+    console.error("Error fetching weather:", error);
+    setWeatherError(error instanceof Error ? error.message : "Unknown error");
+    setWeatherData(null);
+    setResolvedLocationName(null);
+  } finally {
+    setWeatherLoading(false);
+  }
+}, [reverseGeocodeLocation]);
+
+useEffect(() => {
+  // Clear any pending timeout
+  if (weatherFetchTimeoutRef.current) {
+    clearTimeout(weatherFetchTimeoutRef.current);
+    weatherFetchTimeoutRef.current = null;
+  }
+
+  if (!passengerLiveLocation) {
+    console.log("No location available, clearing weather.");
+    setWeatherData(null);
+    setWeatherError(null);
+    hasInitialWeatherFetch.current = false; // Reset on location loss
+    return;
+  }
+
+  const [lat, lng] = passengerLiveLocation;
+  
+  // Validate coordinates
+  if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
+    console.warn("Invalid coordinates:", passengerLiveLocation);
+    setWeatherData(null);
+    setWeatherError("Invalid location coordinates.");
+    return;
+  }
+
+  // STRATEGY 1: Only fetch on first valid location
+  if (!hasInitialWeatherFetch.current) {
+    console.log("First valid location detected, fetching weather...");
+    fetchWeatherData(lat, lng);
+    return;
+  }
+
+  // STRATEGY 2: Debounce subsequent fetches (only if location changes)
+  // This prevents constant refetching due to GPS drift
+  console.log("Location updated, but initial weather already fetched. Skipping.");
+  
+  // Optional: Schedule periodic refresh (e.g., every 30 minutes)
+  // Uncomment if you want automatic weather updates
+  /*
+  const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
+  weatherFetchTimeoutRef.current = setTimeout(() => {
+    console.log("Periodic weather refresh triggered");
+    fetchWeatherData(lat, lng);
+  }, REFRESH_INTERVAL);
+  */
+
+  return () => {
+    if (weatherFetchTimeoutRef.current) {
+      clearTimeout(weatherFetchTimeoutRef.current);
+    }
+  };
+}, [hasHydrated, isAuthenticated, passengerLiveLocation, fetchWeatherData]);
+
+
+
+
+  if (!hasHydrated || isAuthLoading || !initComplete) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-achrams-bg-primary z-50">
+    {/* Background with subtle gradient animation */}
+    <div className="absolute inset-0 bg-gradient-to-br from-achrams-primary-solid/5 via-achrams-secondary-solid/5 to-achrams-bg-primary"></div>
+    
+    {/* Main Content Container */}
+    <div className="relative z-10 flex flex-col items-center space-y-6">
+      
+      {/* Animated Logo Container */}
+      <div className="relative">
+        {/* Glow Effect */}
+        <div 
+          className="absolute -inset-4 rounded-full bg-achrams-primary-solid/20 blur-lg animate-pulse"
+          style={{
+            animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          }}
+        ></div>
+        
+        {/* Logo Card */}
+        <div className="relative w-20 h-20 bg-gradient-to-br from-achrams-primary-solid to-achrams-secondary-solid rounded-2xl flex items-center justify-center shadow-lg border border-achrams-border/20 overflow-hidden">
+          {/* Animated Gradient Sweep */}
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent_40%,rgba(255,255,255,0.1)_50%,transparent_60%)] animate-sweep"></div>
+          
+          {/* Logo Image */}
+          <Image
+            src="/images/logo.png"
+            alt="ACHRAMS Logo"
+            width={40}
+            height={40}
+            className="object-contain z-10 relative"
+            priority // Good for critical loading assets
+          />
+        </div>
+      </div>
+
+      {/* Loading Text */}
+      <div className="text-center">
+        {/* <p className="text-achrams-text-secondary text-sm font-medium tracking-wide">
+         ACHRAMS...
+        </p> */}
+        
+        {/* Optional Subtle Progress Indicator */}
+        <div className="mt-3 w-32 h-1 bg-achrams-bg-secondary rounded-full overflow-hidden mx-auto">
+          <div 
+            className="h-full bg-achrams-gradient-primary rounded-full animate-progress"
+            style={{
+              animation: 'loadingBar 1.5s ease-in-out infinite',
+            }}
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    {/* Custom CSS for animations (can be in a global CSS file or Tailwind config) */}
+    <style jsx>{`
+      @keyframes pulse {
+        0%, 100% { opacity: 0.3; transform: scale(1); }
+        50% { opacity: 0.6; transform: scale(1.05); }
+      }
+      @keyframes sweep {
+        0% { transform: translateX(-100%) skewX(-25deg); }
+        100% { transform: translateX(100vw) skewX(-25deg); }
+      }
+      @keyframes loadingBar {
+        0% { width: 0%; }
+        50% { width: 80%; }
+        100% { width: 100%; }
+      }
+    `}</style>
+  </div>
+    );
+  }
+
+  let mainContent = null;
+  if (screen === "booking") {
+    mainContent = (
+      <BookingScreen
+        pickup={pickup}
+        setPickup={setPickup}
+        destination={destination}
+        setDestination={setDestination}
+        fareEstimate={fareEstimate}
+        setFareEstimate={setFareEstimate}
+        fareIsFlatRate={fareIsFlatRate}
+        setFareIsFlatRate={setFareIsFlatRate}
+        isGoogleMapsLoaded={isGoogleMapsLoaded}
+        googleMapsLoadError={googleMapsLoadError}
+        onProceed={handleProceed}
+        setShowPassengerDetails={setShowPassengerDetails}
+        passengerData={passengerData}
+        setPassengerData={setPassengerData}
+        showPassengerDetails={showPassengerDetails}
+        requirements={requirements}
+        setRequirements={setRequirements}
+        setPickupCoords={setPickupCoords}
+        setDestinationCoords={setDestinationCoords}
+        tripRequestStatus={tripRequestStatus}
+        resetKey={resetBookingKey}
+        setPickupId={setPickupId}
+        setPickupCodename={setPickupCodename}
+        onShowLogin={() => setShowLogin(true)}
+        showNotification={showNotification}
+        isAuthenticated={isAuthenticated}
+        onBackToDashboard={
+          isAuthenticated
+            ? () => {
+                preserveBookingContext();
+                setScreen("dashboard");
+              }
+            : undefined
+        }
+        screenPaddingClass={screenPaddingClass}
+      />
+    );
+  } else if (screen === "assigning") {
+    mainContent = (
+      <AssigningScreen
+        status={tripRequestStatus}
+        isAuthenticated={isAuthenticated}
+      />
+    );
+  } else if (screen === "driver-assigned") {
+    mainContent = (
+      <DriverAssignedScreen
+        pickup={pickup}
+        destination={destination}
+        driver={driver}
+        verificationCode={verificationCode || ""}
+        onShowDirections={() => setShowDirections(true)}
+        onShowDriverVerification={() => setShowDriverVerification(true)}
+        onStartTrip={handleTripStart}
+        onBack={() => setScreen("booking")}
+        showNotification={showNotification}
+        onCancelTrip={() => setShowCancel(true)}
+        screenPaddingClass={screenPaddingClass}
+        isAuthenticated={isAuthenticated}
+      />
+    );
+  } else if (screen === "trip-progress") {
+    mainContent = (
+      <TripProgressScreen
+        driver={driver}
+        onPanic={() => setShowPanic(true)}
+        onComplete={handleTripComplete}
+        pickupCoords={pickupCoords}
+        destinationCoords={destinationCoords}
+        tripProgress={tripProgress}
+        isGoogleMapsLoaded={isGoogleMapsLoaded}
+        googleMapsLoadError={googleMapsLoadError}
+        guestId={guestId}
+        airportPickupArea={airportPickupArea}
+        screenPaddingClass={screenPaddingClass}
+        isAuthenticated={isAuthenticated}
+        // routePath={routePath}
+        // setRoutePath={setRoutePath}
+        // routeInfo={routeInfo}
+        // setRouteInfo={setRouteInfo}
+        driverLocation={driverLocation}
+        setDriverLocation={setDriverLocation}
+      />
+    );
+  } else if (screen === "trip-complete") {
+    mainContent = (
+      <TripCompleteScreen
+        fareEstimate={fareEstimate}
+        driver={driver}
+        pickup={pickup}
+        destination={destination}
+        onRate={() => setShowRate(true)}
+        screenPaddingClass={screenPaddingClass}
+        isAuthenticated={isAuthenticated}
+        onDone={() => {
+
+          setResetBookingKey((prev) => prev + 1);
+          preserveBookingContext();
+          setPickup("");
+          setDestination("");
+          setFareEstimate(null);
+          setDriver(null);
+          setTripProgress(0);
+          setPickupCoords(null);
+          setDestinationCoords(null);
+          setVerificationCode(null);
+          setBookAsGuest(false);
+          if (!isAuthenticated) {
+            setGuestId(null);
+          }
+          stopPollingTripStatus();
+          stopWebSocketConnection();
+          // setDriverLiveLocation(null);
+          if (typeof window !== 'undefined'){
+            window.history.replaceState(null, '' ,'/');
+            console.log('cleared deep link URL, redirected to /')
+          }
+          if (isAuthenticated) {
+            console.log("setting screen to dashboard seven");
+            fetchTripHistory();
+            setScreen("dashboard")
+          } else {
+            setScreen("booking");
+          }
+        }}
+      />
+    );
+  } else if (screen === "dashboard") {
+    mainContent = (
+      <DashboardScreen
+        passengerData={passengerData}
+        walletBalance={walletBalance}
+        is2FAEnabled={is2FAEnabled}
+        onShowProfile={() => setShowProfile(true)}
+        accountData={accountData}
+        onBookNewTrip={() => {
+          if(activeTripId) {
+            showNotification('You have an active Trip', "info") 
+            return null;
+          } 
+
+          setScreen("booking");
+          setPickup("");
+          setDestination("");
+          setFareEstimate(null);
+          setPickupCoords(null);
+          setDestinationCoords(null);
+          setDriver(null);
+          setTripProgress(0);
+          setVerificationCode(null);
+        }}
+        // onShowTripHistory={() => setShowTripHistory(true)}
+        onShowWallet={() => setShowWallet(true)}
+        onShowSettings={() => setShowSettings(true)}
+        onShowEnable2FA={() => setShowEnable2FA(true)}
+        onShowUpdateProfile={() => setShowUpdateProfile(true)}
+        onBookRide={() => setScreen("booking")}
+        onProfile={() => setShowProfile(true)}
+        onLogout={() => {}}
+
+        weatherData={weatherData}
+        weatherLoading={weatherLoading}
+        weatherError={weatherError}
+
+        activeTrip={activeTripForDashboard}
+        onShowActiveTrip={handleResumeActiveTrip}
+        recentTripData = {recentTripData}
+        onResumeRecentTrip={handleResumeTripById}
+      />
+    );
+  } else if (showTripHistory) {
+    console.log("show trip history was called");
+    mainContent = (
+      <TripHistoryScreen
+        isOpen={showTripHistory}
+        onClose={() => setShowTripHistory(false)}
+        onSelectTrip={(tripId) => {
+          setSelectedTripId(tripId);
+          setShowTripHistory(false);
+        }}
+        showNotification={showNotification}
+      />
+    );
+  } else if (selectedTripId) {
+    mainContent = (
+      <TripDetailsScreen
+        tripId={selectedTripId}
+        onBack={() => {
+          setSelectedTripId(null);
+          console.log("Selected trip Id is true");
+          setShowTripHistory(true);
+        }}
+        showNotification={showNotification}
+      />
+    );
+  } else if (showWallet) {
+    mainContent = (
+      <WalletScreen
+        balance={walletBalance}
+        onBack={() => setShowWallet(false)}
+      />
+    );
+  } else if (showSettings) {
+    mainContent = (
+      <SettingsScreen
+        onBack={() => setShowSettings(false)}
+        onShowProfile={() => {
+          setShowSettings(false);
+          setShowProfile(true);
+        }}
+        onShowEnable2FA={() => {
+          setShowSettings(false);
+          setShowEnable2FA(true);
+        }}
+        onShowUpdateProfile={() => {
+          setShowSettings(false);
+          setShowUpdateProfile(true);
+        }}
+      />
+    );
+  }
+
+  return (
+    <>
+      <div className="min-h-screen flex items-center justify-center">
+        <div
+          className="
+  min-h-screen h-dvh
+  w-full max-w-[430px] mx-auto
+  bg-white
+  flex flex-col
+  /* Critical for header/body/footer layouts */
+  text-sm
+  antialiased
+  [font-feature-settings:'ss01']
+"
+        >
+          {/* NEW: Render notification if available */}
+          {currentNotification && (
+            <TripUpdateNotification
+              message={currentNotification.message}
+              type={currentNotification.type}
+              onDismiss={() => setCurrentNotification(null)}
+            />
+          )}
+          {mainContent}
+          {/* Modals - all rendered as overlays */}
+          <PassengerDetailsModal
+            isOpen={showPassengerDetails}
+            onClose={() => setShowPassengerDetails(false)}
+            passengerData={passengerData}
+            setPassengerData={setPassengerData}
+            requirements={requirements}
+            setRequirements={setRequirements}
+            getBookingFieldError={getBookingFieldError}
+            onRequestRide={handleRequestRide}
+            isLoading={tripRequestStatus === "loading"}
+            isAuthenticated={isAuthenticated}
+            setBookAsGuest={setBookAsGuest}
+            bookAsGuest={bookAsGuest}
+            setTripRequestStatus={setTripRequestStatus}
+            setTripRequestError={setTripRequestError}
+          />
+          {/* NEW: Dynamically imported DirectionsModal */}
+          {hasHydrated && (
+            <DirectionsModal
+              isOpen={showDirections}
+              onClose={() => setShowDirections(false)}
+              pickup={pickup}
+              pickupCoords={pickupCoords}
+              destination={destination}
+              destinationCoords={destinationCoords}
+              driverLocation={driver?.location || null}
+              passengerLocation={passengerLiveLocation}
+              airportPickupArea={airportPickupArea}
+              isGoogleMapsLoaded={isGoogleMapsLoaded}
+              googleMapsLoadError={googleMapsLoadError}
+            />
+          )}
+          <PanicModal
+            isOpen={showPanic}
+            onClose={() => setShowPanic(false)}
+            onComplete={() => {
+              setShowPanic(false);
+              alert("Safety team notified");
+            }}
+            guestId={isAuthenticated && !bookAsGuest ? null : guestId}
+            currentLocationAddress={pickup}
+            currentLocationCoords={pickupCoords || [0, 0]}
+            tripId={activeTripId || ""}
+            isAuthenticated={isAuthenticated}
+            bookAsGuest={bookAsGuest}
+          />
+          {!token && showSignup && (
+            <SignupPromptModal
+              isOpen={showSignup}
+              passengerData={passengerData}
+              onClose={() => setShowSignup(false)}
+              // NEW: Store the countdown received from SignupPromptModal
+              onVerifyEmail={handleSignupInitiateSuccess}
+              onRegistrationSuccess={handleRegistrationSuccess}
+              onOpenLoginModal={() => setShowLogin(true)}
+              onSignup={() => {
+                setShowSignup(false);
+              }}
+              onLogin={() => {
+                setShowSignup(false);
+              }}
+              onContinueAsGuest={() => {
+                setShowSignup(false);
+                setScreen("dashboard");
+              }}
+            />
+          )}
+          <OTPModal
+            isOpen={showOTP}
+            // NEW: Pass the stored countdown value
+            initialOtpCountdown={initialOtpCountdown}
+            initialSignupData={{
+              ...passengerData,
+              password: signupPasswordForOtp,
+            }}
+            onComplete={() => {
+              setScreen("dashboard");
+              setShowOTP(false);
+              setSignupPasswordForOtp("");
+            }}
+            onClose={() => {
+              console.log("onclose button was clicked");
+              setShowOTP(false);
+              setSignupPasswordForOtp("");
+            }}
+            onResendOtp={handleResendOtp} // Pass the stored password
+          />
+          <ProfileModal
+            isOpen={showProfile}
+            accountData={accountData}
+            onClose={() => setShowProfile(false)}
+            showNotification={showNotification}
+            onLogout={handleLogout}
+            onUpdateAccountData={updateAccountData}
+            setShowPasswordResetModal={setShowPasswordResetModal}
+            setShowAccountDeletionModal={setShowAccountDeletionModal}
+          />
+          {/* NEW: Trip Request Status Modal */}
+          <TripRequestStatusModal
+            isOpen={!!tripRequestStatus}
+            status={tripRequestStatus}
+            message={tripRequestError}
+            onClose={() => {
+              setTripRequestStatus(null);
+              
+              // Clear tripData from sessionStorage
+              
+              if (typeof window !== "undefined" && window.sessionStorage && tripRequestStatus === "no-driver") {
+                console.log("Clearing TripData in session");
+                preserveBookingContext();
+                sessionStorage.removeItem("tripData");
+                console.log("Cleared tripData from sessionStorage.");
+                window.history.replaceState(null, '' ,'/');
+                setScreen("booking");
+              }
+            }}
+            onConfirm={() => {
+              if (
+                tripRequestStatus === "no-driver" ||
+                tripRequestStatus === "error"
+              ) {
+                console.log("Retrying booking process...");
+                setTripRequestStatus(null);
+                setBookTripRetry(true);
+                handleRequestRide();
+              } else {
+                setTripRequestStatus(null);
+              }
+            }}
+          />
+          {/* NEW: Driver Verification Modal */}
+          <DriverVerificationModal
+            isOpen={showDriverVerification}
+            securityCode={verificationCode || ""}
+            onClose={() => setShowDriverVerification(false)}
+          />
+          {/* NEW: Login Modal */}
+          <LoginModal
+            isOpen={showLogin}
+            onClose={() => setShowLogin(false)}
+            onLoginSuccess={handleLoginSuccess}
+            onRequires2FA={handleRequires2FA}
+            onLoginError={(errorMessage) => {
+                // This function is called by LoginModal when login fails with a specific message
+                console.log("page.tsx: Received login error from modal:", errorMessage);
+                showNotification(errorMessage, "error"); // Show the specific error notification
+            }}
+            showNotification={showNotification}
+            onShowSignupPrompt={() => {
+              setShowSignup(true);
+              setShowLogin(false);
+            }}
+          />
+
+          {show2FAOtpModal && pendingLoginCreds && (
+            <LoginOTPModal
+              isOpen={show2FAOtpModal}
+              onClose={() => {
+                  setShow2FAOtpModal(false);
+                  setPendingLoginCreds(null); // Clear credentials if modal is closed
+              }}
+              onSubmit={handle2FAOtpSubmit}
+              email={pendingLoginCreds.email} // Pass the email to display
+              showNotification={showNotification}
+            />
+          )}
+
+          {/* NEW: Modals for dashboard features */}
+          {showEnable2FA && (
+            <Enable2FAModal
+              isOpen={showEnable2FA}
+              onClose={() => setShowEnable2FA(false)}
+              onSuccess={handle2FAEnabled}
+            />
+          )}
+          {showDisable2FA && (
+            <Disable2FAModal
+              isOpen={showDisable2FA}
+              onClose={() => setShowDisable2FA(false)}
+              onSuccess={handle2FADisabled}
+            />
+          )}
+          {showUpdateProfile && (
+            <UpdateProfileModal
+              isOpen={showUpdateProfile}
+              initialData={passengerData}
+              onClose={() => setShowUpdateProfile(false)}
+              onSuccess={handleProfileUpdated}
+            />
+          )}
+
+          {showTripHistory && (
+            <TripHistoryModal
+              isOpen={showTripHistory}
+              onClose={() => setShowTripHistory(false)}
+              onSelectTrip={(tripId) => {
+                setSelectedTripId(tripId);
+                // setShowTripHistory(false);
+                setShowTripDetails(true);
+              }}
+              showNotification={showNotification}
+            />
+          )}
+
+          <TripDetailsModal
+            isOpen={showTripDetails} // Pass the state controlling visibility
+            tripId={selectedTripId} // Pass the selected trip ID
+            onClose={() => {
+              setShowTripDetails(false); // Close the details modal
+              setSelectedTripId(null); // Clear the selected ID
+              // Optionally, you could set showTripHistory(true) here if you want
+              // to automatically return to the history list after closing details.
+              setShowTripHistory(true);
+            }}
+            showNotification={showNotification}
+          />
+          {/* Future: Uncomment when implemented */}
+          <CancelModal
+            isOpen={showCancel}
+            onClose={() => setShowCancel(false)}
+            onConfirm={handleCancelConfirmed}
+            pickupAddress={pickup}
+          />
+          {showRate && (
+            <RateModal
+              isOpen={showRate}
+              onClose={() => setShowRate(false)}
+              onRate={handleRateSubmit}
+              driverName={driver?.name}
+              setNotification={setCurrentNotification}
+              tripId={activeTripId}
+              guestId={isAuthenticated && !bookAsGuest ? null : guestId}
+              bookAsGuest={bookAsGuest}
+              isAuthenticated={isAuthenticated}
+            />
+          )}
+          <MessageWindowModal
+            isOpen={showMessage}
+            onClose={() => setShowMessage(false)}
+            recipientName={driver?.name || "Driver"}
+          />
+        </div>
+      </div>
+
+       {/* NEW: Render Password Reset Modal */}
+      <PasswordResetModal
+        isOpen={showPasswordResetModal}
+        onClose={() => setShowPasswordResetModal(false)}
+        showNotification={showNotification}
+        email={accountData?.email ?? ''} // Pass user's email
+      />
+
+      {/* NEW: Render Account Deletion Modal */}
+      <AccountDeletionModal
+        isOpen={showAccountDeletionModal}
+        onClose={() => setShowAccountDeletionModal(false)}
+        onConfirm={handleAccountDeletionSuccess}
+        showNotification={showNotification}
+      />
+      
+      {/* NEW: Bottom Navigation Bar - Rendered only on dashboard screen */}
+      {isAuthenticated && (
+        <BottomNavBar
+          onProfileClick={() => setShowProfile(true)}
+          walletBalance={walletBalance}
+          onHomeClick={handleHomeClick}
+          onWalletClick={() => setShowWallet(true)}
+          onShowTripHistory={() => {
+            setShowTripHistory(true);
+            console.log("show trip history value", showTripHistory);
+          }}
+        />
+      )}
+    </>
+  );
+}

@@ -1,0 +1,106 @@
+/* src/app/globals.css */
+@import "tailwindcss";
+
+@utility bg-achrams-gradient-primary {
+  background: linear-gradient(
+    135deg,
+    #06b27c 0%,
+    #059669 40%,
+    #0d9488 100%
+  );
+}
+
+@utility bg-achrams-gradient-secondary {
+  background: linear-gradient(
+    135deg,
+    #0da9a0 0%,
+    #0d9488 45%,
+    #0891b2 100%
+  );
+}
+
+@theme {
+  --color-achrams-primary-solid: #059669;
+  --color-achrams-secondary-solid: #0d9488;
+  --color-achrams-accent: #0891b2;
+  --color-achrams-text-primary: #1f2937;
+  --color-achrams-text-secondary: #6b7280;
+  --color-achrams-text-light: #f9fafb;
+  --color-achrams-background-primary: #ffffff;
+  --color-achrams-background-secondary: #f3f4f6;
+  --color-achrams-background-card: #ffffff;
+  --color-achrams-border: #e5e7eb;
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+/*
+ * KEYBOARD FIX: Keep html/body at 100%.
+ * With KeyboardResize.Native the WebView itself shrinks,
+ * so 100% = visible area above keyboard. No tricks needed.
+ */
+html,
+body {
+  height: 100dvh; /* Works on Android 16+ */
+  height: calc(var(--vh, 1vh) * 100); /* Fallback for Android 10 */
+  margin: 0;
+  padding: 0;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  /* min-height: 100vh; */
+  background: var(--background);
+  color: var(--foreground);
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+}
+
+
+
+
+#__next {
+  min-height: 100%;
+}
+
+/* Prevent iOS auto-zoom on input focus (font-size < 16px triggers zoom) */
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
+
+@layer utilities {
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleIn {
+  from { transform: scale(0.8); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.animate-fadeIn      { animation: fadeIn 0.3s ease-out forwards; }
+.animate-fadeInUp    { animation: fadeInUp 0.4s ease-out forwards; }
+.animate-scaleIn     { animation: scaleIn 0.3s ease-out forwards; }
+.animate-fadeInScale { animation: fadeInScale 0.3s ease-out forwards; }

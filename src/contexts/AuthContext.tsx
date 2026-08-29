@@ -5,9 +5,6 @@ import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { apiClient, setUnauthorizedHandler, setMemoryToken, signalBootComplete } from '@/lib/api';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
-import  {useApiErrorHandler} from '@/lib/errors/apiErrorHandler';
-
-
 
 const isNative = Capacitor.isNativePlatform();
 const platform = Capacitor.getPlatform();
@@ -41,7 +38,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [isBiometricBlocked, setIsBiometricBlocked] = useState(false);
-   const { fieldErrors, generalError, handleApiError} = useApiErrorHandler();
 
   const biometric = useBiometricAuth();
 
@@ -51,16 +47,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!mounted) return;
     setUnauthorizedHandler(async () => {
-
       setUser(null);
       setToken(null);
       setIsAuthenticated(false);
       setMemoryToken(null); // Clear memory cache
-
-      if (!isNative && typeof window !== 'undefined'){
-        localStorage.removeItem('achrams_passenger_token');
-      }
-
 
       if (isNative) {
         try {
@@ -153,21 +143,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    // Web: verify via httpOnly cookie &  localStorage fallback
+    // Web: verify via httpOnly cookie
     // FIX: Web doesn't need to wait for Keychain, so signal boot complete IMMEDIATELY
     // before making the API call to prevent deadlocks.
-    if (!isNative) {
-      const storedToken = typeof window !== 'undefined' ? localStorage.getItem('achrams_passenger_token'): null;
-      if (storedToken) {
-        setMemoryToken(storedToken);
-        setToken(storedToken);
-      }
-    }
     signalBootComplete(); 
     checkAuthStatus();
   }, [mounted]);
 
-  
   const checkAuthStatus = useCallback(async () => {
     // Web doesn't need a boot lock, but just in case:
     if (!isNative) signalBootComplete();
@@ -274,16 +256,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return { success: true };
         } else {
           // Web: cookie already set by server
-
-          const webToken = res.data?.token as string | undefined;
-          if(webToken) {
-            setMemoryToken(webToken);
-            setToken(webToken);
-            if (typeof window !== 'undefined'){
-              localStorage.setItem('achrams_passenger_token', webToken);
-            }
-          }
-
           setIsAuthenticated(true);
           setIsLoading(false);
 
@@ -299,9 +271,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       setIsLoading(false);
-      console.log("Res: ", res);
-      const parsedErrorMessage = handleApiError(res);
-      return { success: false, message: parsedErrorMessage || generalError || res.message || 'Login failed' };
+      return { success: false, message: res.message || 'Login failed' };
     } catch {
       setIsLoading(false);
       return { success: false, message: 'Login error' };
@@ -317,10 +287,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setToken(null);
     setIsAuthenticated(false);
     setMemoryToken(null); // Clear memory cache
-
-    if(!isNative && typeof window !== 'undefined'){
-      localStorage.removeItem('achrams_passenger_token');
-    }
 
     if (isNative) {
       try {
