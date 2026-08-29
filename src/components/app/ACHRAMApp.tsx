@@ -2659,7 +2659,7 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
 
   return (
     <>
-      <div className="min-h-screen flex items-center justify-center ">
+      <div className="min-h-dvh flex items-center justify-center ">
         <div
           className="
             min-h-screen h-dvh
@@ -2668,7 +2668,9 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
             flex flex-col
             text-sm
             antialiased
+            relative
             [font-feature-settings:'ss01']
+            overflow-y-auto
           "
         >
           <IOSInstallBanner />
