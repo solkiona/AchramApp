@@ -20,7 +20,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,        // ← ADD: prevent pinch-zoom drift
   userScalable: false,     // ← ADD: lock zoom
-  // viewportFit: "cover",    // ← ADD: safe-area support
+  viewportFit: "cover",    // ← ADD: safe-area support
   interactiveWidget: "resizes-content",
 };
 
