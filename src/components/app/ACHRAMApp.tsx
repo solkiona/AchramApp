@@ -2758,10 +2758,13 @@ export default function ACHRAMApp() {
 
   return (
     <>
-      <div className="min-h-dvh flex items-center justify-center">
-        <div
+    {/* min-h-dvh */}
+      <div className=" flex items-center justify-center">
+      
+      {/*min-h-screen h-dvh*/}  
+      <div
           className="
-          min-h-screen h-dvh w-full max-w-[430px] mx-auto
+           w-full max-w-[430px] mx-auto
           bg-white flex flex-col text-sm antialiased relative
           [font-feature-settings:'ss01'] overflow-y-auto
         "
