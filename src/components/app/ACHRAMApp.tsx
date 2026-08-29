@@ -368,30 +368,79 @@ export default function ACHRAMApp() {
   // }, []);
 
 
-  useEffect(() => {
-  if (Capacitor.getPlatform() !== "ios") return;
+//   useEffect(() => {
+//   if (Capacitor.getPlatform() !== "ios") return;
 
-  // ✅ FIX: Defer keyboard setup to avoid blocking the main thread during WebView launch
-  const timer = setTimeout(async () => {
-    try {
-      await Keyboard.setResizeMode({ mode: KeyboardResize.Body });
-      await Keyboard.setScroll({ isDisabled: true });
-    } catch (e) {
-      console.warn('Keyboard setup failed:', e);
-    }
-  }, 500); // Wait 500ms for WebView to fully initialize
+//   // ✅ FIX: Defer keyboard setup to avoid blocking the main thread during WebView launch
+//   const timer = setTimeout(async () => {
+//     try {
+//       await Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+//       await Keyboard.setScroll({ isDisabled: true });
+//     } catch (e) {
+//       console.warn('Keyboard setup failed:', e);
+//     }
+//   }, 500); // Wait 500ms for WebView to fully initialize
 
-  const show = Keyboard.addListener("keyboardWillShow", (info) => {
+//   const show = Keyboard.addListener("keyboardWillShow", (info) => {
+//     setKeyboardHeight(info.keyboardHeight);
+//   });
+//   const hide = Keyboard.addListener("keyboardWillHide", () => {
+//     setKeyboardHeight(0);
+//   });
+
+//   return () => {
+//     clearTimeout(timer);
+//     show.remove();
+//     hide.remove();
+//   };
+// }, []);
+
+
+useEffect(() => {
+  const platform = Capacitor.getPlatform();
+
+  // Only handle keyboard on native platforms
+  if (platform === "web") return;
+
+  let isMounted = true;
+  let showHandle: any = null;
+  let hideHandle: any = null;
+
+  // ✅ ONE strategy for BOTH platforms: Native resize.
+  // The WebView itself shrinks, so all CSS viewport units
+  // (vh, dvh, svh) and position:fixed automatically reflect
+  // the visible area above the keyboard. No manual math needed.
+  Keyboard.setResizeMode({ mode: KeyboardResize.Native });
+  Keyboard.setScroll({ isDisabled: true });
+
+  Keyboard.addListener("keyboardWillShow", (info: KeyboardInfo) => {
+    if (!isMounted) return;
     setKeyboardHeight(info.keyboardHeight);
+
+    // Scroll the focused input into view after the resize settles
+    setTimeout(() => {
+      const el = document.activeElement;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT")) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 300); // 300ms lets the native resize animation finish
+  }).then((handle) => {
+    if (isMounted) showHandle = handle;
+    else handle.remove();
   });
-  const hide = Keyboard.addListener("keyboardWillHide", () => {
+
+  Keyboard.addListener("keyboardWillHide", () => {
+    if (!isMounted) return;
     setKeyboardHeight(0);
+  }).then((handle) => {
+    if (isMounted) hideHandle = handle;
+    else handle.remove();
   });
 
   return () => {
-    clearTimeout(timer);
-    show.remove();
-    hide.remove();
+    isMounted = false;
+    showHandle?.remove();
+    hideHandle?.remove();
   };
 }, []);
 
