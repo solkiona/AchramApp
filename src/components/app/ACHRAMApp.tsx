@@ -2619,6 +2619,7 @@ const getFilteredDestinations = useCallback((searchQuery: string): FareDestinati
         passengerData={passengerData}
         walletBalance={walletBalance}
         is2FAEnabled={is2FAEnabled}
+        onProfileClick={()=> setShowProfile(true)}
         onShowProfile={() => setShowProfile(true)}
         accountData={accountData}
         onBookNewTrip={() => {
